@@ -12,7 +12,7 @@
 //   # 1 · read captions for a folder of photos (runs the real vision model)
 //   npx tsx scripts/photo-captions.ts --dir ~/Downloads/cougar-kit-teste-e3-caldas-junior [--runs 3]
 //
-//   # 2 · backfill: stored photos whose summary is not a caption yet
+//   # 2 · backfill (the server also runs this on every boot): stored photos whose summary is not a caption yet
 //   npx tsx scripts/photo-captions.ts --backfill            # dry run: old → new
 //   npx tsx scripts/photo-captions.ts --backfill --apply    # writes documents.summary
 //
@@ -42,28 +42,11 @@ async function checkDir(dir: string, runs: number) {
 }
 
 async function backfill(apply: boolean) {
-  const { db } = await import('../server/db');
-  const { documents } = await import('../shared/document-schema');
-  const { cboStates } = await import('../shared/cbo-db-schema');
-  const { getObject } = await import('../server/services/blobStorage');
-  const { eq } = await import('drizzle-orm');
-  const rows = (await db.select().from(documents)).filter((d: any) => d.kind === 'image' && d.storageKey);
-  console.log(`${rows.length} stored photos${apply ? '' : ' (dry run — add --apply to write)'}`);
-  let changed = 0;
-  for (const d of rows as any[]) {
-    const buf = await getObject(d.storageKey).catch(() => null);
-    if (!buf) { console.log(`  · ${d.filename}: original not available — skipped`); continue; }
-    let lang: 'pt' | 'en' = 'pt';
-    if (d.cboStateId) {
-      const [s] = await db.select().from(cboStates).where(eq(cboStates.id, d.cboStateId));
-      if ((s as any)?.metadata?.language === 'en') lang = 'en';
-    }
-    const caption = await captionImage(buf, d.filename, d.mimeType ?? undefined, lang).catch(() => null);
-    if (!caption) { console.log(`  · ${d.filename}: no caption returned — left as is`); continue; }
-    console.log(`  · ${d.filename}\n      antes: ${(d.summary ?? '').slice(0, 110)}\n      agora: ${caption}`);
-    if (apply) { await db.update(documents).set({ summary: caption }).where(eq(documents.id, d.id)); changed++; }
-  }
-  if (apply) console.log(`\n${changed} captions written.`);
+  // Same service the server runs on every boot (server/services/photoCaptionBackfill.ts).
+  const { backfillPhotoCaptions } = await import('../server/services/photoCaptionBackfill');
+  const r = await backfillPhotoCaptions({ apply });
+  console.log(`${r.photos} stored photos · ${r.alreadyCaptioned} already captioned · ${r.captioned.length} ${apply ? 'captioned now' : 'would be captioned (dry run — add --apply)'} · ${r.failed} failed`);
+  for (const c of r.captioned) console.log(`  · ${c.filename}\n      antes: ${c.before}\n      agora: ${c.after}`);
   process.exit(0);
 }
 

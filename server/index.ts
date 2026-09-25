@@ -115,6 +115,11 @@ app.use((req, res, next) => {
       // with the published rank, so a healthy database is untouched and the
       // second boot says so in one line. Never blocks and never throws.
       // SKIP_RISK_BACKFILL=1 turns it off.
+      // Photos stored before #569 get their caption in the background (see the file).
+      void import('./services/photoCaptionBackfill')
+        .then(m => m.runPhotoCaptionBackfillAtBoot())
+        .catch(err => console.error('[photo-captions] boot hook failed:', err?.message || err));
+
       void import('./services/bairroRiskBackfill')
         .then(m => m.runBairroRiskBackfillAtBoot())
         .catch(err => console.error('[bairro-risk] boot hook failed:', err?.message || err));
