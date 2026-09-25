@@ -227,3 +227,14 @@ test('⚠️ a trace made during a test is that test\'s size — the place keeps
   expect(String(s.state.sections.intervention_site.fields.site_area_m2.value), 'the place keeps the 2,900 m² drawn in Encontro 2').toBe('2900');
   expect(s.tests().find(t => t.solutionId === 'teto-verde')?.areaM2).toBe(450);
 });
+
+test('the files door names the photos that help a solution card — and says later is fine (Vila Flores, 24 Sept)', async () => {
+  const s = session({ _material_done: '' });
+  await s.send('Vamos começar o Encontro 3.', 'system');
+  const door = await s.send('É isso ✓');
+  expect(door.ask?.question).toBe('Falta mandar alguma coisa?');
+  expect(door.said).toContain('O ponto onde vocês imaginam a solução');
+  expect(door.said).toContain('depois de uma chuva forte');          // enxurrada is on this record
+  expect(door.said).toContain('Ninguém vai fazer análise técnica');
+  expect(door.said).toContain('nada trava');
+});

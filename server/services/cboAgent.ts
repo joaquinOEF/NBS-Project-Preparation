@@ -35,6 +35,7 @@ import {
   E2_WORRIES,
   orderWorriesByData,
   photoPromptsFor,
+  PHOTO_REASSURANCE,
   PHOTO_PROMPT_OPEN,
   HAZARD_CHECK_OPTIONS,
   hazardCheckQuestion,
@@ -2248,7 +2249,7 @@ async function serveE2Inner(
             pt: 'Se vocês passarem por algum lugar do bairro que preocupa vocês, umas fotos ajudam muito. Sem pressa, e pode pular qualquer uma:',
             en: 'If you pass by somewhere in the neighborhood that worries you, a few photos would help a lot. No rush, and skip any of them:',
           };
-    say(`${already.pt}\n\n${lines}`, `${already.en}\n\n${lines}`);
+    say(`${already.pt}\n\n${lines}\n\n${PHOTO_REASSURANCE.pt}`, `${already.en}\n\n${lines}\n\n${PHOTO_REASSURANCE.en}`);
     ask('Como prefere?', 'What works best?', [
       // Opens the file picker on tap AND answers the question — see the note on
       // `ask`. The description no longer instructs them to find the 📎 because

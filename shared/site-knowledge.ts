@@ -179,13 +179,55 @@ export const PHOTO_PROMPT_OPEN: PhotoPrompt = {
 };
 
 /**
+ * ⚠️ WHERE THEY WOULD ACT — the photo the diagnosis forgot (Vila Flores,
+ * 24 Sept). Every prompt above is about the PROBLEM; the one a technical visit
+ * and a solution card need is the spot they have in mind, with its ground
+ * showing — "where you want to plant trees, show the soil". Always offered,
+ * just before the open one.
+ */
+export const PHOTO_PROMPT_WHERE_ACT: PhotoPrompt = {
+  id: 'where-act',
+  pt: 'O ponto onde vocês pensam em fazer alguma coisa — plantar, abrir um canteiro — com o chão aparecendo',
+  en: 'The spot where you are thinking of doing something — planting, opening a bed — with the ground showing',
+};
+
+/**
+ * Said under every photo list. Two things the organisations needed to hear
+ * (24 Sept): a couple of photos is enough, and nobody grades them — "we're not
+ * going to do any deep analysis on the picture". A request that sounds like an
+ * inspection is a request people skip.
+ */
+export const PHOTO_REASSURANCE = {
+  pt: '_Duas ou três fotos já ajudam, de celular mesmo. Ninguém vai fazer análise técnica delas — é pra gente enxergar o lugar como vocês enxergam._',
+  en: "_Two or three phone photos already help. Nobody is going to analyse them technically — it's so we can see the place the way you do._",
+};
+
+/**
+ * Encontro 3's photos are about the SOLUTION, not the problem: the spot, its
+ * ground up close, and the one shot that tells a solution card the most for
+ * the worry they named — the same spot after rain, at midday, or the slope
+ * face. Asked at the files door, before the first card.
+ */
+export function solutionPhotoPromptsFor(worries: string[]): PhotoPrompt[] {
+  const out: PhotoPrompt[] = [
+    { id: 'spot', pt: 'O ponto onde vocês imaginam a solução — o canto de terra, o telhado, a calçada, o muro', en: 'The spot where you picture the solution — the patch of earth, the roof, the pavement, the wall' },
+    { id: 'spot-ground', pt: 'O chão desse ponto de perto — terra, grama, cimento', en: 'The ground at that spot up close — earth, grass, concrete' },
+  ];
+  const fam = familiesOfWorries(worries);
+  if (fam.includes('flood')) out.push({ id: 'after-rain', pt: 'Esse mesmo ponto depois de uma chuva forte, se tiver — onde a água corre ou fica', en: 'That same spot after heavy rain, if you have one — where the water runs or stands' });
+  else if (fam.includes('heat')) out.push(PHOTO_PROMPTS.heat[0]);
+  else if (fam.includes('landslide')) out.push(PHOTO_PROMPTS.landslide[0]);
+  return out;
+}
+
+/**
  * Up to three targeted prompts plus the open one. Multiple worries interleave
  * so a site that floods AND bakes gets one prompt for each rather than three
  * about water.
  */
 export function photoPromptsFor(worries: string[]): PhotoPrompt[] {
   const hazards = familiesOfWorries(worries);
-  if (hazards.length === 0) return [...PHOTO_PROMPTS.base, PHOTO_PROMPT_OPEN];
+  if (hazards.length === 0) return [...PHOTO_PROMPTS.base, PHOTO_PROMPT_WHERE_ACT, PHOTO_PROMPT_OPEN];
 
   const picked: PhotoPrompt[] = [];
   const seen = new Set<string>();
@@ -212,7 +254,7 @@ export function photoPromptsFor(worries: string[]): PhotoPrompt[] {
       }
     }
   }
-  return [...picked, PHOTO_PROMPT_OPEN];
+  return [...picked, PHOTO_PROMPT_WHERE_ACT, PHOTO_PROMPT_OPEN];
 }
 
 // ── Beat 4 · the read-back ───────────────────────────────────────────────────
