@@ -50,7 +50,7 @@ import {
 } from '@shared/w3-tests';
 import { buildSolutionTest, firstSentence } from '@shared/w3-solution-test';
 import { portfolioTakeaway, buildComparison } from '@shared/w3-comparison';
-import { WORRY_SUBTYPES } from '@shared/site-knowledge';
+import { WORRY_SUBTYPES, solutionPhotoPromptsFor, PHOTO_REASSURANCE } from '@shared/site-knowledge';
 import { siteInSentence, siteLabel } from '@shared/site-name';
 import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
 import { parseSpokenArea, SPOKEN_AREA_SOURCE } from '@shared/w3-area-speech';
@@ -571,9 +571,16 @@ async function serveE3Inner(
           en: `you have already sent ${docs.count === 1 ? 'one file' : `${docs.count} files`}${docs.images ? ` (${docs.images === 1 ? 'one image' : `${docs.images} images`})` : ''}`,
         }
       : { pt: 'ainda não tem nenhum arquivo aqui', en: 'there is no file here yet' };
+    // ⚠️ Photos of the SOLUTION's spot, named — not "a photo of the place". What
+    // was asked for in Encontro 2 is the problem; what a card and a technical
+    // visit need now is where they would act and its ground (Vila Flores, 24
+    // Sept). And the room case said out loud: at Vila Flores nobody can
+    // photograph their own site, so later is a real answer, not a skip.
+    const shots = solutionPhotoPromptsFor(String(site('site_worry') ?? '').split(',').map(s => s.trim()).filter(Boolean));
+    const list = (pt: boolean) => shots.map(p => `- ${pt ? p.pt : p.en}`).join('\n');
     say(
-      `Antes de começar a testar, uma coisa: ${already.pt}. O que mais ajuda agora é **foto do lugar como está hoje**, o que a **visita técnica** deixou (fotos, anotações) e qualquer **documento** que vocês tenham — proposta, orçamento, planta. Tudo isso entra na leitura das soluções.`,
-      `Before we start testing, one thing: ${already.en}. What helps most now is a **photo of the place as it is today**, whatever the **technical visit** left (photos, notes) and any **document** you have — a proposal, a quote, a plan. All of it goes into the reading of the solutions.`,
+      `Antes de começar a testar, uma coisa: ${already.pt}. O que mais ajuda agora:\n\n${list(true)}\n- O que a **visita técnica** deixou (fotos, anotações) e qualquer **documento** — proposta, orçamento, planta\n\nTudo isso entra na leitura das soluções. ${PHOTO_REASSURANCE.pt}\n\n_Se vocês não estão no lugar agora, dá pra mandar depois pelo mesmo link — nada trava._`,
+      `Before we start testing, one thing: ${already.en}. What helps most now:\n\n${list(false)}\n- Whatever the **technical visit** left (photos, notes) and any **document** — a proposal, a quote, a plan\n\nAll of it goes into the reading of the solutions. ${PHOTO_REASSURANCE.en}\n\n_If you are not at the place right now, you can send them later through the same link — nothing is held up._`,
     );
     ask('Falta mandar alguma coisa?', 'Anything still to send?', [
       { pt: E3C.mandarAgora.pt, en: E3C.mandarAgora.en, dPt: 'Abre pra escolher os arquivos', dEn: 'Opens the file chooser', action: 'upload_then_answer' },

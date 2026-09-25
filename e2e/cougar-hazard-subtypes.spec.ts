@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   WORRY_SUBTYPES, E2_WORRIES, familyOfWorry, familiesOfWorries,
-  orderWorriesByData, photoPromptsFor, hazardsToCheck,
+  orderWorriesByData, photoPromptsFor, hazardsToCheck, solutionPhotoPromptsFor,
 } from '../shared/site-knowledge';
 import { needsScaleReframing } from '../shared/nbs-performance';
 import { rankFamiliasForSite } from '../shared/nbs-recommendation';
@@ -61,6 +61,19 @@ test.describe('hazard mechanisms — a finer word over the same data', () => {
     // Alagamento keeps the generic flood set — pooling is what those ask about.
     expect(ids(['alagamento'])).not.toContain('high-water-mark');
     expect(ids(['alagamento'])).toContain('water-in');
+  });
+
+  test('⚠️ every photo list asks for the spot where they would act, with the ground showing (Vila Flores, 24 Sept)', () => {
+    for (const ws of [[], ['heat'], ['enxurrada'], ['landslide', 'heat']]) {
+      const ids = photoPromptsFor(ws).map(p => p.id);
+      expect(ids.slice(-2), JSON.stringify(ws)).toEqual(['where-act', 'open']);
+    }
+    // Encontro 3's door asks about the SOLUTION's spot — and the one shot the worry makes worth taking.
+    const sol = (ws: string[]) => solutionPhotoPromptsFor(ws).map(p => p.id);
+    expect(sol(['enxurrada'])).toEqual(['spot', 'spot-ground', 'after-rain']);
+    expect(sol(['heat'])).toEqual(['spot', 'spot-ground', 'midday']);
+    expect(sol(['landslide'])).toEqual(['spot', 'spot-ground', 'slope-face']);
+    expect(sol([])).toEqual(['spot', 'spot-ground']);
   });
 
   test('naming Inundação IS the scale signal — no story keywords needed', () => {
