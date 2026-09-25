@@ -108,11 +108,14 @@ export function registerUploadRoutes(app: Express): void {
       const runPrefix = type === 'cbo' ? `cbo-${sessionId}` : sessionId;
       const runDir = path.join(RUNS_DIR, runPrefix);
 
-      const { savedPath, content, parseError } = await saveAndParseUpload(
+      // The session's language: a photo's caption is written in it (fileExtract `captionRule`).
+      const sessionLang = type === 'cbo' && getCboState(sessionId)?.metadata?.language === 'en' ? 'en' : 'pt';
+      const { savedPath, content, parseError, caption } = await saveAndParseUpload(
         file.buffer,
         file.originalname,
         runDir,
         file.mimetype,
+        sessionLang,
       );
 
       // Record the upload two ways:
@@ -128,7 +131,7 @@ export function registerUploadRoutes(app: Express): void {
             name: file.originalname,
             path: savedPath,
             parsedAt: new Date().toISOString(),
-            summary: parseError ? '' : content.slice(0, 280),
+            summary: parseError ? '' : caption ?? content.slice(0, 280),
           });
           setCboState(sessionId, state);
           debouncedPersist(sessionId);
@@ -149,7 +152,8 @@ export function registerUploadRoutes(app: Express): void {
             purpose: req.body?.purpose === 'teia_sprint' ? 'teia_sprint' : null,
             sizeBytes: file.size,
             fullText: parseError ? null : content,
-            summary: parseError ? null : content.slice(0, 280),
+            // A photo's summary is its caption — what the Perfil prints under it.
+            summary: parseError ? null : caption ?? content.slice(0, 280),
             droppedInPhase: state?.phase ?? null,
             source: 'upload',
             parseStatus: parseError ? 'failed' : 'parsed',

@@ -22,7 +22,8 @@ export async function saveAndParseUpload(
   filename: string,
   runDir: string,
   mimeType?: string,
-): Promise<{ savedPath: string; content: string; parseError: string | null }> {
+  lang?: 'pt' | 'en',
+): Promise<{ savedPath: string; content: string; parseError: string | null; caption?: string }> {
   const uploadsDir = path.join(runDir, 'uploads');
   await fs.mkdir(uploadsDir, { recursive: true });
 
@@ -42,7 +43,7 @@ export async function saveAndParseUpload(
   // The file is already on disk at this point, so a failure costs us the text,
   // never the upload itself. Extraction is an ENRICHMENT of a file we have.
   try {
-    const r = await extractUpload(buffer, { filename, mimeType });
+    const r = await extractUpload(buffer, { filename, mimeType, lang });
     if (!r.ok) {
       const parseError = [r.reason, r.fix].filter(Boolean).join(' ').slice(0, 500);
       console.warn(`[fileParser] Could not read ${safeName} (file kept): ${parseError}`);
@@ -59,7 +60,7 @@ export async function saveAndParseUpload(
       };
     }
     console.log(`[fileParser] Extracted ${safeName}: ${r.text.length} chars`);
-    return { savedPath, content: r.text, parseError: null };
+    return { savedPath, content: r.text, parseError: null, ...(r.caption ? { caption: r.caption } : {}) };
   } catch (e: any) {
     const parseError = String(e?.message ?? e).slice(0, 500);
     console.error(`[fileParser] Extraction threw for ${safeName} (file kept): ${parseError}`);

@@ -21,7 +21,9 @@ import { openai } from "./openaiClient";
 
 export type ExtractKind = "pdf" | "pptx" | "docx" | "xlsx" | "text" | "image" | "audio";
 export type ExtractResult =
-  | { ok: true; kind: ExtractKind; text: string }
+  /** `caption` — images only: one sentence about the SITE, in the session's
+   *  language, for the pages people print (see `CAPTION_RULE`). */
+  | { ok: true; kind: ExtractKind; text: string; caption?: string }
   | { ok: false; reason: string; fix?: string };
 
 // Replit AI Integrations models. Vision goes through the chat-completions
@@ -63,17 +65,44 @@ const IMAGE_PROMPT =
   "Respond in the language of the document, or English if there is no text.";
 
 /**
+ * ⚠️ THE CAPTION IS FOR THE PAGE, THE DESCRIPTION IS FOR THE MODEL.
+ *
+ * The Perfil PDF captioned every site photo with the first 280 characters of
+ * the description above — and a photo has no text, so "English if there is
+ * no text" made it English, and "faithful and literal" made it an inventory
+ * of the frame ("A concrete courtyard with a blue wall and a person…").
+ * Vila Flores, 24 Sept: printed for the technical visits, it read as neither.
+ * The description stays literal (it is grounding for every model pass); the
+ * same call now ends with ONE line in the session's language saying what the
+ * photo shows about the place — the thing a technician would note.
+ */
+const CAPTION_MARK = "LEGENDA:";
+function captionRule(lang: "pt" | "en"): string {
+  return lang === "pt"
+    ? `\n\nAt the very end, on its own line, write "${CAPTION_MARK} " followed by ONE sentence in Brazilian Portuguese (max 25 words) saying what this photo shows about the place as a site for nature-based solutions — where water collects or runs, the ground (earth, paving, grass), shade and trees, slope, the state of drains or walls. Third person, no "the photo shows", nothing about people or the camera. If it is a document or a plan, say what document it is.`
+    : `\n\nAt the very end, on its own line, write "${CAPTION_MARK} " followed by ONE sentence in English (max 25 words) saying what this photo shows about the place as a site for nature-based solutions — where water collects or runs, the ground (earth, paving, grass), shade and trees, slope, the state of drains or walls. Third person, no "the photo shows", nothing about people or the camera. If it is a document or a plan, say what document it is.`;
+}
+/** Split the caption line off the description. No line → no caption, and the text is untouched. */
+export function splitCaption(raw: string): { text: string; caption?: string } {
+  const i = raw.lastIndexOf(CAPTION_MARK);
+  if (i === -1) return { text: raw };
+  const caption = raw.slice(i + CAPTION_MARK.length).split("\n")[0].replace(/^[\s*_]+|[\s*_]+$/g, "").trim();
+  const text = raw.slice(0, i).replace(/[\s*_]+$/, "").trim();
+  return caption ? { text: text || raw, caption } : { text: raw };
+}
+
+/**
  * Main entry — route a buffer to the right extractor by extension/mime.
  */
 export async function extractUpload(
   buf: Buffer,
-  opts: { filename: string; mimeType?: string },
+  opts: { filename: string; mimeType?: string; lang?: "pt" | "en" },
 ): Promise<ExtractResult> {
   const ext = extOf(opts.filename);
   const mime = (opts.mimeType || "").toLowerCase();
 
   if (AUDIO_EXT.has(ext) || mime.startsWith("audio/")) return extractAudio(buf, opts.filename, ext);
-  if (IMAGE_EXT.has(ext) || mime.startsWith("image/")) return extractImage(buf, ext, mime);
+  if (IMAGE_EXT.has(ext) || mime.startsWith("image/")) return extractImage(buf, ext, mime, opts.lang ?? "pt");
   if (ext === "pdf" || mime === "application/pdf") return { ok: true, kind: "pdf", text: await extractPdf(buf) };
   if (ext === "pptx" || mime.includes("presentationml")) return { ok: true, kind: "pptx", text: await extractPptx(buf) };
   if (ext === "docx" || mime.includes("wordprocessingml")) return { ok: true, kind: "docx", text: await extractDocx(buf) };
@@ -335,7 +364,7 @@ async function describeImageBuffer(buf: Buffer, mediaType: string, prompt = IMAG
   return resp.choices[0]?.message?.content?.toString().trim() || "";
 }
 
-async function extractImage(buf: Buffer, ext: string, mime: string): Promise<ExtractResult> {
+async function extractImage(buf: Buffer, ext: string, mime: string, lang: "pt" | "en" = "pt"): Promise<ExtractResult> {
   if (buf.length > MAX_IMAGE_BYTES) {
     return { ok: false, reason: "That image is too large to read.", fix: "Re-export it under 18MB (a phone photo is usually fine)." };
   }
@@ -362,8 +391,14 @@ async function extractImage(buf: Buffer, ext: string, mime: string): Promise<Ext
   if (!mediaType) {
     return { ok: false, reason: `Can't read .${ext} images.`, fix: "Convert to PNG or JPG and re-upload." };
   }
-  const text = await describeImageBuffer(imgBuf, mediaType);
-  return { ok: true, kind: "image", text: text || "[Image uploaded — no readable content detected.]" };
+  const { text, caption } = splitCaption(await describeImageBuffer(imgBuf, mediaType, IMAGE_PROMPT + captionRule(lang)));
+  return { ok: true, kind: "image", text: text || "[Image uploaded — no readable content detected.]", ...(caption ? { caption } : {}) };
+}
+
+/** A caption for a photo already stored — the backfill for uploads from before captions existed. */
+export async function captionImage(buf: Buffer, filename: string, mimeType: string | undefined, lang: "pt" | "en"): Promise<string | null> {
+  const r = await extractImage(buf, extOf(filename), (mimeType || "").toLowerCase(), lang);
+  return r.ok ? r.caption ?? null : null;
 }
 
 async function extractAudio(buf: Buffer, filename: string, ext: string): Promise<ExtractResult> {
