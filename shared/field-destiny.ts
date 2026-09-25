@@ -219,6 +219,16 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
   // The coordination's technical reading — Robson's field visit, typed in by
   // the coordinator (PATCH …/technical-note). Optional, and rendered under its
   // own label so it is never mistaken for the organisation's words.
+  // What was said or sent in the last beat of Encontro 3 — the technical
+  // visit, the conversation in the room (Vila Flores, 24 Sept: "the end of
+  // step three is the technical visit"). Their words, one line per entry.
+  closing_observations: {
+    feeds: 'intervencao',
+    labelPt: 'Observações registradas no fechamento do Encontro 3',
+    labelEn: 'Observations recorded when Encontro 3 closed',
+    skipIf: NO_ANSWER,
+  },
+
   technical_note: {
     feeds: 'intervencao',
     labelPt: 'Leitura técnica da coordenação',

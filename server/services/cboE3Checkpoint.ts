@@ -166,6 +166,7 @@ const E3C = {
   naoSeiQuantas: { pt: 'Ainda não sei quantas', en: "I don't know how many yet" },
   areaConfere: { pt: 'Confere ✓', en: 'That is right ✓' },
   fecharE3: { pt: 'Fechar o Encontro 3 ✓', en: 'Close Encontro 3 ✓' },
+  podeFechar: { pt: 'Pode fechar ✓', en: 'Close it ✓' },
   criteriosPronto: { pt: 'Pronto, é isso', en: 'That is it' },
   criteriosPular: { pt: 'Prefiro não escolher agora', en: 'I would rather not choose now' },
   outraCoisaPega: { pt: '✍️ Outra coisa', en: '✍️ Something else' },
@@ -1555,6 +1556,33 @@ async function serveE3Inner(
   const ranTail = (): boolean =>
     type('_tail_enabled') === 'yes' || (!!type('construction_model') && (!!type('justification_why_here') || !!type('intervention_scale_band')));
 
+  // ── The closing box ───────────────────────────────────────────────────────
+  // ⚠️ Vila Flores, 24 Sept (Antonia): "the end of step three is the technical
+  // visit" — the visit and the conversation in the room have to land somewhere,
+  // and before this they could only land in the model's hands or on paper. One
+  // question before the close; their words kept as they are, one line each, in
+  // `closing_observations` (printed on the comparison and the Perfil). A voice
+  // note arrives as text through the same composer; a file is acknowledged and
+  // named here. Asked once — "Pode fechar ✓" is always one tap away.
+  const askClosing = (again = false): true => {
+    deps.writeFields(TYPE, { _closing_asked: 'yes', _closing_pending: 'yes' });
+    if (!again) {
+      say(
+        'Antes de fechar: tem alguma coisa pra deixar registrada? O que a **visita técnica** mostrou, o que foi conversado hoje, algo que vocês viram no lugar. Pode **gravar um áudio** no microfone aqui embaixo, escrever, ou mandar fotos e arquivos.',
+        'Before closing: anything to leave on record? What the **technical visit** showed, what was talked about today, something you saw at the place. You can **record a voice note** with the microphone below, type, or send photos and files.',
+      );
+    }
+    ask(again ? 'Mais alguma coisa?' : 'Alguma observação?', again ? 'Anything else?' : 'Anything to note?', [
+      { pt: E3C.mandarAgora.pt, en: E3C.mandarAgora.en, dPt: 'Fotos, anotações, o relatório da visita', dEn: 'Photos, notes, the visit report', action: 'upload_then_answer' },
+      { pt: E3C.podeFechar.pt, en: E3C.podeFechar.en, dPt: again ? 'Fica registrado junto da comparação' : 'Sem observação', dEn: again ? 'It is kept with the comparison' : 'Nothing to add' },
+    ]);
+    return finish(again ? 'closing-observations-more' : 'ask-closing-observations');
+  };
+  const noteClosing = (line: string) => {
+    const prev = type('closing_observations');
+    deps.writeFields(TYPE, { closing_observations: prev ? `${prev}\n${line}` : line });
+  };
+
   /** Encontro 3 closes here: the comparison is what it owes. */
   const closeAtComparison = (): true => {
     const input = w3Input();
@@ -1968,6 +1996,18 @@ async function serveE3Inner(
   // had no handler). Anywhere in an open Encontro 3: say it arrived, by name,
   // and put the question that was on screen back. The file is stored and listed
   // with the organisation's documents either way.
+  if ((turnKind === 'upload' || isUploadNotice(raw)) && type('_e3_opened') && type('_closing_pending') === 'yes') {
+    const name = uploadedFilename(raw);
+    const batch = uploadBatchOf(raw);
+    if (name) noteClosing(isPt ? `Arquivo enviado: ${name}` : `File sent: ${name}`);
+    say(
+      `Recebi ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} de ${batch.total})` : ''} — fica junto das observações do fechamento.`,
+      `Got it ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} of ${batch.total})` : ''} — it is kept with the closing observations.`,
+    );
+    if (moreUploadsComing(raw)) return finish('closing-upload-more');
+    deps.startDocumentReader?.();
+    return askClosing(true);
+  }
   if ((turnKind === 'upload' || isUploadNotice(raw)) && type('_e3_opened') && type('_material_pending') !== 'yes') {
     const name = uploadedFilename(raw);
     const batch = uploadBatchOf(raw);
@@ -1989,6 +2029,37 @@ async function serveE3Inner(
     }
     if (reemitPending(state, TYPE, pushEvent)) return finish('upload-mid-flow');
     return await resumeE3();
+  }
+
+  // ══ The closing box, open ════════════════════════════════════════════════
+  if (type('_closing_pending') === 'yes' && raw && !raw.startsWith('Map selection (')) {
+    const nc = deps.normChip(raw);
+    const said = (c: { pt: string; en: string }) => nc === deps.normChip(c.pt) || nc === deps.normChip(c.en);
+    if (said(E3C.podeFechar) || said(E3C.fecharE3)) {
+      deps.writeFields(TYPE, { _closing_pending: '' });
+      return closeAtComparison();
+    }
+    if (said(E3C.mandarAgora)) {
+      // Like the files door: the chip opens the picker, and the question on
+      // screen becomes "when you finish" — re-offering the same two chips let
+      // a tap that never uploads loop forever (the fuzzer's I7).
+      say('Pode anexar aqui embaixo — foto, PDF, áudio, o que tiver. Também dá pra escrever.', 'Attach below — photo, PDF, audio, whatever you have. You can also type.');
+      ask('Quando terminar:', 'When you are done:', [{ pt: E3C.podeFechar.pt, en: E3C.podeFechar.en }]);
+      return finish('closing-upload-open');
+    }
+    if (said(E3C.testarMaisUma)) {
+      deps.writeFields(TYPE, { _closing_pending: '', _closing_asked: '' });
+      return await askSolution();
+    }
+    // Their words — typed, or a voice note transcribed into the composer. A
+    // QUESTION is not an observation: the model answers it and the box is
+    // asked again after.
+    const flowChip = Object.values(E3C).some(c => said(c));
+    if (!flowChip && !/\?\s*$/.test(raw.trim()) && raw.trim().length >= 3) {
+      noteClosing(raw.trim().replace(/\s*\n+\s*/g, ' ').slice(0, 1500));
+      say('Anotado ✓ — fica junto da comparação.', 'Noted ✓ — it is kept with the comparison.');
+      return askClosing(true);
+    }
   }
 
   // ══ How many, waiting for its answer ═════════════════════════════════════
@@ -2694,7 +2765,10 @@ async function serveE3Inner(
     }
     return await showComparison();
   }
-  if (is(E3C.fecharE3)) return ensureTests().length ? closeAtComparison() : await askSolution();
+  if (is(E3C.fecharE3)) {
+    if (!ensureTests().length) return await askSolution();
+    return type('_closing_asked') === 'yes' || deps.quickTests ? closeAtComparison() : askClosing();
+  }
   // Chips from before the comparison became the end (a parked session, an old
   // bubble): "detalhar" no longer exists, and "deixar pra depois" was the close.
   if (is(E3C.detalharAgora) && !tailEnabled()) return await showComparison();

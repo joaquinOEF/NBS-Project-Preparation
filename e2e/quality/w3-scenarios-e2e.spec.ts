@@ -283,6 +283,8 @@ test.describe('Encontro 3 end to end — three organisations', () => {
             }
             await chip('Fechar o Encontro 3 ✓').click();
             await idle(page);
+            // The closing box (24 Sept) — the scenarios have nothing to add.
+            if (await chip('Pode fechar ✓').count()) { await chip('Pode fechar ✓').click(); await idle(page); }
             await shot('fechamento');
             closed = true;
           }

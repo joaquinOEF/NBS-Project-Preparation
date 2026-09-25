@@ -69,6 +69,8 @@ export interface OrgProfile {
   tested: ProfileScenario[];
   /** The coordination's technical reading (JVP, 21 Sept: it prints on the org's copy). */
   technicalNote: string | null;
+  /** Encontro 3's closing beat — the visit and the room, in their words, one entry per line. */
+  closingNotes: string[];
   /** Every public answer the layout above did not place, grouped by section. */
   alsoRecorded: Array<{ sectionId: string; title: string; rows: ProfileFact[] }>;
 }
@@ -98,7 +100,7 @@ const HEADER_FIELDS = ['org_name', 'contact_name', 'contact_role', 'mission_summ
 /** Contact details the organisation gave the coordination — not for a page that gets passed around. */
 const PRIVATE_CONTACT = new Set(['contact_email', 'contact_phone', 'contact_whatsapp', 'whatsapp', 'phone', 'email']);
 /** Encontro 3's own documents carry these; the profile lists what was TESTED and leaves the argument to them. */
-const E3_CARRIED = new Set(['chosen_solutions', 'solution_tests_json', 'technical_note', 'concept_note_authored_json', 'dig_questions_json', 'dig_answers_json', 'dig_pairing_json', 'advisor_json']);
+const E3_CARRIED = new Set(['chosen_solutions', 'solution_tests_json', 'technical_note', 'closing_observations', 'concept_note_authored_json', 'dig_questions_json', 'dig_answers_json', 'dig_pairing_json', 'advisor_json']);
 
 const SECTION_TITLE: Record<string, { pt: string; en: string }> = {
   org_profile: { pt: 'Sobre a organização', en: 'About the organisation' },
@@ -225,6 +227,7 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
     documents: docs.filter(d => d.kind !== 'image').map(d => d.filename),
     tested,
     technicalNote,
+    closingNotes: (typeRec.closing_observations ?? '').split('\n').map(l => l.trim()).filter(Boolean),
     alsoRecorded,
   };
 }
