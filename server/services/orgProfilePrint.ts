@@ -25,6 +25,8 @@ const T = {
     technical: 'Leitura técnica da coordenação',
     closing: 'Observações do fechamento do Encontro 3',
     also: 'Também registrado', notes: 'Anotações da visita', notesHint: 'Espaço para validar ou ajustar no território.',
+    visitWhen: 'Visita em ____ / ____ / ______   ·   por ______________________________________',
+    visitAsk: ['O que se confirma no território', 'O que muda ou falta no registro', 'Oportunidades, viabilidade e sinergias com organizações vizinhas', 'Fotos tiradas na visita'],
     notYet: 'Ainda não registrado',
     source: 'Fonte', answers: (n: string[]) => `respostas da organização ${n.length === 1 ? `no Encontro ${n[0]}` : `nos Encontros ${n.join(', ')}`}`,
     srcRisk: 'médias de risco do bairro: PLAC/ARVC', srcFichas: 'custos e exigências: fichas técnicas das soluções', srcTech: 'leitura técnica: visita da coordenação',
@@ -42,6 +44,8 @@ const T = {
     technical: "The coordination's technical reading",
     closing: 'Encontro 3 closing observations',
     also: 'Also recorded', notes: 'Visit notes', notesHint: 'Room to validate or adjust on site.',
+    visitWhen: 'Visited on ____ / ____ / ______   ·   by ______________________________________',
+    visitAsk: ['What the visit confirms', 'What changes or is missing from the record', 'Opportunities, feasibility and synergies with neighbouring organisations', 'Photos taken on the visit'],
     notYet: 'Not recorded yet',
     source: 'Source', answers: (n: string[]) => `the organisation's answers in ${n.length === 1 ? `Encontro ${n[0]}` : `Encontros ${n.join(', ')}`}`,
     srcRisk: 'neighbourhood risk means: PLAC/ARVC', srcFichas: "costs and requirements: the solutions' technical fichas", srcTech: "technical reading: the coordination's visit",
@@ -130,17 +134,25 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
 
   ${p.documents.length ? `<p class="files"><strong>${esc(t.files)}:</strong> ${esc(p.documents.join(' · '))}</p>` : ''}
 
-  <section class="notes">
-    <h2>${esc(t.notes)}</h2>
-    <p class="fine">${esc(t.notesHint)}</p>
-    ${/* Room to write where the page has it: a record with Encontro 3 on it fills its second sheet. */ '<div class="rule"></div>'.repeat(p.tested.length ? 6 : 9)}
-  </section>
-
   <footer>
     ${reached.length ? `<p class="src">${esc(t.source)}: ${esc([t.answers(reached), p.place?.risks ? t.srcRisk : null, p.tested.length ? t.srcFichas : null, p.technicalNote ? t.srcTech : null].filter(Boolean).join(' · '))}</p>` : ''}
     <p>${esc(t.foot)}</p>
     <p>${esc(t.printed)} ${esc(new Date().toLocaleDateString(p.lang === 'pt' ? 'pt-BR' : 'en-GB'))}.</p>
   </footer>
+
+  ${/* ⚠️ A FULL PAGE, not the bottom of one (Vila Flores, 24 Sept: "I love the
+       field notes at the PDF" — and JVP offered a full page). Julia, Antonia
+       and Robson carry this sheet on the technical visits; the four headings
+       are what those visits are FOR, in their words: validate the record
+       against the place, catch what we missed, and read opportunities,
+       feasibility and synergies across sites. Its own sheet, after the
+       footer, so the notes page is only notes. */ ''}
+  <section class="notes">
+    <h2>${esc(t.notes)} — ${esc(p.orgName)}</h2>
+    <p class="fine">${esc(t.notesHint)}</p>
+    <p class="when">${esc(t.visitWhen)}</p>
+    ${t.visitAsk.map((q: string, i: number) => `<h4>${esc(q)}</h4>${'<div class="rule"></div>'.repeat(i === 3 ? 3 : i === 2 ? 7 : 6)}`).join('')}
+  </section>
 </article>`;
 }
 
@@ -203,7 +215,9 @@ const CSS = `
   .rows > div { break-inside: avoid; padding: 3px 0; border-bottom: 1px solid #eef1ee; }
   .rows dd { font-weight: 400; font-size: 12px; }
   .files { font-size: 11.5px; color: #5c665f; margin-top: 10px; }
-  .notes { break-inside: avoid; }
+  .notes { break-before: page; break-inside: avoid; }
+  .notes h4 { margin: 12px 0 0; font-size: 12.5px; color: #3b463f; }
+  .notes .when { margin: 10px 0 2px; font-size: 12px; color: #5c665f; letter-spacing: .01em; }
   .rule { height: 8.5mm; border-bottom: 1px solid #b9c5bc; }
   footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #d9e0da; font-size: 10px; color: #8a938c; line-height: 1.4; }
   footer p { margin: 0 0 2px; } .src { font-style: italic; }
