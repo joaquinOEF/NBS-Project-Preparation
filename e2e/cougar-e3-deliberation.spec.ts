@@ -100,8 +100,19 @@ test.describe('an organisation with no files walks Encontro 3', () => {
     expect(cmp.columns.find((c: any) => c.solutionId === 'captacao-agua-da-chuva').criteria.find((c: any) => c.id === 'nossa-gente').fit).toBe('fraco');
     expect(cmp.columns[0].solutionId, 'ordered by their criteria, not by the order tested').toBe('jardins-de-chuva');
 
+    // The closing box (Vila Flores, 24 Sept): the visit and the room get one
+    // question before the close; a note is kept in their words, and it prints.
+    const box = await s.send('Fechar o Encontro 3 ✓');
+    expect(box.ask.question).toBe('Alguma observação?');
+    expect(labels(box.ask)).toEqual(['📎 Mandar agora', 'Pode fechar ✓']);
+    const noted = await s.send('Na visita a diretora disse que a obra só pode ser em janeiro.', 'text');
+    expect(noted.said).toContain('Anotado ✓');
+    expect(noted.ask.question).toBe('Mais alguma coisa?');
+    expect(s.type('closing_observations')).toBe('Na visita a diretora disse que a obra só pode ser em janeiro.');
+    expect(s.type('_e3_closed'), 'the box is not the close').toBe('');
+
     // The close carries the hand-off to the project-based encontro.
-    const close = await s.send('Fechar o Encontro 3 ✓');
+    const close = await s.send('Pode fechar ✓');
     expect(close.said).toContain('Pra levar à mesa do portfólio');
     expect(close.said).toContain('quem faria — a própria organização, em mutirão');
     expect(close.said).toContain('o que mais pega, segundo a organização');
@@ -184,6 +195,16 @@ test.describe('the pure half', () => {
     expect(rank[fitFor('custo', muro, undefined, 'pt').fit]).toBeGreaterThanOrEqual(rank[fitFor('custo', grade, undefined, 'pt').fit]);
     expect(fitFor('custo', muro, undefined, 'pt').source).toBe('faixa de preço da ficha, no tamanho testado');
     expect(fitFor('nossa-gente', grade, t('grade-viva', { who: 'nos-com-parceiro' }) as any, 'pt').fit).toBe('medio');
+  });
+
+  test('the closing observations print on the comparison, under their own heading, one per line (24 Sept)', () => {
+    const tests = [{ solutionId: 'jardins-de-chuva', reaction: 'faz-sentido' as const, testedAt: at }];
+    const cmp = buildComparison({ ...INPUT, w3: { ...INPUT.w3, closing_observations: 'Obra só em janeiro, segundo a direção.\nArquivo enviado: relatorio-visita.pdf' } }, tests, 'pt');
+    expect(cmp.closingNotes).toEqual(['Obra só em janeiro, segundo a direção.', 'Arquivo enviado: relatorio-visita.pdf']);
+    const html = renderComparisonHtml(cmp, 'pt');
+    expect(html).toContain('Observações do fechamento');
+    expect(html).toContain('Obra só em janeiro, segundo a direção.');
+    expect(renderComparisonHtml(buildComparison(INPUT, tests, 'pt'), 'pt'), 'nothing said, no heading').not.toContain('Observações do fechamento');
   });
 
   test('a session from before these questions keeps exactly the comparison it had; the print carries the takeaway', () => {

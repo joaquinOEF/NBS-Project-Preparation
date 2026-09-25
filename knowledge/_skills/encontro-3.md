@@ -70,7 +70,14 @@ a frase da ficha de onde ela veio.
    `/api/cbo/:id/scenario/:solutionId`. Antes dela, no máximo duas perguntas
    escritas para esta organização (puláveis). "E agora?" sugere testar mais uma
    até três — sugere, nunca trava. → `[ 'Fechar o Encontro 3 ✓', 'Testar mais
-   uma' ]`. **O encontro termina aqui** (ver "Onde o Encontro 3 termina").
+   uma' ]`.
+5. **A caixa do fechamento** — "Alguma observação?" (a visita técnica, a
+   conversa de hoje): texto, áudio, fotos ou arquivos, cada um guardado nas
+   palavras deles em `closing_observations` e impresso na comparação e no
+   Perfil. `[ '📎 Mandar agora', 'Pode fechar ✓' ]`. O platform é dono desse
+   texto — você NÃO recebe esses turnos, exceto uma pergunta ("?"), que você
+   responde em uma frase antes de re-oferecer a mesma pergunta. **O encontro
+   termina aqui** (ver "Onde o Encontro 3 termina").
 
 ## Voice
 

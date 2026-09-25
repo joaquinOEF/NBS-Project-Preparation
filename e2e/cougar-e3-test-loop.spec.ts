@@ -185,6 +185,8 @@ test.describe('COUGAR — E3 test loop', () => {
     //      close marker, a closing line that says what they kept — and nothing
     //      from the tail was asked or written.
     await chip('Fechar o Encontro 3 ✓').click();
+    // The closing box — nothing to add this time.
+    await chip('Pode fechar ✓').click();
     await expect(thread.getByText('vai pra conversa de portfólio', { exact: false })).toBeVisible({ timeout: 15_000 });
     await expect(thread.getByText('ficaram com', { exact: false })).toContainText('Jardins de chuva');
     body = await (await request.get(`/api/cbo/${cboId}`)).json();

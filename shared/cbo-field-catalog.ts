@@ -488,6 +488,7 @@ export const CBO_FIELD_LABELS: Record<string, { pt: string; en: string }> = {
   site_story: { pt: 'Nas palavras de vocês', en: 'In your own words' },
   site_notes: { pt: 'Outras informações sobre o lugar', en: 'Other information about the place' },
   project_notes: { pt: 'Outras informações sobre o projeto', en: 'Other information about the project' },
+  closing_observations: { pt: 'Observações do fechamento', en: 'Closing observations' },
   site_photo_intent: { pt: 'Fotos do lugar', en: 'Photos of the place' },
   // What Encontro 3 collects, named for a person: these are rendered in the
   // context bundle rather than dumped as JSON (BUNDLE_RENDERERS).
@@ -599,6 +600,7 @@ Object.assign(CBO_FIELD_LABELS, {
   site_story: { pt: 'Nas palavras da organização', en: "In the organisation's words" },
   site_notes: { pt: 'Outras informações registradas sobre o lugar', en: 'Other information recorded about the place' },
   project_notes: { pt: 'Outras informações registradas sobre o projeto', en: 'Other information recorded about the project' },
+  closing_observations: { pt: 'Observações registradas no fechamento do Encontro 3', en: 'Observations recorded when Encontro 3 closed' },
   site_address: { pt: 'Endereço', en: 'Address' },
   site_area_m2: { pt: 'Área marcada (m²)', en: 'Marked area (m²)' },
   bairro: { pt: 'Bairro', en: 'Neighbourhood' },

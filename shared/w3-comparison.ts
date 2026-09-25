@@ -60,6 +60,8 @@ export interface Comparison {
   sizedBy: { areaM2?: number; source?: string };
   /** The coordinator's technical reading, when one was entered. Attributed as theirs. */
   technicalNote: string | null;
+  /** What was said or sent in Encontro 3's closing beat (`closing_observations`), one entry per line. */
+  closingNotes: string[];
   /**
    * What the organisation's own files say about the PLACE, whatever is built —
    * once, under the table, not repeated in every column. A solution's own notes
@@ -256,6 +258,7 @@ export function buildComparison(
       ? { areaM2, ...(input.site.site_area_source ? { source: input.site.site_area_source } : {}) }
       : {},
     technicalNote: technicalNote?.trim() || null,
+    closingNotes: (input.w3?.closing_observations ?? '').split('\n').map(l => l.trim()).filter(Boolean),
     placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(notesFromInput(input)).map(n => toCardNote(n, lang, studiesDone(input.site))) },
     docLabel: pt ? 'Comparação das soluções testadas' : 'Comparison of the solutions tested',
     docAudience: pt

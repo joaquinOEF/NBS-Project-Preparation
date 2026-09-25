@@ -23,6 +23,7 @@ const T = {
     sizedBy: 'Custos e efeitos calculados sobre',
     sizedNote: 'Todo valor é estimativa de projeto sobre o preço publicado na ficha de cada solução, não cotação.',
     technical: 'Leitura técnica da coordenação',
+    closing: 'Observações do fechamento', closingSrc: 'Registradas pela organização no fim do Encontro 3 — visita técnica e conversa.',
     foot: 'Rascunho gerado no Encontro 3 a partir das soluções que a organização testou, das fichas técnicas e da revisão técnica do catálogo (Capretz, ago. 2026). Nenhum valor está fechado; cada linha indica a sua fonte.',
     printed: 'Gerado em',
     print: 'Imprimir ou salvar em PDF',
@@ -37,6 +38,7 @@ const T = {
     sizedBy: 'Costs and effects computed over',
     sizedNote: "Every figure is a design estimate over each solution's published ficha price, not a quote.",
     technical: "The coordination's technical reading",
+    closing: 'Closing observations', closingSrc: 'Recorded by the organisation at the end of Encontro 3 — technical visit and conversation.',
     foot: "Draft generated in Encontro 3 from the solutions the organisation tested, the technical fichas and the technical review of the catalogue (Capretz, Aug 2026). No figure is settled; every row states its source.",
     printed: 'Generated on',
     print: 'Print or save as PDF',
@@ -199,6 +201,12 @@ export function renderComparisonHtml(cmp: Comparison, lang: 'pt' | 'en' = 'pt'):
   <section class="tech">
     <h2>${esc(t.technical)}</h2>
     <p>${md(cmp.technicalNote)}</p>
+  </section>` : ''}
+  ${cmp.closingNotes?.length ? `
+  <section class="tech">
+    <h2>${esc(t.closing)}</h2>
+    <ul>${cmp.closingNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+    <p class="src">${esc(t.closingSrc)}</p>
   </section>` : ''}
 
   <p class="sized">${cmp.sizedBy.areaM2

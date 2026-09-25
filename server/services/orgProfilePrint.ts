@@ -23,6 +23,7 @@ const T = {
     photos: 'Fotografias enviadas', files: 'Documentos enviados',
     tested: 'Soluções testadas no Encontro 3', solution: 'Solução', reaction: 'Leitura da organização', blocks: 'O que trava', cost: 'Custo de referência',
     technical: 'Leitura técnica da coordenação',
+    closing: 'Observações do fechamento do Encontro 3',
     also: 'Também registrado', notes: 'Anotações da visita', notesHint: 'Espaço para validar ou ajustar no território.',
     notYet: 'Ainda não registrado',
     source: 'Fonte', answers: (n: string[]) => `respostas da organização ${n.length === 1 ? `no Encontro ${n[0]}` : `nos Encontros ${n.join(', ')}`}`,
@@ -39,6 +40,7 @@ const T = {
     photos: 'Photographs sent', files: 'Documents sent',
     tested: 'Solutions tested in Encontro 3', solution: 'Solution', reaction: "The organisation's reading", blocks: 'What blocks it', cost: 'Reference cost',
     technical: "The coordination's technical reading",
+    closing: 'Encontro 3 closing observations',
     also: 'Also recorded', notes: 'Visit notes', notesHint: 'Room to validate or adjust on site.',
     notYet: 'Not recorded yet',
     source: 'Source', answers: (n: string[]) => `the organisation's answers in ${n.length === 1 ? `Encontro ${n[0]}` : `Encontros ${n.join(', ')}`}`,
@@ -119,6 +121,7 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
   </section>` : ''}
 
   ${p.technicalNote ? `<section class="tech"><h4>${esc(t.technical)}</h4><p>${md(p.technicalNote)}</p></section>` : ''}
+  ${p.closingNotes?.length ? `<section class="tech"><h4>${esc(t.closing)}</h4><ul>${p.closingNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></section>` : ''}
 
   ${p.alsoRecorded.length ? `<section class="also">
     <h2>${esc(t.also)}</h2>
