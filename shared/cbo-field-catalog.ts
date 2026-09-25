@@ -1,3 +1,5 @@
+import { FIELD_DESTINY } from './field-destiny';
+import { W3_QUESTIONS } from './w3-questions';
 // Canonical catalog for the E1 org_profile enum fields.
 //
 // Field trip that motivated this (Ana, 2026-07-07): the agent extracted a news
@@ -535,6 +537,13 @@ export const CBO_FIELD_LABELS: Record<string, { pt: string; en: string }> = {
 export function cboFieldLabel(field: string, lang: 'pt' | 'en' = 'pt'): string {
   const entry = CBO_FIELD_LABELS[field];
   if (entry) return lang === 'pt' ? entry.pt : entry.en;
+  // ⚠️ The document label every field already declares where it is PRINTED
+  // (shared/field-destiny.ts) — before this, 32 declared fields fell through to
+  // the humanised key, and the Perfil Vila Flores prints for the technical
+  // visits read "OPEX BAND: ate-2k" (24 Sept: "everything must be in
+  // Portuguese"). e2e/perfil-portuguese.spec.ts pins that none is left.
+  const d = FIELD_DESTINY[field] as { labelPt?: string; labelEn?: string } | undefined;
+  if (d?.labelPt) return lang === 'pt' ? d.labelPt : (d.labelEn ?? d.labelPt);
   return field.replace(/_/g, ' ');
 }
 
@@ -547,6 +556,59 @@ export function cboFieldLabel(field: string, lang: 'pt' | 'en' = 'pt'): string {
  * Anything unrecognized passes through untouched: free text is the user's, and
  * a half-translated sentence is worse than an honest one.
  */
+/**
+ * Fields declared `carriedBy` or `declines` in field-destiny have no document
+ * label of their own — but a generic page (the Perfil's "Também registrado",
+ * the markdown export) can still meet them, and printed the humanised key.
+ */
+Object.assign(CBO_FIELD_LABELS, {
+  studies_done: { pt: 'Estudos já realizados', en: 'Studies already done' },
+  studies_done_source: { pt: 'De onde vem o estudo', en: 'Where the study comes from' },
+  chosen_solutions: { pt: 'Soluções que fizeram sentido', en: 'Solutions that made sense' },
+  intervention_units: { pt: 'Quantidade', en: 'How many' },
+  expected_impact: { pt: 'Efeito esperado', en: 'Expected effect' },
+  sustainability_model: { pt: 'De onde vem o dinheiro da manutenção', en: 'Where upkeep money comes from' },
+  detail_answer: { pt: 'Detalhe decisivo da solução', en: 'The solution\'s decisive detail' },
+  bairro_priority: { pt: 'Prioridade do bairro', en: 'Neighbourhood priority' },
+  site_area_source: { pt: 'De onde vem a área', en: 'Where the area comes from' },
+  baseline_source: { pt: 'De onde vem a linha de base', en: 'Where the baseline comes from' },
+  justification_source: { pt: 'De onde vem o "por que aqui"', en: 'Where "why here" comes from' },
+  detail_question_id: { pt: 'Pergunta do detalhe', en: 'Detail question' },
+  intervention_scale_band: { pt: 'Escala da intervenção', en: 'Scale of the intervention' },
+  project_verdict: { pt: 'O que trava (leitura da plataforma)', en: 'What blocks it (the platform\'s reading)' },
+  project_capacity_grade: { pt: 'Capacidade (leitura da plataforma)', en: 'Capacity (the platform\'s reading)' },
+  expected_impact_reaction: { pt: 'O que acharam do efeito estimado', en: 'What they made of the estimated effect' },
+  bairro_population: { pt: 'População do bairro', en: 'Neighbourhood population' },
+  bairro_poverty_pct: { pt: 'Pobreza no bairro (%)', en: 'Poverty in the neighbourhood (%)' },
+  // Encontro 1–2 fields the agent writes and nothing declared a label for —
+  // the Perfil printed "ORG TYPE", "YEARS ACTIVE", "TEIA SPRINT: nao-enviou".
+  mission: { pt: 'Missão', en: 'Mission' },
+  org_type: { pt: 'Tipo de organização', en: 'Type of organisation' },
+  years_active: { pt: 'Tempo de atuação', en: 'Years active' },
+  contact_email: { pt: 'E-mail de contato', en: 'Contact email' },
+  prior_projects: { pt: 'Projetos anteriores', en: 'Previous projects' },
+  teia_sprint: { pt: 'Proposta ao Teia Sprint', en: 'Teia Sprint proposal' },
+});
+
+/** Values some fields store as ids that no enum above lists. */
+const VALUE_WORDS: Record<string, Array<{ id: string; pt: string; en: string }>> = {
+  expected_impact_reaction: [
+    { id: 'faz-sentido', pt: 'Faz sentido', en: 'Makes sense' },
+    { id: 'parece-muito', pt: 'Parece muito', en: 'Seems a lot' },
+    { id: 'parece-pouco', pt: 'Parece pouco', en: 'Seems little' },
+  ],
+  teia_sprint: [
+    { id: 'enviado', pt: 'Enviou a proposta', en: 'Sent the proposal' },
+    { id: 'envia-depois', pt: 'Vai enviar depois', en: 'Will send it later' },
+    { id: 'nao-enviou', pt: 'Não enviou proposta', en: 'Did not submit a proposal' },
+  ],
+  intervention_scale_band: [
+    { id: 'pequeno', pt: 'Pequeno (até 100 m²)', en: 'Small (up to 100 m²)' },
+    { id: 'medio', pt: 'Médio (100 a 1.000 m²)', en: 'Medium (100–1,000 m²)' },
+    { id: 'grande', pt: 'Grande (mais de 1.000 m²)', en: 'Large (over 1,000 m²)' },
+  ],
+};
+
 export function cboDisplayValue(
   sectionId: string,
   field: string,
@@ -555,7 +617,11 @@ export function cboDisplayValue(
 ): string {
   if (typeof stored !== 'string' || !stored) return stored;
   if (sectionId === 'org_profile') return orgProfileDisplayValue(field, stored, lang);
-  const options = SECTION_ENUMS[sectionId]?.[field];
+  // The written-question bank (shared/w3-questions.ts) stores its chip ids too —
+  // "ate-2k" is "Até uns R$ 2 mil" to a person.
+  const options = SECTION_ENUMS[sectionId]?.[field]
+    ?? W3_QUESTIONS.find(q => q.field === field && (q as any).options)?.options as Array<{ id: string; pt: string; en: string; aliases?: string[] }> | undefined
+    ?? VALUE_WORDS[field];
   if (!options) return stored;
   const label = (raw: string): string => {
     const n = norm(raw);
