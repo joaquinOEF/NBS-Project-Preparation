@@ -1,3 +1,4 @@
+import { isPhotoCaption } from '@shared/photo-caption';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
@@ -1239,7 +1240,10 @@ export function registerCohortRoutes(app: Express): void {
       neighborhood: member.neighborhood,
       state,
       lang,
-      docs: rows.map((d: any) => ({ id: d.id, filename: d.filename, kind: d.kind, summary: d.summary, hasOriginal: !!d.storageKey })),
+      // ⚠️ Only a CAPTION prints under a photo — never the old literal
+      // description (English, "No visible text. Description: …"). A photo not
+      // captioned yet prints without one until the boot backfill reaches it.
+      docs: rows.map((d: any) => ({ id: d.id, filename: d.filename, kind: d.kind, summary: d.kind === 'image' && !isPhotoCaption(d.summary, d.fullText) ? null : d.summary, hasOriginal: !!d.storageKey })),
     });
   }
   const profileLang = (req: Request, cohort: any): 'pt' | 'en' =>
