@@ -2311,6 +2311,7 @@ export default function OrchestratorLandingPage() {
               projects={cohortProjects}
               members={members}
               cohortId={cohort?.id ?? null}
+              cohortSlug={cohort?.coordinatorSlug ?? null}
               onCreate={openCreateProject}
               onShare={shareProject}
               onArchive={handleArchiveProject}

@@ -57,6 +57,7 @@ import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
 import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
+import { portfolioOrg, suggestGroups, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
 import { renderPrenoteHtml } from '../services/prenotePrint';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
@@ -544,6 +545,77 @@ export function registerCohortRoutes(app: Express): void {
     createdAt: p.createdAt,
     archivedAt: p.archivedAt,
   });
+
+  // ── The pre-portfolio board (shared/preportfolio.ts) ──────────────────────
+  // Layer 1 is computed here, per organisation, from each live record; the
+  // board computes layer 2 (the project cards) itself on every drop.
+  const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en'): Promise<PortfolioOrg[]> => {
+    const members = (await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)))
+      .filter(m => !m.excludeFromPortfolio && m.cboStateId);
+    const ids = members.map(m => m.cboStateId!);
+    const rows = ids.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, ids)) : [];
+    const stored = new Map(rows.map(r => [r.id, r.sections]));
+    return members.map(m => {
+      const live = getCboState(m.cboStateId!);
+      const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
+      const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
+      return portfolioOrg(m.id, orgName, sections, lang);
+    });
+  };
+  const prefsFrom = (raw: any): PortfolioPrefs => ({
+    geoWeight: Math.max(0, Math.min(1, Number(raw?.geoWeight ?? DEFAULT_PREFS.geoWeight))),
+    theme: ['flood', 'heat', 'landslide'].includes(raw?.theme) ? raw.theme : null,
+    allowSingle: raw?.allowSingle === true,
+  });
+
+  /** The board: every organisation's layer-1 facts, the preferences, the saved arrangement (or a suggestion). */
+  app.get('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const lang = req.query.lang === 'en' ? 'en' : 'pt';
+    const orgs = await portfolioOrgsOf(cohort.id, lang);
+    const saved = (cohort.settings as CohortSettings | null)?.preportfolio ?? null;
+    const prefs = saved ? prefsFrom(saved.prefs) : DEFAULT_PREFS;
+    const known = new Set(orgs.map(o => o.memberId));
+    // A saved arrangement keeps only organisations still on the board; anyone
+    // new goes to a column of their own, so nobody is silently missing.
+    const groups = saved
+      ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
+      : suggestGroups(orgs, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    const placed = new Set(groups.flatMap(g => g.memberIds));
+    const loose = orgs.filter(o => !placed.has(o.memberId)).map(o => o.memberId);
+    if (loose.length) groups.push({ id: `novas-${loose.length}`, title: lang === 'pt' ? 'Ainda sem projeto' : 'Not in a project yet', memberIds: loose });
+    res.json({ orgs, prefs, groups, saved: !!saved, updatedAt: saved?.updatedAt ?? null });
+  }));
+
+  /** A suggestion under these preferences — not saved until the board saves it. */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/suggest', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const lang = req.body?.lang === 'en' ? 'en' : 'pt';
+    const prefs = prefsFrom(req.body?.prefs);
+    const orgs = await portfolioOrgsOf(cohort.id, lang);
+    res.json({ prefs, groups: suggestGroups(orgs, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds })) });
+  }));
+
+  /** Save the board as it stands. Every member id must be this cohort's; each appears once. */
+  app.put('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const members = await db.select({ id: cohortMembers.id }).from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const valid = new Set(members.map(m => m.id));
+    const seen = new Set<string>();
+    const incoming: any[] = Array.isArray(req.body?.groups) ? req.body.groups : [];
+    const groups = incoming.slice(0, 60).map((g, i) => ({
+      id: String(g?.id ?? `g${i + 1}`).slice(0, 40),
+      title: String(g?.title ?? '').trim().slice(0, 140),
+      memberIds: (Array.isArray(g?.memberIds) ? g.memberIds.map(String) : [])
+        .filter((id: string) => valid.has(id) && !seen.has(id) && (seen.add(id), true)),
+    })).filter(g => g.memberIds.length);
+    const settings: CohortSettings = {
+      ...(cohort.settings as CohortSettings),
+      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
+    };
+    await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, groups });
+  }));
 
   app.get('/api/cohort/:coordinatorSlug/projects', wrap(async (req, res) => {
     const cohort = (req as any).cohort;

@@ -27,6 +27,17 @@ export type CohortSettings = {
   // OVERRIDES the org's browser language detection (so a PT phone in an EN
   // cohort still gets EN, and vice-versa). Undefined = fall back to detection.
   language?: 'pt' | 'en';
+  /**
+   * The pre-portfolio board's working draft (shared/preportfolio.ts): the
+   * coordination's preferences and the arrangement as last saved. A draft, not
+   * a decision — "confirmar" turns groups into projects. Kept in settings so
+   * the board needs no table of its own.
+   */
+  preportfolio?: {
+    prefs: { geoWeight: number; theme: 'flood' | 'heat' | 'landslide' | null; allowSingle: boolean };
+    groups: Array<{ id: string; title: string; memberIds: string[] }>;
+    updatedAt: string;
+  };
 };
 
 // RequestSupport — async escalation queue. CBO submits via chat-header button;
