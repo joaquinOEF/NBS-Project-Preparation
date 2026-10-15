@@ -131,6 +131,12 @@ const MAINTAINER: Record<string, { pt: string; en: string }> = {
 };
 
 const has = (v: string | undefined | null): v is string => typeof v === 'string' && v.trim() !== '' && !/^(null|undefined)$/i.test(v.trim());
+/**
+ * An answer that is "I don't know": it closes the question (asking again would
+ * be nagging) but never prints as though it were information.
+ */
+const NOT_KNOWN = /^(n[ãa]o sei( dizer)?|i could not say|don'?t know|ninguém ainda|nobody yet|nada por enquanto|nothing for now)\.?$/i;
+const said = (v: string | undefined | null): v is string => has(v) && !NOT_KNOWN.test(v.trim());
 const brl = (v: number, lang: Lang) => `R$ ${Math.round(v).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US')}`;
 const range = (lo: number, hi: number, lang: Lang) => (lo === hi ? brl(lo, lang) : `${brl(lo, lang)}–${brl(hi, lang)}`);
 const label = (s: NbsSolution | undefined, lang: Lang) => (s ? (lang === 'pt' ? s.pt.label : s.en.label) : '');
@@ -311,7 +317,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
     ));
   }
   if (has(site.site_story)) problem.push(Q(site.site_story, pt ? 'a organização, Encontro 2' : 'the organisation, Encontro 2'));
-  if (has(site.beneficiaries_note)) {
+  if (said(site.beneficiaries_note)) {
     problem.push(W(pt ? `Quem é atingido, segundo a organização: ${site.beneficiaries_note.trim()}.` : `Who is affected, according to the organisation: ${site.beneficiaries_note.trim()}.`, pt ? 'a organização, Encontro 4' : 'the organisation, Encontro 4'));
   }
   sections.push({
@@ -408,7 +414,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
 
   // ── 6 · Parceiros e autorizações ──────────────────────────────────────────
   const partners: PrenoteLine[] = [];
-  if (has(type.e4_partners)) partners.push(W(pt ? `Com quem a organização já conversou: ${type.e4_partners.trim()}.` : `Who the organisation has already talked to: ${type.e4_partners.trim()}.`, theirs));
+  if (said(type.e4_partners)) partners.push(W(pt ? `Com quem a organização já conversou: ${type.e4_partners.trim()}.` : `Who the organisation has already talked to: ${type.e4_partners.trim()}.`, theirs));
   const appr = approvalRequirement(sol.id, site.land_tenure);
   if (appr) partners.push(W(pt ? `Precisa dizer sim: ${appr.bodies.map(b => b.name).join(', ')}${appr.instrumentPt ? ` (${appr.instrumentPt})` : ''}.` : `Must say yes: ${appr.bodies.map(b => b.name).join(', ')}${appr.instrumentEn ? ` (${appr.instrumentEn})` : ''}.`, pt ? 'ficha da solução e situação do terreno' : "the solution's ficha and the land tenure"));
   else partners.push(W(pt ? 'Pela ficha e pela situação do terreno, nenhuma autorização externa é exigida.' : "By the ficha and the land tenure, no outside approval is required.", pt ? 'ficha da solução' : "the solution's ficha"));
