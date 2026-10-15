@@ -659,6 +659,9 @@ const T = {
 const ABSENCE = /\bnenhum[ao]?\b|\baus[êe]ncia\b|\bn[ãa]o (?:foi|foram|h[áa]|existe|enviou|deixou|registr)|\bsem registro\b|\bpreferiu pular\b|\bno (?:answer|record|data|response)\b|\bnothing\b|\bnone\b|\babsence\b|\bnot (?:recorded|provided|sent|answered)\b|\bskipped\b/i;
 export const groundedInAbsence = (basedOn: string): boolean => ABSENCE.test(basedOn ?? '');
 
+/** Fields the COORDINATION writes, never the organisation — attributed as such. */
+const COORDINATION_FIELDS = new Set(['technical_note']);
+
 const STATE_SENTENCE: Record<VerdictState, { pt: string; en: string }> = {
   ready: {
     pt: 'Nada bloqueia o início: o que falta é uma cotação de fornecedor e a assinatura de quem precisa dizer sim.',
@@ -737,9 +740,15 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   const collectedFor = (id: ConceptSectionId): Paragraph[] => [
     ...f.collected
       .filter(c => c.feeds === id)
-      .map(c => P(`**${pt ? c.labelPt : c.labelEn}:** “${c.value}”`, [
-        pt ? 'a organização, nos encontros' : 'the organisation, during the workshops',
-      ], 'quote')),
+      .map(c => (COORDINATION_FIELDS.has(c.field)
+        // ⚠️ Not the organisation's words. The technical reading is the
+        // coordination's (Robson's visit) and was printed as though the
+        // organisation had said it — a funder reading "a organização" beside
+        // "dreno de fundo obrigatório" credits the wrong person.
+        ? P(`**${pt ? c.labelPt : c.labelEn}:** ${c.value}`, [pt ? 'visita técnica da coordenação' : "the coordination's technical visit"])
+        : P(`**${pt ? c.labelPt : c.labelEn}:** “${c.value}”`, [
+          pt ? 'a organização, nos encontros' : 'the organisation, during the workshops',
+        ], 'quote'))),
     // Written prose, not a quoted label: the question was asked in the room and
     // the ANSWER is what the page states, inside a sentence that carries it.
     ...f.dug

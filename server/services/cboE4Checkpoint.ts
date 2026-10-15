@@ -34,8 +34,8 @@ import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { parseVisit, visitSummary } from '@shared/e4-visit';
 import { impactChips } from '@shared/e4-indicators';
 import {
-  buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER,
-  type E4Solution,
+  buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER, recordedContribution, recordedPartners,
+  type E4Solution, type PrenoteInput,
 } from '@shared/e4-prenote';
 
 type EventPusher = (event: any) => void;
@@ -44,6 +44,14 @@ export interface E4Deps {
   writeFields(sectionId: string, fields: Record<string, string>): void;
   recordCheckpoint(step: string): void;
   normChip(s: string): string;
+  /**
+   * What the pre-note needs from outside the state — their captioned photos
+   * and the cohort counts — so the card in the chat is the same page the
+   * coordinator and the print show (server/services/prenoteContext.ts).
+   */
+  extras?(): Promise<Pick<PrenoteInput, 'photos' | 'cohort'>>;
+  /** At the close: the summary written over the facts (fire and forget). */
+  startAuthoring?(): void;
 }
 
 const SITE = 'intervention_site';
@@ -73,6 +81,9 @@ export const E4C = {
   mudarAlgo: { pt: 'Mudar algo', en: 'Change something' },
   verPrenota: { pt: 'Ver a pré-nota', en: 'See the pre-note' },
   pular: { pt: 'Pular', en: 'Skip' },
+  issoEMais: { pt: 'Isso, e mais coisa', en: 'That, and more' },
+  naoEBemIsso: { pt: 'Não é bem isso', en: 'Not quite' },
+  soIsso: { pt: 'Só isso', en: "That's all" },
 } as const;
 
 /** "Mudar algo" → which part. Each clears the answers behind it and asks again. */
@@ -178,7 +189,9 @@ async function serveE4Inner(
     && !raw.startsWith("I'm uploading:") && !raw.startsWith('Uploaded "') && !raw.startsWith('Map selection (');
   const label = (id: string) => { const s = getSolution(id); return s ? (isPt ? s.pt.label : s.en.label) : id; };
 
-  const input = () => prenoteInputFromSections(state.sections);
+  // Fetched once per turn; the photos and the cohort do not change mid-turn.
+  const extras = deps.extras ? await deps.extras().catch(() => ({})) : {};
+  const input = (): PrenoteInput => ({ ...prenoteInputFromSections(state.sections), ...extras });
   const solution = (): E4Solution | null => parseE4Solution(type('_e4_solution_json'));
   const tests = () => parseTests(type('solution_tests_json'));
   const hasPlace = () => !!(site('_site_lat') || site('site_lat'));
@@ -377,6 +390,17 @@ async function serveE4Inner(
         return finish(detail);
       }
       case 'contrapartida': {
+        // What the record already says they bring — confirmed, not asked cold.
+        const recorded = recordedContribution(input(), L);
+        if (recorded.length && type('_e4_contrib_declined') !== 'yes') {
+          writeType({ _e4_gap_pending: 'contrapartida-confirm' });
+          ask(
+            `Pelo que vocês já contaram, a organização coloca no projeto: **${recorded.join('; ')}**. É isso?`,
+            `From what you already told us, the organisation puts into the project: **${recorded.join('; ')}**. Is that right?`,
+            [{ pt: E4C.isso.pt, en: E4C.isso.en }, { pt: E4C.issoEMais.pt, en: E4C.issoEMais.en, dPt: 'Escreve o que falta', dEn: 'Write what is missing' }, { pt: E4C.naoEBemIsso.pt, en: E4C.naoEBemIsso.en }],
+          );
+          return finish(detail);
+        }
         writeType({ _e4_gap_pending: 'contrapartida' });
         ask(
           'O que vocês já têm pra colocar no projeto? Pode tocar uma ou escrever do jeito de vocês.',
@@ -386,6 +410,18 @@ async function serveE4Inner(
         return finish(detail);
       }
       case 'parceiros': {
+        // Who the record already names (Encontro 2's collaborations, a contact
+        // inside an institution) — confirmed, not asked cold.
+        const named = recordedPartners(input());
+        if (named.length && type('_e4_partners_declined') !== 'yes') {
+          writeType({ _e4_gap_pending: 'parceiros-confirm' });
+          ask(
+            `No registro de vocês aparece: **${named.join('; ')}**. Entram como parceiros desse projeto?`,
+            `Your record names: **${named.join('; ')}**. Are they partners in this project?`,
+            [{ pt: E4C.isso.pt, en: E4C.isso.en }, { pt: E4C.issoEMais.pt, en: E4C.issoEMais.en, dPt: 'Escreve quem mais', dEn: 'Write who else' }, { pt: E4C.naoEBemIsso.pt, en: E4C.naoEBemIsso.en }],
+          );
+          return finish(detail);
+        }
         writeType({ _e4_gap_pending: 'parceiros' });
         ask(
           'Com quem vocês já conversaram sobre esse projeto? Pode escrever os nomes.',
@@ -419,6 +455,7 @@ async function serveE4Inner(
   /** Close the encontro. */
   const close = (): true => {
     writeType({ _e4_closed: 'yes', _e4_reopened: '', _e4_approve_pending: '' });
+    deps.startAuthoring?.();
     say(
       'Fechado ✓ A pré-nota foi pra coordenação. A equipe técnica pode revisar os números, e ela entra no pré-portfólio da Rede junto com as das outras organizações. Dá pra baixar em PDF no card acima.',
       'Closed ✓ The pre-note has gone to the coordination. The technical team may review the figures, and it goes into the Rede\'s pre-portfolio with the other organisations\'. You can download it as PDF from the card above.',
@@ -520,6 +557,19 @@ async function serveE4Inner(
       writeType({ _e4_gap_pending: '' });
       say('Anotado ✓', 'Noted ✓');
       return serve('beneficiarios');
+    }
+    // Typed at a confirmation instead of tapping: their words are the answer.
+    if ((gap === 'contrapartida-confirm' || gap === 'parceiros-confirm') && ![E4C.isso, E4C.issoEMais, E4C.naoEBemIsso].some(c => is(c))) {
+      writeType({ [gap === 'contrapartida-confirm' ? 'e4_contribution' : 'e4_partners']: raw.slice(0, 400), _e4_gap_pending: '' });
+      say('Anotado ✓', 'Noted ✓');
+      return serve(`${gap}-typed`);
+    }
+    if ((gap === 'contrapartida-more' || gap === 'parceiros-more') && !is(E4C.soIsso)) {
+      const contrib = gap === 'contrapartida-more';
+      const base = contrib ? recordedContribution(input(), L) : recordedPartners(input());
+      writeType({ [contrib ? 'e4_contribution' : 'e4_partners']: [...base, raw.slice(0, 300)].join('; '), _e4_gap_pending: '' });
+      say('Anotado ✓', 'Noted ✓');
+      return serve(contrib ? 'contrapartida-more' : 'parceiros-more');
     }
     if (gap === 'contrapartida' && !CONTRIBUTION.some(c => is(c)) && !is(E4C.nadaAinda)) {
       writeType({ e4_contribution: raw.slice(0, 400), _e4_gap_pending: '' });
@@ -645,6 +695,26 @@ async function serveE4Inner(
       return serve('quem-cuida');
     }
   }
+  for (const [confirm, more, field, declined, recorded] of [
+    ['contrapartida-confirm', 'contrapartida-more', 'e4_contribution', '_e4_contrib_declined', () => recordedContribution(input(), L)],
+    ['parceiros-confirm', 'parceiros-more', 'e4_partners', '_e4_partners_declined', () => recordedPartners(input())],
+  ] as const) {
+    if (gap === confirm || gap === more) {
+      if (is(E4C.isso) || (gap === more && is(E4C.soIsso))) {
+        writeType({ [field]: recorded().join('; '), _e4_gap_pending: '' });
+        return serve(`${confirm}-ok`);
+      }
+      if (gap === confirm && is(E4C.issoEMais)) {
+        writeType({ _e4_gap_pending: more });
+        ask('O que mais? Escreve aqui embaixo.', 'What else? Write it below.', [{ pt: E4C.soIsso.pt, en: E4C.soIsso.en }]);
+        return finish(`${confirm}-more`);
+      }
+      if (gap === confirm && is(E4C.naoEBemIsso)) {
+        writeType({ [declined]: 'yes', _e4_gap_pending: '' });
+        return serve(`${confirm}-declined`);
+      }
+    }
+  }
   if (gap === 'contrapartida') {
     const hit = CONTRIBUTION.find(c => is(c));
     if (hit || is(E4C.nadaAinda)) {
@@ -680,8 +750,8 @@ async function serveE4Inner(
       if (which === 'problema') deps.writeFields(SITE, { beneficiaries_note: '' });
       if (which === 'impacto') writeType({ _e4_changes: '' });
       if (which === 'quemFaz') { writeType({ construction_model: '', _e4_who_declined: 'yes' }); deps.writeFields(OPS, { who_maintains: '' }); }
-      if (which === 'contrapartida') writeType({ e4_contribution: '' });
-      if (which === 'parceiros') writeType({ e4_partners: '' });
+      if (which === 'contrapartida') writeType({ e4_contribution: '', _e4_contrib_declined: 'yes' });
+      if (which === 'parceiros') writeType({ e4_partners: '', _e4_partners_declined: 'yes' });
       writeType(reopen);
       return serve(`change-${which}`);
     }

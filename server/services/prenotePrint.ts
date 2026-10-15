@@ -21,6 +21,8 @@ const T = {
     audience: 'Uma página por organização — base para o pré-portfólio da Rede',
     draft: 'RASCUNHO — para validar e ajustar',
     status: 'Situação',
+    summary: 'Resumo',
+    summarySrc: 'Escrito sobre os fatos desta página; cada número e fonte foi conferido com eles.',
     source: 'Fonte',
     missing: 'Falta',
     edited: 'ajustado pela coordenação',
@@ -36,6 +38,8 @@ const T = {
     audience: "One page per organisation — the basis for the Rede's pre-portfolio",
     draft: 'DRAFT — to validate and adjust',
     status: 'Status',
+    summary: 'Summary',
+    summarySrc: 'Written over the facts on this page; every figure and source was checked against them.',
     source: 'Source',
     missing: 'Missing',
     edited: 'adjusted by the coordination',
@@ -65,9 +69,11 @@ export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt'): string 
     </section>`;
   }).join('');
 
+  const summary = p.summary.length ? `<section class="sec summary"><h2>${esc(t.summary)}</h2>${p.summary.map(x => `<p>${md(x)}</p>`).join('')}<p class="src">${esc(t.summarySrc)}</p></section>` : '';
+  const photo = p.photo ? `<figure class="photo"><img alt="" src="${esc(p.photo.src)}" onerror="this.closest('figure').remove()"><figcaption>${esc(p.photo.caption)}</figcaption></figure>` : '';
   const body = `
   <p class="status"><strong>${esc(t.status)}:</strong> ${esc(p.status)}</p>
-  ${p.solution ? sections : `<p class="missing">${esc(t.noSolution)}</p>`}`;
+  ${p.solution ? `${photo}${summary}${sections}` : `<p class="missing">${esc(t.noSolution)}</p>`}`;
 
   return printShell({
     lang,
@@ -99,6 +105,10 @@ export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt'): string 
   table.budget { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   table.budget td { padding: 3px 6px; border-top: 1px solid #e1e7e2; vertical-align: top; }
   table.budget td.v { font-weight: 700; white-space: nowrap; }
-  table.budget td.src { width: 38%; }`,
+  table.budget td.src { width: 38%; }
+  .photo { float: right; width: 52mm; margin: 4px 0 8px 12px; }
+  .photo img { width: 100%; border-radius: 4px; display: block; }
+  .photo figcaption { font-size: 10px; color: #6d776f; margin-top: 2px; }
+  .summary p { font-size: 13.5px; }`,
   });
 }

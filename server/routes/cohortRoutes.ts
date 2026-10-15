@@ -58,6 +58,7 @@ import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
 import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
 import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
+import { prenoteInputFor } from '../services/prenoteContext';
 import { renderPrenoteHtml } from '../services/prenotePrint';
 import { renderPreportfolioHtml } from '../services/preportfolioPrint';
 import { buildProjectNarrative, narrativeFacts, narrativeKey } from '../services/projectNarrative';
@@ -592,11 +593,15 @@ export function registerCohortRoutes(app: Express): void {
     const ids = members.map(m => m.cboStateId!);
     const rows = ids.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, ids)) : [];
     const stored = new Map(rows.map(r => [r.id, r.sections]));
+    // The cohort counts belong on each pre-note here too — the narrative and
+    // the plan links read the pre-note, and a page without them is thinner
+    // than the one the organisation itself sees (prenoteContext.ts).
+    const cohortByState = new Map(await Promise.all(members.map(async m => [m.cboStateId!, await cohortLinesFor(m.cboStateId!, lang).catch(() => [] as string[])] as const)));
     return members.map(m => {
       const live = getCboState(m.cboStateId!);
       const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
-      const prenote = buildPrenote(prenoteInputFromSections(sections), lang);
+      const prenote = buildPrenote({ ...prenoteInputFromSections(sections), cohort: cohortByState.get(m.cboStateId!) ?? [] }, lang);
       prenotes?.set(m.id, prenote);
       const org = portfolioOrg(m.id, orgName, sections, lang);
       // The plan cross-reading: shown only when it was made for this pre-note
@@ -1274,7 +1279,11 @@ export function registerCohortRoutes(app: Express): void {
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    if (kind === 'prenota') { res.send(renderPrenoteHtml(buildPrenote(prenoteInputFromSections(state.sections), lang), lang)); return; }
+    if (kind === 'prenota') {
+      const full = await prenoteInputFor(member.cboStateId, state.sections, lang, { orgId: member.orgId, cohortLines: cohortLinesFor, photoUrl: id => `/api/cohort/${req.params.coordinatorSlug}/member/${member.id}/documents/${id}/file` });
+      res.send(renderPrenoteHtml(buildPrenote(full, lang), lang));
+      return;
+    }
     if (kind === 'comparacao' || kind === 'cenario') {
       const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), input.solutions);
       const cmp = buildComparison(input as any, tests, lang, type.technical_note || null);
@@ -2055,7 +2064,8 @@ export function registerCohortRoutes(app: Express): void {
     if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
     if (!state) { res.json({ prenote: null }); return; }
     const lang = req.query.lang === 'en' ? 'en' : 'pt';
-    res.json({ prenote: buildPrenote(prenoteInputFromSections(state.sections), lang) });
+    const full = await prenoteInputFor(member.cboStateId, state.sections, lang, { orgId: member.orgId, cohortLines: cohortLinesFor, photoUrl: id => `/api/cohort/${req.params.coordinatorSlug}/member/${member.id}/documents/${id}/file` });
+    res.json({ prenote: buildPrenote(full, lang) });
   }));
 
   /**
@@ -2105,7 +2115,8 @@ export function registerCohortRoutes(app: Express): void {
     }
     writeSectionFields(member.cboStateId, state, 'intervention_type', { _prenote_edits_json: JSON.stringify(edits) }, () => {}, 'coordinator');
     await flushNow(member.cboStateId);
-    res.json({ ok: true, prenote: buildPrenote(prenoteInputFromSections(state.sections), 'pt') });
+    const full = await prenoteInputFor(member.cboStateId, state.sections, 'pt', { orgId: member.orgId, cohortLines: cohortLinesFor, photoUrl: id => `/api/cohort/${req.params.coordinatorSlug}/member/${member.id}/documents/${id}/file` });
+    res.json({ ok: true, prenote: buildPrenote(full, 'pt') });
   }));
 
   /**

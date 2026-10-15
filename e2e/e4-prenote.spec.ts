@@ -167,3 +167,72 @@ test.describe('the pre-note — the coordinator side', () => {
     }
   });
 });
+
+// THE WHOLE RECORD (JVP, 15 Oct: "use as much context as possible"). The first
+// pre-note printed what Encontro 4 asked and a few E2/E3 fields, and left out
+// the visit reading, who the organisation is, the closing observations, what
+// was written in the room, the bairro's data and the funding paths — all on
+// the record. These pin that every one of them reaches the page, once, and
+// attributed to whoever said it.
+const RICH: PrenoteInput = {
+  ...ANSWERED,
+  org: { org_name: 'Ksa Rosa', mission_summary: 'Casa de cultura e horta comunitária no 4º Distrito.', team_size: '6-15', has_cnpj: 'yes', legal_form: 'ngo', year_founded: '2016', groups_served: 'jovens, mulheres', funding_history: 'yes' },
+  site: { ...ANSWERED.site, bairro_population: '9500', bairro_poverty_pct: '12.4', _bairro_flood_pct: '88', site_notes: 'O vizinho de baixo também alaga.', contributing_area_note: 'Vem da rua de cima.', prior_collaboration_detail: 'COOP20' },
+  type: { ...ANSWERED.type, technical_note: 'Solo argiloso; dreno de fundo obrigatório.', _visit_json: JSON.stringify({ solutionId: 'jardins-de-chuva', areaM2: 140, recordedAt: 'x' }), closing_observations: 'A direção só autoriza obra em janeiro.', project_notes: 'As mudas vêm do viveiro da associação.' },
+  cohort: ['Três outras organizações do grupo precisam do mesmo teste de infiltração.'],
+  photos: [{ src: '/api/documents/abc/original', caption: 'O pátio alagado depois da chuva de setembro.' }],
+};
+
+test.describe('the pre-note reads the whole record', () => {
+  const p = buildPrenote(RICH);
+  const text = (id: string) => p.sections.find(s => s.id === id)?.lines.map(l => `${l.text} [${l.source}]`).join('\n') ?? '';
+  const all = p.sections.flatMap(s => s.lines.map(l => l.text)).join('\n');
+
+  test('who the organisation is, and the territory, from Encontro 1 and the city data', () => {
+    expect(p.sections[0].id).toBe('organizacao');
+    expect(text('organizacao')).toMatch(/com CNPJ/);
+    expect(text('organizacao')).toMatch(/Casa de cultura/);
+    expect(text('organizacao')).toMatch(/9\.500 moradores/);
+  });
+
+  test("Robson's reading is the coordination's, never the organisation's", () => {
+    expect(text('solucao')).toMatch(/Leitura técnica da coordenação:\*\* Solo argiloso.*\[visita técnica da coordenação\]/);
+    expect(text('solucao')).not.toMatch(/Solo argiloso[^\n]*\[a organização/);
+  });
+
+  test('what was said in the room and at the close, and the notes, are on the page', () => {
+    expect(all).toContain('A direção só autoriza obra em janeiro.');
+    expect(all).toContain('As mudas vêm do viveiro da associação.');
+    expect(all).toContain('O vizinho de baixo também alaga.');
+    expect(all).toContain('Vem da rua de cima.');
+    expect(text('parceiros')).toContain('Já trabalhou com: COOP20.');
+  });
+
+  test('the cohort counts and the funding paths — the specific ones, capped', () => {
+    expect(text('financiamento')).toContain('Três outras organizações do grupo precisam do mesmo teste de infiltração.');
+    const paths = p.sections.find(s => s.id === 'financiamento')!.lines.filter(l => l.text.startsWith('**'));
+    expect(paths.length).toBeGreaterThan(0);
+    expect(paths.length).toBeLessThanOrEqual(4);
+  });
+
+  test('nothing printed twice', () => {
+    const keys = p.sections.flatMap(s => s.lines.map(l => l.text.toLowerCase().replace(/[^a-z0-9à-ú]+/g, ' ').trim()));
+    expect(keys.length).toBe(new Set(keys).size);
+    expect(all.match(/40 famílias/g)?.length, 'the households once in the problem (and the indicator target)').toBeLessThanOrEqual(2);
+  });
+
+  test('the photo travels with its caption; the contribution is prefilled from the record until Encontro 4 answers', () => {
+    expect(p.photo).toEqual(RICH.photos![0]);
+    const bare = buildPrenote({ ...RICH, type: { ...RICH.type, e4_contribution: undefined } });
+    const row = bare.budget.find(b => b.label === 'Contrapartida da organização')!;
+    expect(row.value).toMatch(/terreno já em uso pela organização/);
+    expect(row.source).toMatch(/a confirmar/);
+  });
+
+  test('a stored summary prints only if it survives the guards against these facts', () => {
+    const good = JSON.stringify([{ section: 'resumo', paragraphs: [{ text: 'A Ksa Rosa propõe jardins de chuva no pátio da Voluntários da Pátria, no bairro Floresta, para segurar a água que hoje alaga o pátio.', sources: ['Encontros 2 e 3'] }] }]);
+    expect(buildPrenote({ ...RICH, type: { ...RICH.type, _prenote_authored_json: good } }).summary.length).toBe(1);
+    const invented = JSON.stringify([{ section: 'resumo', paragraphs: [{ text: 'O projeto atende 900 famílias e custa R$ 2 milhões.', sources: ['Encontros 2 e 3'] }] }]);
+    expect(buildPrenote({ ...RICH, type: { ...RICH.type, _prenote_authored_json: invented } }).summary).toEqual([]);
+  });
+});

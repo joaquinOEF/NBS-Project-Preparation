@@ -23,6 +23,17 @@ export function CboPrenoteCard({ prenote, cboId, lang }: { prenote: Prenote; cbo
       <p className='m-0 text-[11.5px] text-muted-foreground'>
         {[prenote.place, prenote.orgName].filter(Boolean).join(' — ')} · {s.status}: {prenote.status}
       </p>
+      {prenote.photo && (
+        <figure className='m-0'>
+          <img src={prenote.photo.src} alt='' className='max-h-40 w-full rounded-lg object-cover' onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }} />
+          <figcaption className='mt-0.5 text-[10.5px] text-muted-foreground'>{prenote.photo.caption}</figcaption>
+        </figure>
+      )}
+      {prenote.summary.length > 0 && (
+        <div className='rounded-lg bg-card/70 px-2.5 py-1.5 text-[12px] leading-snug' data-testid='prenote-card-summary'>
+          {prenote.summary.map((x, i) => <p key={i} className='m-0 mb-1'>{x.replace(/\*\*/g, '')}</p>)}
+        </div>
+      )}
       <div className='space-y-1.5'>
         {prenote.sections.map(sec => (
           <section key={sec.id} className='rounded-lg border border-[#e2d9c4] bg-card/70 px-2.5 py-1.5 text-[12px] leading-snug dark:border-stone-700' data-testid={`prenote-card-${sec.id}`}>
@@ -31,11 +42,14 @@ export function CboPrenoteCard({ prenote, cboId, lang }: { prenote: Prenote; cbo
               ? prenote.budget.map(b => (
                   <p key={b.label} className='m-0 flex justify-between gap-2'><span>{b.label}</span><span className='font-semibold text-right'>{b.value}</span></p>
                 ))
-              : sec.lines.map((l, i) =>
+              : sec.lines.slice(0, 3).map((l, i) =>
                   l.kind === 'quote'
                     ? <blockquote key={i} className='my-0.5 border-l-2 border-[#c9bd9a] pl-2 italic text-muted-foreground'>{l.text}</blockquote>
                     : <p key={i} className='m-0 mb-0.5'>{sec.id === 'indicadores' ? l.text.replace(/\*\*/g, '').split('. Como medir')[0].split('. How to measure')[0] : l.text.replace(/\*\*/g, '')}</p>,
                 )}
+            {sec.id !== 'orcamento' && sec.lines.length > 3 && (
+              <p className='m-0 text-[10.5px] italic text-muted-foreground'>{lang === 'pt' ? `+ ${sec.lines.length - 3} no PDF` : `+ ${sec.lines.length - 3} in the PDF`}</p>
+            )}
             {sec.missing && <p className='m-0 mt-0.5 font-medium text-amber-700 dark:text-amber-400' data-testid={`prenote-card-missing-${sec.id}`}>{sec.missing}</p>}
           </section>
         ))}

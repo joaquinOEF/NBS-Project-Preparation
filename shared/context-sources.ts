@@ -275,10 +275,14 @@ export const MODEL_PASSES: ModelPass[] = [
       // partners and approvals, open items — one block per organisation.
       fields: uses,
       ownWords: uses,
-      transcript: no("each pre-note already carries what the encontros captured from the conversation; several organisations' transcripts in one call would bury the page's facts"),
-      docSummary: no('documents inform each organisation\'s own record and pre-note; the project page argues from those, not from files a reader cannot check'),
-      docFullText: no('same: the documents reached the pre-notes through the encontros, and a cross-organisation call is not the place to re-read them'),
-      photos: no('a page about why several projects belong together is not argued from photographs; they reach the record through the advisor\'s observations'),
+      transcript: no("each pre-note already carries what the encontros captured from the conversation — the notes, the closing observations, the questions written for each organisation; several organisations' transcripts in one call would bury the page's facts"),
+      // Pre-digested through the pre-note: the verified quotes the document
+      // reader took from their files, each with its filename.
+      docSummary: uses,
+      docFullText: uses,
+      // Pre-digested too: the advisor's observations from the photographs, each
+      // naming what it was based on, reach the pre-note — never the images.
+      photos: uses,
       geo: uses,
       fichas: uses,
       evidence: uses,
@@ -301,9 +305,13 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: uses,
       artefacts: uses,
       transcript: no('the pre-note already carries what the encontros captured; the comparison is against plans, not conversation'),
-      docSummary: no("the organisation's own files informed its record and pre-note; the documents this pass reads are the city's"),
-      docFullText: no("same: its own files reached the pre-note through the encontros; this pass reads the city's documents in full instead"),
-      photos: no('a connection to a plan is argued from what the project is and where, not from photographs'),
+      // Pre-digested through the pre-note: the verified quotes the document
+      // reader took from their files, each with its filename.
+      docSummary: uses,
+      docFullText: uses,
+      // Pre-digested too: the advisor's observations from the photographs, each
+      // naming what it was based on, reach the pre-note — never the images.
+      photos: uses,
       evidence: no('it names connections; the figures it may repeat are the pre-note\'s own, and a number from anywhere else is refused'),
       cohort: no('per organisation by design (layer 1): the project card makes the union, so a card moved between projects never re-runs this'),
     },

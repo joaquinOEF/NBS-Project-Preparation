@@ -68,11 +68,11 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'planLinks',
     env: 'PREPORTFOLIO_PLAN_LINKS_TIMEOUT_MS',
     capMs: 120_000,
-    measuredMs: 12_314,
-    measuredOn: '2026-10-14',
+    measuredMs: 13_104,
+    measuredOn: '2026-10-15',
     how:
       'Six live runs on claude-opus-5-5, three Floresta pre-notes against the desk-research corpus (2 documents, ~15 k characters): ' +
-      '9.7, 11.1, 11.2, 11.5, 12.1 and 12.3 s. ⚠️ The corpus will grow when the SMAMUS / Coalizão / Regenera documents land in ' +
+      '9.7, 11.1, 11.2, 11.5, 12.1 and 12.3 s; with the whole-record pre-note (15 Oct) 8.1–13.1 s over six runs. ⚠️ The corpus will grow when the SMAMUS / Coalizão / Regenera documents land in ' +
       'knowledge/porto-alegre/plans/ (14 k characters per document at most) — measure again then: scripts/plan-links-live.ts.',
     costsWhenItFires: "the organisation shows no connection to the city's plans on the board or the printed pre-portfolio — the Rede's differentiator, silently absent",
     blocking: false,
@@ -81,11 +81,12 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'projectNarrative',
     env: 'PREPORTFOLIO_NARRATIVE_TIMEOUT_MS',
     capMs: 60_000,
-    measuredMs: 16_877,
-    measuredOn: '2026-10-14',
+    measuredMs: 18_645,
+    measuredOn: '2026-10-15',
     how:
       'Five live runs on claude-opus-5-5 (tool offered, not forced — the model refuses a forced one), a three-organisation Floresta project, ' +
-      'full pre-notes as facts (~6 k characters): 14.8, 16.4, 16.6, 16.8 and 16.9 s. scripts/project-narrative-live.ts repeats it.',
+      'full pre-notes as facts (~6 k characters): 14.8, 16.4, 16.6, 16.8 and 16.9 s; again on 15 Oct with the pre-note reading the whole record ' +
+      '(organisation, visit reading, notes, cohort counts, funding paths): 17.2, 18.3 and 18.6 s. scripts/project-narrative-live.ts repeats it.',
     costsWhenItFires: 'the project page shows only the arithmetic reason ("mesmo bairro, o mesmo problema") — no title, no synergies, no cautions',
     blocking: false,
   },
@@ -168,7 +169,10 @@ export const PASS_BUDGETS: PassBudget[] = [
     capMs: 180_000,
     measuredMs: 46_055,
     measuredOn: '2026-09-04',
-    how: 'Two runs over the two richest simulated records, cohort layer included: 42.4 s and 46.1 s, 7 paragraphs accepted each.',
+    how:
+      'Two runs over the two richest simulated records, cohort layer included: 42.4 s and 46.1 s, 7 paragraphs accepted each. ' +
+      'Also the pre-note summary (server/services/prenoteContext.ts → this pass on claude-opus-5-5, PRENOTE_AUTHOR_MODEL), 15 Oct, five live runs ' +
+      'over a whole-record pre-note: 28.2, 28.9, 31.2, 32.8 and 35.2 s, 6–7 paragraphs accepted, none refused (scripts/prenote-author-live.ts).',
     costsWhenItFires:
       'the document is the deterministic one — whole, but never argued; the floor, forever, for everybody',
     blocking: false,

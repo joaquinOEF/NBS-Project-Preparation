@@ -45,7 +45,9 @@ const Schema = z.object({
 export function prenoteFacts(orgName: string, p: Prenote): string {
   const L = [`ORGANIZAÇÃO: ${orgName}${p.place ? ` — ${p.place}` : ''}`];
   for (const s of p.sections) {
-    if (s.id === 'indicadores' || s.id === 'orcamento') continue;
+    // The budget, the indicators and the funding paths say nothing about where
+    // a project meets the city's plans; everything else in the pre-note does.
+    if (s.id === 'indicadores' || s.id === 'orcamento' || s.id === 'financiamento') continue;
     const text = s.lines.map(l => l.text.replace(/\*\*/g, '')).join(' ');
     if (text) L.push(`- ${s.title}: ${text}`);
   }
