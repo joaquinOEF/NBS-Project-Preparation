@@ -17,7 +17,11 @@ import { projectCard, HORIZON_LABEL, HORIZON_ORDER, type PortfolioOrg } from '@s
 import type { Prenote } from '@shared/e4-prenote';
 import { esc, md, printShell } from './printShell';
 
-export interface PrintGroup { id: string; title: string; memberIds: string[]; story?: string; learnings?: string; quote?: string }
+export interface PrintGroup {
+  id: string; title: string; memberIds: string[]; story?: string; learnings?: string; quote?: string;
+  /** Layer 3, when it has been written for these members as they stand. */
+  narrative?: { title: string; why: string; synergies: string[]; cautions: string[] } | null;
+}
 
 const brl = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
 
@@ -46,7 +50,7 @@ export function renderPreportfolioHtml(input: {
     <p><strong>Quando podem começar:</strong> ${byHorizon.map(([h, n]) => `${esc(HORIZON_LABEL[h].pt)}: ${n} ${n === 1 ? 'projeto' : 'projetos'}`).join(' · ') || '—'}.</p>
     ${risks.length ? `<p><strong>Riscos que respondem:</strong> ${esc(risks.join(', '))}.</p>` : ''}
     <table class="index"><thead><tr><th>Projeto</th><th>Organizações</th><th>Estimativa</th><th>Quando</th></tr></thead><tbody>
-      ${cards.map(({ g, c }, i) => `<tr><td>${i + 1}. ${esc(g.title || c.reason)}</td><td>${esc(c.orgNames.join(', '))}</td><td>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : '—'}</td><td>${esc(c.horizonLabel)}</td></tr>`).join('')}
+      ${cards.map(({ g, c }, i) => `<tr><td>${i + 1}. ${esc(g.title || g.narrative?.title || c.reason)}</td><td>${esc(c.orgNames.join(', '))}</td><td>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : '—'}</td><td>${esc(c.horizonLabel)}</td></tr>`).join('')}
     </tbody></table>
   </section>`;
 
@@ -68,14 +72,17 @@ export function renderPreportfolioHtml(input: {
     return `
   <section class="project">
     <p class="num">Projeto ${i + 1}</p>
-    <h2>${esc(g.title || c.reason)}</h2>
+    <h2>${esc(g.title || g.narrative?.title || c.reason)}</h2>
     <p class="why">${esc(c.reason)}.</p>
+    ${g.narrative?.why ? `<h3>Por que juntas</h3><p>${esc(g.narrative.why)}</p>` : ''}
+    ${g.narrative?.synergies.length ? `<h3>O que fazem melhor juntas</h3><ul>${g.narrative.synergies.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     <p class="chips">${c.riskLabels.length ? `<span>${esc(c.riskLabels.join(' · '))}</span>` : ''}<span>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : 'sem estimativa'}</span><span>${esc(c.horizonLabel)}</span></p>
     ${g.story ? `<h3>A história</h3><p>${md(g.story)}</p>` : ''}
     ${g.quote ? `<blockquote>${esc(g.quote)}</blockquote>` : ''}
     <h3>O que cada organização traz</h3>
     <table><thead><tr><th>Organização</th><th>Solução</th><th>Estimativa</th><th>Quando</th><th>Situação</th></tr></thead><tbody>${rows}</tbody></table>
     ${c.unpriced.length ? `<p class="src">Sem valor ainda, fora da soma: ${esc(c.unpriced.join(', '))}.</p>` : ''}
+    ${g.narrative?.cautions.length ? `<h3>Pontos de atenção</h3><ul>${g.narrative.cautions.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     ${g.learnings ? `<h3>O que a Rede aprendeu</h3><p>${md(g.learnings)}</p>` : ''}
   </section>`;
   }).join('');

@@ -142,6 +142,9 @@ test.describe('the pre-portfolio — the board', () => {
     await expect(moved.getByTestId(`preportfolio-org-${b.id}`)).toBeVisible();
     await expect(moved).toContainText('água · encosta');
     await expect(page.getByTestId('preportfolio-saving')).toHaveText('rascunho salvo', { timeout: 10_000 });
+    // Layer 3 lands once the board is still — keyed by the new member set.
+    await expect(moved.getByTestId(`preportfolio-narrative-${target}`)).toBeVisible({ timeout: 15_000 });
+    await expect(moved.getByTestId(`preportfolio-narrative-${target}`)).toContainText('Sem visita técnica registrada');
     if (process.env.DRAWER_SHOTS) await board.screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-board.png` });
 
     await page.reload();
@@ -169,6 +172,7 @@ test.describe('the pre-portfolio — the board', () => {
     expect(html).toContain('Encostas e quintais que seguram a chuva');
     expect(html).toContain('As três organizações se conheceram');
     expect(html).toMatch(/2<\/strong><span>projetos coletivos/);
+    expect(html, 'the cached narrative reaches the page').toContain('Por que juntas');
     if (process.env.DRAWER_SHOTS) {
       await page.goto(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`);
       await page.setViewportSize({ width: 820, height: 1160 });

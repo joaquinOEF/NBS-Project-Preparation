@@ -60,6 +60,29 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
     return () => clearTimeout(h);
   }, [groups, prefs, base, loading]);
 
+  // Layer 3: once the board has been still for a moment, each column's
+  // narrative — from the server's cache by member set, or written then (Opus,
+  // ~17 s). Keyed client-side by member set too, so a card moved back shows its
+  // text at once. A drag never waits on this.
+  type Narrative = { title: string; why: string; synergies: string[]; cautions: string[] };
+  const [narratives, setNarratives] = useState<Record<string, Narrative | null | 'loading'>>({});
+  const setKey = (ids: string[]) => [...ids].sort().join('|');
+  useEffect(() => {
+    if (loading) return;
+    const h = setTimeout(() => {
+      for (const g of groups) {
+        const k = setKey(g.memberIds);
+        if (narratives[k] !== undefined) continue;
+        setNarratives(prev => ({ ...prev, [k]: 'loading' }));
+        fetch(`${base}/narrative`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberIds: g.memberIds }) })
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => setNarratives(prev => ({ ...prev, [k]: d?.narrative ?? null })))
+          .catch(() => setNarratives(prev => ({ ...prev, [k]: null })));
+      }
+    }, 2500);
+    return () => clearTimeout(h);
+  }, [groups, loading, base]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const suggest = useCallback(async (next: PortfolioPrefs) => {
     setPrefs(next);
     const r = await fetch(`${base}/suggest`, {
@@ -195,6 +218,23 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                 data-testid={`preportfolio-title-${gi}`}
               />
               <p className="text-[11.5px] text-muted-foreground" data-testid={`preportfolio-reason-${gi}`}>{card.reason}</p>
+              {(() => {
+                const n = narratives[setKey(g.memberIds)];
+                if (n === 'loading') return <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />{t('orchestrator.preportfolio.writing', { defaultValue: 'escrevendo por que juntas…' })}</p>;
+                if (!n) return null;
+                return (
+                  <div className="space-y-1 rounded-lg bg-muted/40 px-2 py-1.5 text-[11.5px] leading-snug" data-testid={`preportfolio-narrative-${gi}`}>
+                    {!g.title && n.title && (
+                      <button type="button" onClick={() => rename(g.id, n.title)} className="text-left font-semibold text-emerald-800 hover:underline dark:text-emerald-300" title={t('orchestrator.preportfolio.useTitle', { defaultValue: 'Usar este nome' }) as string} data-testid={`preportfolio-use-title-${gi}`}>
+                        {t('orchestrator.preportfolio.suggestedName', { defaultValue: 'Nome sugerido' })}: {n.title}
+                      </button>
+                    )}
+                    <p>{n.why}</p>
+                    {n.synergies.length > 0 && <ul className="list-disc pl-4">{n.synergies.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+                    {n.cautions.length > 0 && <ul className="list-disc pl-4 text-amber-800 dark:text-amber-300">{n.cautions.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+                  </div>
+                );
+              })()}
               <div className="flex flex-wrap gap-1.5 text-[11px]" data-testid={`preportfolio-card-${gi}`}>
                 {card.riskLabels.length > 0 && <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">{card.riskLabels.join(' · ')}</span>}
                 <span className="rounded-full border border-border px-2 py-0.5" data-testid={`preportfolio-budget-${gi}`}>{card.budget ? `${brl(card.budget.low)}–${brl(card.budget.high)}` : t('orchestrator.preportfolio.noBudget', { defaultValue: 'sem estimativa' })}</span>

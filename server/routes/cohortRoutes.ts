@@ -60,6 +60,7 @@ import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, ty
 import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
 import { renderPrenoteHtml } from '../services/prenotePrint';
 import { renderPreportfolioHtml } from '../services/preportfolioPrint';
+import { buildProjectNarrative, narrativeFacts, narrativeKey } from '../services/projectNarrative';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -599,8 +600,47 @@ export function registerCohortRoutes(app: Express): void {
     const groups = saved
       ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
       : suggestGroups(orgs, DEFAULT_PREFS, 'pt').map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    const narratives = saved?.narratives ?? {};
+    const withText = groups.map(g => {
+      const card = projectCard(g.memberIds, orgs, 'pt');
+      const members = g.memberIds.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
+      return { ...g, narrative: narratives[narrativeKey(g.memberIds, narrativeFacts(members, card))] ?? null };
+    });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(renderPreportfolioHtml({ cohortName: (cohort as any).name ?? 'Rede', groups, orgs, prenotes }));
+    res.send(renderPreportfolioHtml({ cohortName: (cohort as any).name ?? 'Rede', groups: withText, orgs, prenotes }));
+  }));
+
+  /**
+   * Layer 3: the narrative for one group of organisations — cached by member
+   * set and their facts; computed (Opus, ~17 s) only when missing. The board
+   * asks for it once a column settles; a drag never waits on it.
+   */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/narrative', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const memberIds: string[] = Array.isArray(req.body?.memberIds) ? req.body.memberIds.map(String).slice(0, 12) : [];
+    if (!memberIds.length) { res.status(400).json({ error: 'memberIds required' }); return; }
+    const prenotes = new Map<string, ReturnType<typeof buildPrenote>>();
+    const orgs = await portfolioOrgsOf(cohort.id, 'pt', prenotes);
+    const ids = memberIds.filter(id => orgs.some(o => o.memberId === id));
+    if (!ids.length) { res.status(400).json({ error: 'no member belongs to this board' }); return; }
+    const card = projectCard(ids, orgs, 'pt');
+    const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
+    const key = narrativeKey(ids, narrativeFacts(members, card));
+    const cached = (cohort.settings as CohortSettings | null)?.preportfolio?.narratives?.[key];
+    if (cached) { res.json({ key, narrative: cached, cached: true }); return; }
+    const narrative = await buildProjectNarrative(members, card);
+    if (!narrative) { res.json({ key, narrative: null }); return; }
+    const { dropped, ...kept } = narrative;
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
+    if (cur.preportfolio) {
+      const narratives = { ...(cur.preportfolio.narratives ?? {}), [key]: kept };
+      // Keep the newest 60 — a board that has been rearranged all afternoon
+      // should not grow the cohort row without bound.
+      const trimmed = Object.fromEntries(Object.entries(narratives).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, 60));
+      await db.update(cohorts).set({ settings: { ...cur, preportfolio: { ...cur.preportfolio, narratives: trimmed } } }).where(eq(cohorts.id, cohort.id));
+    }
+    res.json({ key, narrative: kept, cached: false });
   }));
 
   /** A suggestion under these preferences — not saved until the board saves it. */
@@ -666,9 +706,12 @@ export function registerCohortRoutes(app: Express): void {
         ...(prev.get(id)?.projectId ? { projectId: prev.get(id)!.projectId } : {}),
       };
     }).filter(g => g.memberIds.length);
+    // Re-read: a narrative may have landed since this request loaded the cohort.
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
     const settings: CohortSettings = {
-      ...(cohort.settings as CohortSettings),
-      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
+      ...cur,
+      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString(), ...(cur.preportfolio?.narratives ? { narratives: cur.preportfolio.narratives } : {}) },
     };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true, groups });

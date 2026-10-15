@@ -65,6 +65,18 @@ export interface PassBudget {
 
 export const PASS_BUDGETS: PassBudget[] = [
   {
+    id: 'projectNarrative',
+    env: 'PREPORTFOLIO_NARRATIVE_TIMEOUT_MS',
+    capMs: 60_000,
+    measuredMs: 16_877,
+    measuredOn: '2026-10-14',
+    how:
+      'Five live runs on claude-opus-5-5 (tool offered, not forced — the model refuses a forced one), a three-organisation Floresta project, ' +
+      'full pre-notes as facts (~6 k characters): 14.8, 16.4, 16.6, 16.8 and 16.9 s. scripts/project-narrative-live.ts repeats it.',
+    costsWhenItFires: 'the project page shows only the arithmetic reason ("mesmo bairro, o mesmo problema") — no title, no synergies, no cautions',
+    blocking: false,
+  },
+  {
     id: 'w3Advisor',
     env: 'CBO_ADVISOR_TIMEOUT_MS',
     capMs: 120_000,

@@ -103,6 +103,11 @@ export async function createStructured<T>(
   // study proposal, and a card that contradicted the visit report again. The
   // caller's budget (passBudget) still bounds the total; this only stops a
   // blip from costing the whole pass.
+  // ⚠️ Some models refuse a FORCED tool call ("tool_choice: type tool … not
+  // supported for this model" — claude-opus-5-5, 2026-10-14). Then the tool is
+  // offered, not forced, and the system prompt says it must be used; a reply
+  // without the tool still fails below exactly as before.
+  let forced = true;
   const post = () => fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -113,7 +118,7 @@ export async function createStructured<T>(
     body: JSON.stringify({
       model: params.config?.model?.startsWith('claude') ? params.config.model : ANTHROPIC_MODEL,
       max_tokens: params.config?.maxCompletionTokens ?? 4096,
-      ...(system ? { system } : {}),
+      ...(system || !forced ? { system: [system, forced ? '' : `Responda SEMPRE chamando a ferramenta \`${schemaName}\` — nunca em texto livre.`].filter(Boolean).join('\n\n') } : {}),
       messages,
       tools: [{
         name: schemaName,
@@ -122,10 +127,18 @@ export async function createStructured<T>(
       }],
       // Forced: a structured call that comes back as prose is a failed call,
       // and letting the model choose invites exactly that.
-      tool_choice: { type: 'tool', name: schemaName },
+      tool_choice: forced ? { type: 'tool', name: schemaName } : { type: 'auto' },
     }),
   });
   let res = await post();
+  if (res.status === 400) {
+    const body = await res.clone().text().catch(() => '');
+    if (/tool_choice/.test(body) && /not supported/.test(body)) {
+      console.warn(`[structured] ${schemaName}: this model will not take a forced tool — offering it instead`);
+      forced = false;
+      res = await post();
+    }
+  }
   if (!res.ok && (res.status === 429 || res.status >= 500)) {
     console.warn(`[structured] ${schemaName}: provider answered ${res.status} — retrying once`);
     await new Promise(r => setTimeout(r, 1500));

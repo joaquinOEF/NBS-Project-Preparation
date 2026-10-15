@@ -266,6 +266,28 @@ export const MODEL_PASSES: ModelPass[] = [
     },
   },
   {
+    id: 'projectNarrative',
+    purpose: "the pre-portfolio's page for one collective project: a name, why these organisations go together, what they do better together, what to watch",
+    file: 'server/services/projectNarrative.ts',
+    sources: {
+      // The pre-notes ARE the record, already digested: problem with their
+      // story quoted, solution and size, impact, indicators, the budget rows,
+      // partners and approvals, open items — one block per organisation.
+      fields: uses,
+      ownWords: uses,
+      transcript: no("each pre-note already carries what the encontros captured from the conversation; several organisations' transcripts in one call would bury the page's facts"),
+      docSummary: no('documents inform each organisation\'s own record and pre-note; the project page argues from those, not from files a reader cannot check'),
+      docFullText: no('same: the documents reached the pre-notes through the encontros, and a cross-organisation call is not the place to re-read them'),
+      photos: no('a page about why several projects belong together is not argued from photographs; they reach the record through the advisor\'s observations'),
+      geo: uses,
+      fichas: uses,
+      evidence: uses,
+      knowledge: no("approvals come through each pre-note's 'precisa dizer sim'; the funding landscape is the next phase's, with Coalizão and BWB"),
+      cohort: uses,
+      artefacts: uses,
+    },
+  },
+  {
     id: 'projectChat',
     purpose: "a project's shared session — several organisations in one chat, opened on every member's record (docs/projects.md)",
     file: 'server/services/projectContext.ts',
