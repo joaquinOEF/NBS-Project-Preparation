@@ -174,6 +174,8 @@ test.describe('the pre-portfolio — the board', () => {
     }, { timeout: 20_000 }).toBe(4);
     const html = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text();
     expect(html).toContain('Conexões com os planos da cidade');
+    // …and the board shows them once they have landed.
+    await expect(page.getByTestId('preportfolio-plans-0')).toBeVisible({ timeout: 25_000 });
     expect(html).toContain('Pré-portfólio de projetos');
     expect(html).toContain('Encostas e quintais que seguram a chuva');
     expect(html).toContain('As três organizações se conheceram');
@@ -184,5 +186,26 @@ test.describe('the pre-portfolio — the board', () => {
       await page.setViewportSize({ width: 820, height: 1160 });
       await page.screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-print.png`, fullPage: true });
     }
+  });
+});
+
+test.describe('the pre-portfolio — narratives on an untouched board', () => {
+  test('a narrative written before anyone saved the board still reaches the page', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Untouched ${tag}`)).cohort;
+    await api.createCoordinator({ email: `pf-u-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    for (const [name, lat] of [['Ksa Rosa', '-30.0198'], ['COOP20', '-30.0201']] as const) {
+      const m = (await api.inviteMember(cohort.id, { orgName: name, neighborhood: 'Floresta', withSession: true })).member;
+      await api.seedState(m.cboStateId, { phase: 4, language: 'pt', sections: seedOrg(name, 'Floresta', lat, '-51.2032', 'alagamento', 'jardins-de-chuva') });
+    }
+    const board = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    expect(board.saved).toBe(false);
+    const n = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/narrative`, { data: { memberIds: board.groups[0].memberIds } })).json();
+    expect(n.narrative).toBeTruthy();
+    const again = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/narrative`, { data: { memberIds: [...board.groups[0].memberIds].reverse() } })).json();
+    expect(again.cached, 'same members, any order: the cache').toBe(true);
+    expect(await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text()).toContain('Por que juntas');
   });
 });

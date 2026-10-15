@@ -43,13 +43,15 @@ export type CohortSettings = {
       projectId?: string;
     }>;
     updatedAt: string;
-    /**
-     * Layer 3 — the narrative per project, keyed by member set + a fingerprint
-     * of their facts (server/services/projectNarrative.ts), so a card moved
-     * back finds its text and a changed pre-note is written again.
-     */
-    narratives?: Record<string, { title: string; why: string; synergies: string[]; cautions: string[]; model: string; at: string }>;
   };
+  /**
+   * Layer 3 — the pre-portfolio narrative per project, keyed by member set + a
+   * fingerprint of their facts (server/services/projectNarrative.ts), so a card
+   * moved back finds its text and a changed pre-note is written again. Its own
+   * key: a board nobody has touched yet has no draft, and its narratives must
+   * not wait for one.
+   */
+  preportfolioNarratives?: Record<string, { title: string; why: string; synergies: string[]; cautions: string[]; model: string; at: string }>;
 };
 
 // RequestSupport — async escalation queue. CBO submits via chat-header button;

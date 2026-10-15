@@ -645,11 +645,12 @@ export function registerCohortRoutes(app: Express): void {
     const groups = saved
       ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
       : suggestGroups(orgs, DEFAULT_PREFS, 'pt').map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
-    const narratives = saved?.narratives ?? {};
+    const narratives = (cohort.settings as CohortSettings | null)?.preportfolioNarratives ?? {};
     const withText = groups.map(g => {
-      const card = projectCard(g.memberIds, orgs, 'pt');
-      const members = g.memberIds.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
-      return { ...g, narrative: narratives[narrativeKey(g.memberIds, narrativeFacts(members, card))] ?? null };
+      const ids = [...g.memberIds].sort();
+      const card = projectCard(ids, orgs, 'pt');
+      const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
+      return { ...g, narrative: narratives[narrativeKey(ids, narrativeFacts(members, card))] ?? null };
     });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderPreportfolioHtml({ cohortName: (cohort as any).name ?? 'Rede', groups: withText, orgs, prenotes }));
@@ -666,25 +667,24 @@ export function registerCohortRoutes(app: Express): void {
     if (!memberIds.length) { res.status(400).json({ error: 'memberIds required' }); return; }
     const prenotes = new Map<string, ReturnType<typeof buildPrenote>>();
     const orgs = await portfolioOrgsOf(cohort.id, 'pt', prenotes);
-    const ids = memberIds.filter(id => orgs.some(o => o.memberId === id));
+    // Sorted: the same members in any order are the same project, and the same cache entry.
+    const ids = memberIds.filter(id => orgs.some(o => o.memberId === id)).sort();
     if (!ids.length) { res.status(400).json({ error: 'no member belongs to this board' }); return; }
     const card = projectCard(ids, orgs, 'pt');
     const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
     const key = narrativeKey(ids, narrativeFacts(members, card));
-    const cached = (cohort.settings as CohortSettings | null)?.preportfolio?.narratives?.[key];
+    const cached = (cohort.settings as CohortSettings | null)?.preportfolioNarratives?.[key];
     if (cached) { res.json({ key, narrative: cached, cached: true }); return; }
     const narrative = await buildProjectNarrative(members, card);
     if (!narrative) { res.json({ key, narrative: null }); return; }
     const { dropped, ...kept } = narrative;
     const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
     const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
-    if (cur.preportfolio) {
-      const narratives = { ...(cur.preportfolio.narratives ?? {}), [key]: kept };
-      // Keep the newest 60 — a board that has been rearranged all afternoon
-      // should not grow the cohort row without bound.
-      const trimmed = Object.fromEntries(Object.entries(narratives).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, 60));
-      await db.update(cohorts).set({ settings: { ...cur, preportfolio: { ...cur.preportfolio, narratives: trimmed } } }).where(eq(cohorts.id, cohort.id));
-    }
+    const narratives = { ...(cur.preportfolioNarratives ?? {}), [key]: kept };
+    // Keep the newest 60 — a board that has been rearranged all afternoon
+    // should not grow the cohort row without bound.
+    const trimmed = Object.fromEntries(Object.entries(narratives).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, 60));
+    await db.update(cohorts).set({ settings: { ...cur, preportfolioNarratives: trimmed } }).where(eq(cohorts.id, cohort.id));
     res.json({ key, narrative: kept, cached: false });
   }));
 
@@ -756,7 +756,7 @@ export function registerCohortRoutes(app: Express): void {
     const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
     const settings: CohortSettings = {
       ...cur,
-      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString(), ...(cur.preportfolio?.narratives ? { narratives: cur.preportfolio.narratives } : {}) },
+      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
     };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true, groups });

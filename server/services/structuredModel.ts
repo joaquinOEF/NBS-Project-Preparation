@@ -56,6 +56,8 @@ export function structuredProvider(): 'anthropic' | 'openai' | null {
 
 const ANTHROPIC_MODEL = process.env.CBO_STRUCTURED_MODEL || 'claude-sonnet-4-6';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+/** Models that refused a forced tool call in this process. */
+const UNFORCEABLE = new Set<string>();
 
 /** OpenAI content parts → Anthropic's shape. */
 function toAnthropicContent(content: string | ContentPart[]): unknown {
@@ -107,7 +109,10 @@ export async function createStructured<T>(
   // supported for this model" — claude-opus-5-5, 2026-10-14). Then the tool is
   // offered, not forced, and the system prompt says it must be used; a reply
   // without the tool still fails below exactly as before.
-  let forced = true;
+  const model = params.config?.model?.startsWith('claude') ? params.config.model : ANTHROPIC_MODEL;
+  // Learned once per process: after the first refusal, a model is asked the
+  // way it accepts, instead of paying a 400 round trip on every call.
+  let forced = !UNFORCEABLE.has(model);
   const post = () => fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -136,6 +141,7 @@ export async function createStructured<T>(
     if (/tool_choice/.test(body) && /not supported/.test(body)) {
       console.warn(`[structured] ${schemaName}: this model will not take a forced tool — offering it instead`);
       forced = false;
+      UNFORCEABLE.add(model);
       res = await post();
     }
   }
