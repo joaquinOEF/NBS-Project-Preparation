@@ -61,6 +61,9 @@ import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type Portfolio
 import { renderPrenoteHtml } from '../services/prenotePrint';
 import { renderPreportfolioHtml } from '../services/preportfolioPrint';
 import { buildProjectNarrative, narrativeFacts, narrativeKey } from '../services/projectNarrative';
+import { readPlanLinks, prenoteFacts, planLinksKey } from '../services/planLinks';
+import { loadPlanCorpus, corpusVersion } from '../services/planCorpus';
+import { parsePlanLinks } from '@shared/plan-links';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -551,7 +554,39 @@ export function registerCohortRoutes(app: Express): void {
   // ── The pre-portfolio board (shared/preportfolio.ts) ──────────────────────
   // Layer 1 is computed here, per organisation, from each live record; the
   // board computes layer 2 (the project cards) itself on every drop.
+  // Plan readings in flight, by session — one at a time per organisation, at
+  // most two at once, never awaited by a request.
+  const planLinksInFlight = new Set<string>();
+  const planLinksQueue: Array<() => Promise<void>> = [];
+  let planLinksRunning = 0;
+  const pumpPlanLinks = () => {
+    while (planLinksRunning < 2 && planLinksQueue.length) {
+      const job = planLinksQueue.shift()!;
+      planLinksRunning++;
+      void job().finally(() => { planLinksRunning--; pumpPlanLinks(); });
+    }
+  };
+  const queuePlanLinks = (cboStateId: string, orgName: string, prenote: ReturnType<typeof buildPrenote>, key: string) => {
+    if (planLinksInFlight.has(cboStateId)) return;
+    planLinksInFlight.add(cboStateId);
+    planLinksQueue.push(async () => {
+      try {
+        const out = await readPlanLinks(orgName, prenote, loadPlanCorpus(), key);
+        if (!out) return;
+        let state = getCboState(cboStateId) ?? null;
+        if (!state) state = (await loadCboFromDb(cboStateId))?.state ?? null;
+        if (!state) return;
+        writeSectionFields(cboStateId, state, 'intervention_type', { _plan_links_json: JSON.stringify(out) }, () => {}, 'coordinator');
+        await flushNow(cboStateId);
+      } finally {
+        planLinksInFlight.delete(cboStateId);
+      }
+    });
+    pumpPlanLinks();
+  };
+
   const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en', prenotes?: Map<string, ReturnType<typeof buildPrenote>>): Promise<PortfolioOrg[]> => {
+    const version = corpusVersion(loadPlanCorpus());
     const members = (await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)))
       .filter(m => !m.excludeFromPortfolio && m.cboStateId);
     const ids = members.map(m => m.cboStateId!);
@@ -561,8 +596,18 @@ export function registerCohortRoutes(app: Express): void {
       const live = getCboState(m.cboStateId!);
       const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
-      prenotes?.set(m.id, buildPrenote(prenoteInputFromSections(sections), lang));
-      return portfolioOrg(m.id, orgName, sections, lang);
+      const prenote = buildPrenote(prenoteInputFromSections(sections), lang);
+      prenotes?.set(m.id, prenote);
+      const org = portfolioOrg(m.id, orgName, sections, lang);
+      // The plan cross-reading: shown only when it was made for this pre-note
+      // and this corpus; otherwise redone in the background.
+      if (prenote.solution) {
+        const key = planLinksKey(prenoteFacts(orgName, prenote), version);
+        const stored = parsePlanLinks(String((sections as any)?.intervention_type?.fields?._plan_links_json?.value ?? ''));
+        if (stored?.key === key) org.planLinks = stored.links;
+        else { org.planLinksPending = true; queuePlanLinks(m.cboStateId!, orgName, prenote, key); }
+      }
+      return org;
     });
   };
   const prefsFrom = (raw: any): PortfolioPrefs => ({

@@ -45,6 +45,18 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
     return () => { cancelled = true; };
   }, [base, lang]);
 
+  // Plan readings run in the background (~12 s each); while any is pending,
+  // look again now and then and take the links as they land. Never the groups.
+  const pending = orgs.some(o => o.planLinksPending);
+  useEffect(() => {
+    if (!pending) return;
+    const h = setTimeout(async () => {
+      const r = await fetch(`${base}?lang=${lang}`, { credentials: 'include' }).catch(() => null);
+      if (r?.ok) setOrgs((await r.json()).orgs ?? []);
+    }, 15_000);
+    return () => clearTimeout(h);
+  }, [pending, orgs, base, lang]);
+
   // The draft saves itself, a beat after the last move.
   useEffect(() => {
     if (loading) return;
@@ -240,6 +252,12 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                 <span className="rounded-full border border-border px-2 py-0.5" data-testid={`preportfolio-budget-${gi}`}>{card.budget ? `${brl(card.budget.low)}–${brl(card.budget.high)}` : t('orchestrator.preportfolio.noBudget', { defaultValue: 'sem estimativa' })}</span>
                 <span className={`rounded-full border px-2 py-0.5 ${HORIZON_CLS[card.horizon]}`} title={card.slowest ? `${card.slowest.orgName}: ${card.slowest.why.join('; ')}` : ''} data-testid={`preportfolio-horizon-${gi}`}>{card.horizonLabel}</span>
                 {card.unpriced.length > 0 && <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground">{t('orchestrator.preportfolio.unpriced', { defaultValue: 'sem valor: {{names}}', names: card.unpriced.join(', ') })}</span>}
+                {card.planLinks.length > 0 && (
+                  <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
+                    title={card.planLinks.map(l => `${l.title} — ${l.orgName}: ${l.connection}`).join('\n')} data-testid={`preportfolio-plans-${gi}`}>
+                    {t('orchestrator.preportfolio.plans', { defaultValue: '{{n}} conexões com planos', n: card.planLinks.length })}
+                  </span>
+                )}
                 {card.unvisited.length > 0 && <span className="rounded-full border border-dashed border-amber-300 px-2 py-0.5 text-amber-800 dark:text-amber-300">{t('orchestrator.preportfolio.unvisited', { defaultValue: 'sem visita: {{n}}', n: card.unvisited.length })}</span>}
               </div>
               <ul className="space-y-1.5">

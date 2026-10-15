@@ -167,7 +167,13 @@ test.describe('the pre-portfolio — the board', () => {
     await expect(page.getByTestId('preportfolio-confirm-msg')).toContainText('0 projetos criados, 2 atualizados');
     expect((await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/projects`)).json()).projects.length).toBe(2);
 
+    // The plan readings ran in the background since the first load.
+    await expect.poll(async () => {
+      const b = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+      return b.orgs.filter((o: any) => o.planLinks?.length).length;
+    }, { timeout: 20_000 }).toBe(4);
     const html = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text();
+    expect(html).toContain('Conexões com os planos da cidade');
     expect(html).toContain('Pré-portfólio de projetos');
     expect(html).toContain('Encostas e quintais que seguram a chuva');
     expect(html).toContain('As três organizações se conheceram');

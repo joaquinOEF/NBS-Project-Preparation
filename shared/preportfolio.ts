@@ -25,6 +25,7 @@ import { familiesOfWorries, type HazardKey } from './site-knowledge';
 import { studyRequirement } from './w3-dossier';
 import { approvalRequirement } from './nbs-approvals';
 import { buildPrenote, prenoteInputFromSections, type Prenote } from './e4-prenote';
+import type { PlanLink } from './plan-links';
 
 type Lang = 'pt' | 'en';
 
@@ -69,6 +70,10 @@ export interface PortfolioOrg {
   gaps: number;
   /** The solution came from the technical visit. */
   visited: boolean;
+  /** Where its pre-note meets the city's plans — set by the server, current readings only. */
+  planLinks?: PlanLink[];
+  /** A reading is missing or out of date and is being redone. */
+  planLinksPending?: boolean;
 }
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && v !== '' && v != null ? n : undefined; };
@@ -247,6 +252,8 @@ export interface ProjectCard {
   gaps: number;
   unvisited: string[];
   reason: string;
+  /** The union of the members' plan connections, each with the organisation it came from. */
+  planLinks: Array<PlanLink & { orgName: string }>;
 }
 
 /** Layer 2 — a project's card, from its members. Instant; no model. */
@@ -272,6 +279,7 @@ export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lan
     gaps: ms.reduce((s, m) => s + m.gaps, 0),
     unvisited: ms.filter(m => !m.visited).map(m => m.orgName),
     reason: ms.length ? reasonFor(ms, lang) : (pt ? 'Projeto vazio' : 'Empty project'),
+    planLinks: ms.flatMap(m => (m.planLinks ?? []).map(l => ({ ...l, orgName: m.orgName }))),
   };
 }
 

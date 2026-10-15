@@ -288,6 +288,27 @@ export const MODEL_PASSES: ModelPass[] = [
     },
   },
   {
+    id: 'planLinks',
+    purpose: "reads one organisation's pre-note against the city's plans and initiatives and names where it connects, each with a literal passage",
+    file: 'server/services/planLinks.ts',
+    sources: {
+      fields: uses,
+      ownWords: uses,
+      geo: uses,
+      fichas: uses,
+      // The plan corpus (knowledge/porto-alegre/plans + the desk research) IS
+      // the knowledge this pass exists to read.
+      knowledge: uses,
+      artefacts: uses,
+      transcript: no('the pre-note already carries what the encontros captured; the comparison is against plans, not conversation'),
+      docSummary: no("the organisation's own files informed its record and pre-note; the documents this pass reads are the city's"),
+      docFullText: no("same: its own files reached the pre-note through the encontros; this pass reads the city's documents in full instead"),
+      photos: no('a connection to a plan is argued from what the project is and where, not from photographs'),
+      evidence: no('it names connections; the figures it may repeat are the pre-note\'s own, and a number from anywhere else is refused'),
+      cohort: no('per organisation by design (layer 1): the project card makes the union, so a card moved between projects never re-runs this'),
+    },
+  },
+  {
     id: 'projectChat',
     purpose: "a project's shared session — several organisations in one chat, opened on every member's record (docs/projects.md)",
     file: 'server/services/projectContext.ts',

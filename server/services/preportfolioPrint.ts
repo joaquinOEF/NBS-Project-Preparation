@@ -82,6 +82,7 @@ export function renderPreportfolioHtml(input: {
     <h3>O que cada organização traz</h3>
     <table><thead><tr><th>Organização</th><th>Solução</th><th>Estimativa</th><th>Quando</th><th>Situação</th></tr></thead><tbody>${rows}</tbody></table>
     ${c.unpriced.length ? `<p class="src">Sem valor ainda, fora da soma: ${esc(c.unpriced.join(', '))}.</p>` : ''}
+    ${c.planLinks.length ? `<h3>Conexões com os planos da cidade</h3><ul>${c.planLinks.map(l => `<li><strong>${esc(l.title)}${l.owner ? ` (${esc(l.owner)})` : ''}</strong> — ${esc(l.orgName)}: ${esc(l.connection)}<br><span class="src">Trecho: “${esc(l.passage)}”</span></li>`).join('')}</ul>` : ''}
     ${g.narrative?.cautions.length ? `<h3>Pontos de atenção</h3><ul>${g.narrative.cautions.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     ${g.learnings ? `<h3>O que a Rede aprendeu</h3><p>${md(g.learnings)}</p>` : ''}
   </section>`;
