@@ -42,6 +42,7 @@ export const CONTEXT_SOURCES = {
   knowledge: 'the knowledge slice: approval routes and their timings, and the funding landscape from the 26 Aug workshop',
   cohort: 'what the other organisations in this cohort are doing',
   artefacts: 'what earlier passes produced — the dossier, roadmap, concept note',
+  city: "the city's own plans and maps — the PLAC and its 30 actions, the 2025 Plano Diretor, Regenera Dilúvio, Centro+4D, and what SMAMUS's map layers say at the marked site (knowledge/porto-alegre/city, `npm run city:import`)",
 } as const;
 
 export type ContextSource = keyof typeof CONTEXT_SOURCES;
@@ -109,6 +110,7 @@ export const MODEL_PASSES: ModelPass[] = [
       // the synergy report. See server/services/cohortContext.ts.
       cohort: uses,
       artefacts: no('it runs BEFORE the dossier and the note exist'),
+      city: uses,
     },
   },
   {
@@ -128,6 +130,7 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: no('approval routes and funding are the advisor\'s reading; a note is about the files and nothing else'),
       cohort: no('it reads one organisation\'s own files; nothing from another record may reach a card'),
       artefacts: no('it runs BEFORE the comparison and the note exist, and feeds them'),
+      city: no('it reads one organisation\'s own files; the city\'s documents are not theirs and must not be confused with what they sent'),
     },
   },
   {
@@ -153,6 +156,7 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: no('approval routes do not bear on which família fits a site'),
       cohort: no('a ranking that depended on the cohort would move under an organisation for reasons it cannot see'),
       artefacts: no('nothing has been produced yet at Encontro 2'),
+      city: uses,
     },
   },
   {
@@ -172,6 +176,7 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: no('a question about a funding rule is a question for us, not for them — they know their place, not the decree'),
       cohort: no('what another organisation was asked is not a reason to ask this one; the question has to come from THEIR record'),
       artefacts: uses,
+      city: uses,
     },
   },
   {
@@ -191,6 +196,7 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: no('a question about a funding rule or a decree is a question for us to answer, not one to put to people who know their place and not the legislation'),
       cohort: no('what another organisation was asked is not a reason to ask this one — a follow-up has to come from the answer just given'),
       artefacts: uses,
+      city: uses,
     },
   },
   {
@@ -223,6 +229,7 @@ export const MODEL_PASSES: ModelPass[] = [
       // identifying anybody. See docs/context-first.md.
       cohort: uses,
       artefacts: uses,
+      city: uses,
     },
   },
   {
@@ -256,6 +263,7 @@ export const MODEL_PASSES: ModelPass[] = [
       docFullText: uses,
       knowledge: uses,
       artefacts: uses,
+      city: uses,
       // ⚠️ PRE-DIGESTED, never the images themselves. Handing eight
       // organisations' photographs to one cross-organisation call would widen
       // the reach and lose the provenance; the advisor already wrote one-sentence
@@ -289,6 +297,7 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: no("approvals come through each pre-note's 'precisa dizer sim'; the funding landscape is the next phase's, with Coalizão and BWB"),
       cohort: uses,
       artefacts: uses,
+      city: uses,
     },
   },
   {
@@ -304,6 +313,7 @@ export const MODEL_PASSES: ModelPass[] = [
       // the knowledge this pass exists to read.
       knowledge: uses,
       artefacts: uses,
+      city: uses,
       transcript: no('the pre-note already carries what the encontros captured; the comparison is against plans, not conversation'),
       // Pre-digested through the pre-note: the verified quotes the document
       // reader took from their files, each with its filename.
@@ -337,6 +347,7 @@ export const MODEL_PASSES: ModelPass[] = [
       // because they are in the same room by the coordination's choice.
       cohort: uses,
       artefacts: uses,
+      city: uses,
     },
   },
   {
@@ -360,6 +371,7 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: no('the approval routes are for a community organisation asking a municipality; a municipality does not ask itself'),
       cohort: no('there is no cohort on the city path — one city, one plan, no peers to be introduced to'),
       artefacts: no('the CBO artefacts belong to organisations this flow never sees'),
+      city: no('it computes impact figures from the fichas and layer statistics; a plan\'s text does not change a computed number'),
     },
   },
 ];

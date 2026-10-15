@@ -1,4 +1,5 @@
 import { isPhotoCaption } from '@shared/photo-caption';
+import { cityMapFor, siteGroupsFor } from '../services/siteContext';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
@@ -414,7 +415,10 @@ async function attachDerivedSections<
       // not take down the whole roster — a coordinator with no board is worse
       // off than one with a blank column.
       try {
-        synergyByState.set(row.id, synergyFactsFrom(sections));
+        // What the city's maps say at the marked site, as lines — "two
+        // organisations in the same polder" is a synergy no field holds.
+        const siteRec = Object.fromEntries(Object.entries(f).map(([k, v]: [string, any]) => [k, v?.value == null ? undefined : String(v.value)]));
+        synergyByState.set(row.id, { ...synergyFactsFrom(sections), cityMapPt: cityMapFor(siteRec).map(x => x.text) });
       } catch (err) {
         console.error(`[cohort] synergy facts failed for ${row.id}:`, err);
       }
@@ -601,9 +605,14 @@ export function registerCohortRoutes(app: Express): void {
       const live = getCboState(m.cboStateId!);
       const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
-      const prenote = buildPrenote({ ...prenoteInputFromSections(sections), cohort: cohortByState.get(m.cboStateId!) ?? [] }, lang);
+      const base = prenoteInputFromSections(sections);
+      // The map lines too, as every other path that builds a pre-note: the
+      // narrative and the plan links read this one (prenoteContext.ts).
+      const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site) }, lang);
       prenotes?.set(m.id, prenote);
       const org = portfolioOrg(m.id, orgName, sections, lang);
+      const places = siteGroupsFor(base.site);
+      if (Object.keys(places).length) org.places = places;
       // The plan cross-reading: shown only when it was made for this pre-note
       // and this corpus; otherwise redone in the background.
       if (prenote.solution) {
@@ -944,6 +953,7 @@ export function registerCohortRoutes(app: Express): void {
           // here too — a spread would carry whatever lands on that type next
           // across an organisation boundary, and this list crosses one.
           photoNotesPt: s.photoNotesPt ?? [],
+          cityMapPt: s.cityMapPt ?? [],
           worry: m.w2?.worry ?? null,
           familias: s.familias ?? [],
           solutions: s.solutions ?? [],
@@ -1276,6 +1286,7 @@ export function registerCohortRoutes(app: Express): void {
       // The coordinator's copy is the SAME document the organisation gets, and
       // that includes the cohort layer the authored prose may have cited.
       cohort: await cohortLinesFor(member.cboStateId, lang).catch(() => []),
+      cityMap: cityMapFor(site),
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -2104,7 +2115,9 @@ export function registerCohortRoutes(app: Express): void {
     if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
     const section = String(req.body?.section ?? '') as PrenoteSectionId;
     if (!PRENOTE_SECTIONS.includes(section)) { res.status(400).json({ error: 'unknown section' }); return; }
-    const input = prenoteInputFromSections(state.sections);
+    // With the map lines, or an edit to "o lugar nos mapas" would be pinned to an empty basis and read as stale at once.
+    const base = prenoteInputFromSections(state.sections);
+    const input = { ...base, cityMap: cityMapFor(base.site) };
     let edits: Record<string, unknown> = {};
     try { edits = JSON.parse(input.type._prenote_edits_json || '{}') || {}; } catch { edits = {}; }
     const text = req.body?.text;

@@ -81,6 +81,11 @@ export interface W3Input {
    * hand into this field crosses a record boundary that file exists to hold.
    */
   cohort?: string[];
+  /**
+   * What the city's map layers say about the marked site, one sourced line
+   * each — produced only by server/services/siteContext.ts (`siteFacts`).
+   */
+  cityMap?: Array<{ text: string; source: string }>;
 }
 
 const has = (v: string | undefined | null): v is string =>

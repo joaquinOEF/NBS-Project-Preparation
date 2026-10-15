@@ -1,0 +1,1439 @@
+{
+  "folder": "https://drive.google.com/drive/folders/17dLzOAf55PnbIy_EI8p3UqFIVk3rJpod",
+  "version": "1acb84a02ca6",
+  "note": "Gerado por scripts/import-city-folder.ts. Não editar à mão: rodar `npm run city:import` de novo.",
+  "docs": [
+    {
+      "id": "bancomundial-p178072-esmf-revisado-2026-07",
+      "title": "BancoMundial P178072 ESMF revisado 2026-07",
+      "owner": "Prefeitura + Banco Mundial",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Banco Mundial P178072 – Regeneração do Centro",
+      "source": "https://drive.google.com/file/d/1Mv4KDY8tVJnP1f2exxKEm8LmEPTTYHqf",
+      "pages": 138,
+      "textPages": 138,
+      "chunks": 266
+    },
+    {
+      "id": "bancomundial-p178072-isr-2026-06",
+      "title": "BancoMundial P178072 ISR 2026-06",
+      "owner": "Prefeitura + Banco Mundial",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Banco Mundial P178072 – Regeneração do Centro",
+      "source": "https://drive.google.com/file/d/1B7SKM_GotV0BIYuEMZfUgVOhZW1v9wsX",
+      "pages": 14,
+      "textPages": 14,
+      "chunks": 24
+    },
+    {
+      "id": "bancomundial-p178072-pad-regeneracao-centro-2023",
+      "title": "BancoMundial P178072 PAD Regeneracao Centro 2023",
+      "owner": "Prefeitura + Banco Mundial",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Banco Mundial P178072 – Regeneração do Centro",
+      "source": "https://drive.google.com/file/d/1UnQdHjn1d_AFIfD9puJHdJuffgx5exR0",
+      "pages": 81,
+      "textPages": 81,
+      "chunks": 210
+    },
+    {
+      "id": "bancomundial-p178072-plano-aquisicoes-2026-09",
+      "title": "BancoMundial P178072 Plano Aquisicoes 2026-09",
+      "owner": "Prefeitura + Banco Mundial",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Banco Mundial P178072 – Regeneração do Centro",
+      "source": "https://drive.google.com/file/d/1a3JEXvmjB2DotRUWj_gep_iHswuN0f3d",
+      "pages": 6,
+      "textPages": 6,
+      "chunks": 19
+    },
+    {
+      "id": "bancomundial-p178072-reestruturacao-2024-07",
+      "title": "BancoMundial P178072 Reestruturacao 2024-07",
+      "owner": "Prefeitura + Banco Mundial",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Banco Mundial P178072 – Regeneração do Centro",
+      "source": "https://drive.google.com/file/d/1NOgVPd2go4YHIqybrthtCYuj6lbm4xhv",
+      "pages": 24,
+      "textPages": 24,
+      "chunks": 43
+    },
+    {
+      "id": "bancomundial-p178072-sep-revisado-2026-09",
+      "title": "BancoMundial P178072 SEP revisado 2026-09",
+      "owner": "Prefeitura + Banco Mundial",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Banco Mundial P178072 – Regeneração do Centro",
+      "source": "https://drive.google.com/file/d/1B-NgXrxY7mc3S7Y2ETZOO9BkgFV8ScR4",
+      "pages": 91,
+      "textPages": 91,
+      "chunks": 155
+    },
+    {
+      "id": "carta-semana-acao-climatica-poa-2026",
+      "title": "Carta Semana Acao Climatica POA 2026",
+      "owner": "Sociedade civil",
+      "kind": "iniciativa",
+      "folder": "1 · Planos e estudos/Sociedade civil e financiadores",
+      "source": "https://drive.google.com/file/d/1wvbDXmLHKMb7egsuqZKaklZpty2EnDcZ",
+      "pages": 2,
+      "textPages": 2,
+      "chunks": 2
+    },
+    {
+      "id": "cartilha-manejo-arboreo-poa",
+      "title": "Cartilha Manejo Arboreo POA",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Arborização",
+      "source": "https://drive.google.com/file/d/1p75DOomj_34-VjNF2BF79G-YJpla3Eh6",
+      "pages": 18,
+      "textPages": 16,
+      "chunks": 16
+    },
+    {
+      "id": "decreto-22263-2023-regulamenta-plano-resiliencia",
+      "title": "Decreto 22263-2023 Regulamenta Plano Resiliencia",
+      "owner": "Prefeitura",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Resiliência e reconstrução (Prefeitura)",
+      "source": "https://drive.google.com/file/d/11ngo_MgVwxedMLEWqp4cLlIdcZHmWDyw",
+      "pages": 5,
+      "textPages": 5,
+      "chunks": 5
+    },
+    {
+      "id": "defesa-civil-sgb-setorizacao-poa-apresentacao-2023",
+      "title": "defesa civil SGB setorizacao POA apresentacao 2023",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/1U1wX4l-m5FlsWQ2-ogr5sADx-g97h0vw",
+      "pages": 18,
+      "textPages": 16,
+      "chunks": 16
+    },
+    {
+      "id": "defesa-civil-sgb-setorizacao-risco-poa-2022",
+      "title": "defesa civil SGB setorizacao risco POA 2022",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/1Yk224q4QKJBbqc1UEXssNQ333-ub2meJ",
+      "pages": 42,
+      "textPages": 42,
+      "chunks": 71
+    },
+    {
+      "id": "escritorio-reconstrucao-poa-apresentacao-2024-06",
+      "title": "Escritorio Reconstrucao POA apresentacao 2024-06",
+      "owner": "Prefeitura",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Resiliência e reconstrução (Prefeitura)",
+      "source": "https://drive.google.com/file/d/1vLsI5DHCGxaR3_J78m6vGghOFUpg9SMg",
+      "pages": 45,
+      "textPages": 30,
+      "chunks": 31
+    },
+    {
+      "id": "fgb-relatorio-atividades-2025",
+      "title": "FGB Relatorio atividades 2025",
+      "owner": "Sociedade civil",
+      "kind": "iniciativa",
+      "folder": "1 · Planos e estudos/Sociedade civil e financiadores",
+      "source": "https://drive.google.com/file/d/1ptwhuDnP4HiwLYEgfknrDnD6OYb0nhd3",
+      "pages": 69,
+      "textPages": 67,
+      "chunks": 93
+    },
+    {
+      "id": "geo-aeis-metadados",
+      "title": "geo AEIS metadados",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1q4haB_51z2olNWoEkMtkvE_KC5s3bhjo",
+      "pages": 11,
+      "textPages": 11,
+      "chunks": 11
+    },
+    {
+      "id": "geo-bairros-oficiais-lc12112-mapa",
+      "title": "geo bairros oficiais LC12112 mapa",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1pTDwxu6lrapxY8bf4fPH-Y0illJlC6Ti",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 6
+    },
+    {
+      "id": "geo-macrozonas-mapa",
+      "title": "geo macrozonas mapa",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1z96aOWw8t8CrXvtSVyxEbbYFIMJhrUDF",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 15
+    },
+    {
+      "id": "geo-pddua-vigente-anexo1-1-mapa",
+      "title": "geo PDDUA vigente anexo1.1 mapa",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1WMkh-8DPV1B0fDzArrj3ufD4L3fuLjP0",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 23
+    },
+    {
+      "id": "geo-pddua-vigente-anexo4-mapa",
+      "title": "geo PDDUA vigente anexo4 mapa",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1TTdRaCs1_28JJJ-s6PaaBZT-Ez9Xbyvp",
+      "pages": 3,
+      "textPages": 2,
+      "chunks": 2
+    },
+    {
+      "id": "geo-pddua-vigente-anexo6-mapa",
+      "title": "geo PDDUA vigente anexo6 mapa",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1vvDT6XSKa_0lbf7LIhVCiIHNzZ9nGtgV",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 1
+    },
+    {
+      "id": "geo-zona-rural-urbana-mapa",
+      "title": "geo zona rural urbana mapa",
+      "owner": "a confirmar",
+      "kind": "plano",
+      "folder": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)",
+      "source": "https://drive.google.com/file/d/1Zt9bFSJJc9sM521twU075DEMmtrLMloc",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 2
+    },
+    {
+      "id": "gt-plac-in-e-portarias",
+      "title": "GT PLAC – IN e Portarias",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1aSNdS17eUbg-5JY3ENn6EUpeA8mEsQkp",
+      "pages": 4,
+      "textPages": 2,
+      "chunks": 5
+    },
+    {
+      "id": "inventario-de-emissoes-de-gee-de-porto-alegre",
+      "title": "Inventário de emissões de GEE de Porto Alegre",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/17ZZlNtjgNrNczok924VAsx7bpvE0Zb4v",
+      "pages": 110,
+      "textPages": 101,
+      "chunks": 144
+    },
+    {
+      "id": "lei-12629-2019-plano-resiliencia-cezar-busatto",
+      "title": "Lei 12629-2019 Plano Resiliencia Cezar Busatto",
+      "owner": "Prefeitura",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Resiliência e reconstrução (Prefeitura)",
+      "source": "https://drive.google.com/file/d/1HkNJdLc1Tbz1GA0Uu56CWEB3aqRaCeRy",
+      "pages": 3,
+      "textPages": 3,
+      "chunks": 3
+    },
+    {
+      "id": "luos-2025-anexos-zot",
+      "title": "LUOS 2025 Anexos ZOT",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1jnM5ynTlV9w8TvvHig8LLjHIECP6wzDP",
+      "pages": 56,
+      "textPages": 31,
+      "chunks": 53
+    },
+    {
+      "id": "luos-2025-minuta",
+      "title": "LUOS 2025 Minuta",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1AOpKfKA0ZWhTM5gyjm-V5lKeMdqINWcH",
+      "pages": 35,
+      "textPages": 35,
+      "chunks": 74
+    },
+    {
+      "id": "mapa-indice-folha-1",
+      "title": "Mapa Indice – Folha 1",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/1bT_KovFk2B8fabTz7c4Eotht90JF46nx",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 1
+    },
+    {
+      "id": "mprs-carta-resiliencia-acao-climatica-compilada-2026",
+      "title": "MPRS Carta Resiliencia Acao Climatica compilada 2026",
+      "owner": "Sociedade civil",
+      "kind": "iniciativa",
+      "folder": "1 · Planos e estudos/Sociedade civil e financiadores",
+      "source": "https://drive.google.com/file/d/1EaKt8GKXIBURCvrD6SWY58E4aCUmv28a",
+      "pages": 3,
+      "textPages": 3,
+      "chunks": 3
+    },
+    {
+      "id": "mprs-estudo-tecnico-pdus-luos-2025",
+      "title": "MPRS estudo tecnico PDUS LUOS 2025",
+      "owner": "Ministério Público do RS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1wrb-OJvmRWyPEXu-kkgNtv74ie8LaMVz",
+      "pages": 232,
+      "textPages": 230,
+      "chunks": 498
+    },
+    {
+      "id": "p1-plano-de-trabalho",
+      "title": "P1 – Plano de Trabalho",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1FzXIVdJCUBAxrMYMhVs8RU2EfTRi8gBt",
+      "pages": 56,
+      "textPages": 56,
+      "chunks": 91
+    },
+    {
+      "id": "p2-plano-de-comunicacao",
+      "title": "P2 – Plano de Comunicação",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1SP24tKHEgkYMgI7w7ex1HZP_tkgkCeY6",
+      "pages": 102,
+      "textPages": 101,
+      "chunks": 122
+    },
+    {
+      "id": "p3-arvc-apendice-e",
+      "title": "P3 – ARVC Apêndice E",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1WURAjWnyMd-eTiZnirf-TY9nVmgGSbWY",
+      "pages": 113,
+      "textPages": 113,
+      "chunks": 122
+    },
+    {
+      "id": "p3-arvc-relatorio-analise-de-riscos-e-vulnerabilidade-climaticas",
+      "title": "P3 – ARVC Relatório (Análise de Riscos e Vulnerabilidade Climáticas)",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1_rGOqiuQnXrLpBfZQtnfZduvFtZb50jB",
+      "pages": 217,
+      "textPages": 215,
+      "chunks": 332
+    },
+    {
+      "id": "p3-arvc-sumario",
+      "title": "P3 – ARVC Sumário",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/11ttx7ta5O1pjrf1rjq4XMegJdm-hT1Mc",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 2
+    },
+    {
+      "id": "p4-pegada-hidrica",
+      "title": "P4 – Pegada Hídrica",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/10hJi3gm6GVCgzFO9RGIfAxgC2Pd9QoOF",
+      "pages": 116,
+      "textPages": 114,
+      "chunks": 179
+    },
+    {
+      "id": "p4-pegada-hidrica-sumario",
+      "title": "P4 – Pegada Hídrica Sumário",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1ju_m3Tm_p93vH-2SDoCcu7DJRzkzOhJ9",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 2
+    },
+    {
+      "id": "p6-apendice-a",
+      "title": "P6 – Apêndice A",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1aZLA0BMpO1xZjhM-tntFAuW58NYN5fop",
+      "pages": 140,
+      "textPages": 140,
+      "chunks": 235
+    },
+    {
+      "id": "p6-apendice-b",
+      "title": "P6 – Apêndice B",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1oykrZopTDn-2ZyFwML_Hn_xlJZ-UG_24",
+      "pages": 68,
+      "textPages": 68,
+      "chunks": 122
+    },
+    {
+      "id": "p6-plac-poa-plano-final-v2-0",
+      "title": "P6 – PLAC POA (plano final) V2.0",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1HxN1hYRGD09XEsvinZEVoh294JEib8y6",
+      "pages": 213,
+      "textPages": 213,
+      "chunks": 396
+    },
+    {
+      "id": "pdau-resolucao-comam-5-2006-plano-diretor-arborizacao",
+      "title": "PDAU Resolucao COMAM 5-2006 Plano Diretor Arborizacao",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Arborização",
+      "source": "https://drive.google.com/file/d/1N_vJGFTzaTQNq95BAokVuZT1QW4UUVIb",
+      "pages": 9,
+      "textPages": 8,
+      "chunks": 12
+    },
+    {
+      "id": "pdus-2025-anexo1-sistemas",
+      "title": "PDUS 2025 Anexo1 Sistemas",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1sCSiAFoKrRbzQmlz9FdJWji_lP_kamGn",
+      "pages": 41,
+      "textPages": 27,
+      "chunks": 32
+    },
+    {
+      "id": "pdus-2025-anexo3-macrozonas-areas-estruturadoras",
+      "title": "PDUS 2025 Anexo3 Macrozonas Areas Estruturadoras",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1Ffu-7ktGloaIm97h47rMB3azqujaP5Di",
+      "pages": 9,
+      "textPages": 6,
+      "chunks": 14
+    },
+    {
+      "id": "pdus-2025-anexo4-unidades-planejamento",
+      "title": "PDUS 2025 Anexo4 Unidades Planejamento",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1Nm6ooX7XG-HcrhNZpC0vJMCYu4OWGWtY",
+      "pages": 2,
+      "textPages": 1,
+      "chunks": 1
+    },
+    {
+      "id": "pdus-2025-anexo5-zonas-ocupacao",
+      "title": "PDUS 2025 Anexo5 Zonas Ocupacao",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1W0aDnp33wtnyQ7fzjLGxrCUcUnVsPpDA",
+      "pages": 2,
+      "textPages": 1,
+      "chunks": 1
+    },
+    {
+      "id": "pdus-2025-minuta",
+      "title": "PDUS 2025 Minuta",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1MjFyCNl-0XmbpwkYctjTaIbTKgYLMc3j",
+      "pages": 77,
+      "textPages": 77,
+      "chunks": 151
+    },
+    {
+      "id": "pdus-2025-relatorio-final-revisao-plano-diretor",
+      "title": "PDUS 2025 Relatorio Final Revisao Plano Diretor",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)",
+      "source": "https://drive.google.com/file/d/1duFNgCmGAhFFvrrRxRX1TDhnWd2szC16",
+      "pages": 3080,
+      "textPages": 3061,
+      "chunks": 8882
+    },
+    {
+      "id": "plac-gt-implementacao-monitoramento",
+      "title": "PLAC GT Implementacao Monitoramento",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1WQLlTXsAiq4CcbsxUvmmBqMrgtCeG_w5",
+      "pages": 5,
+      "textPages": 5,
+      "chunks": 11
+    },
+    {
+      "id": "plac-p7-2-memoria-construcao",
+      "title": "PLAC P7.2 Memoria Construcao",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1x6pv9sB1tyE4DBvzjSLNccZhOEtqdGjd",
+      "pages": 52,
+      "textPages": 52,
+      "chunks": 69
+    },
+    {
+      "id": "plac-poa-acoes-final",
+      "title": "PLAC POA – Ações (final)",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1kArRsVWYrtHuHHm4dvyoSXytvFQ4XhmC",
+      "pages": 3,
+      "textPages": 3,
+      "chunks": 7
+    },
+    {
+      "id": "plac-rs-apresentacao-2026-06-18",
+      "title": "PLAC-RS apresentacao 2026-06-18",
+      "owner": "Governo do Estado do RS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Estado do RS – Plano Rio Grande e PLAC-RS",
+      "source": "https://drive.google.com/file/d/1OdgbQ4N75kusWt4Fa8iVx1EA8XOwCFeS",
+      "pages": 34,
+      "textPages": 32,
+      "chunks": 33
+    },
+    {
+      "id": "plac-sumario-executivo-v6",
+      "title": "PLAC Sumario Executivo v6",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SMAMUS – Plano de Ação Climática (PLAC) completo",
+      "source": "https://drive.google.com/file/d/1Q3SvNzUR4NMLrJe2KEVNm4Ye1RCxBNZp",
+      "pages": 75,
+      "textPages": 73,
+      "chunks": 106
+    },
+    {
+      "id": "planoriogrande-conselho-reuniao-2025-11-27",
+      "title": "PlanoRioGrande Conselho reuniao 2025-11-27",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Estado do RS – Plano Rio Grande e PLAC-RS",
+      "source": "https://drive.google.com/file/d/1UWL2m3DZOIdSxw9y_OgoYd4ScKObz6e_",
+      "pages": 46,
+      "textPages": 36,
+      "chunks": 36
+    },
+    {
+      "id": "planoriogrande-plano-de-investimentos-v3-2025-01",
+      "title": "PlanoRioGrande Plano de Investimentos v3 2025-01",
+      "owner": "SMAMUS",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Estado do RS – Plano Rio Grande e PLAC-RS",
+      "source": "https://drive.google.com/file/d/1t1IjZ7qKzB9D8yglD8hm4gSIjvqZhMqw",
+      "pages": 48,
+      "textPages": 46,
+      "chunks": 85
+    },
+    {
+      "id": "pmsb-2015-vol1-diagnostico",
+      "title": "PMSB 2015 Vol1 Diagnostico",
+      "owner": "Prefeitura (DMAE)",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Saneamento – PMSB 2015",
+      "source": "https://drive.google.com/file/d/16stq73P5Efh2r2ZauvBD5T_4xR6Rl5DD",
+      "pages": 234,
+      "textPages": 189,
+      "chunks": 362
+    },
+    {
+      "id": "pmsb-2015-vol2-prognostico-objetivos-metas",
+      "title": "PMSB 2015 Vol2 Prognostico Objetivos Metas",
+      "owner": "Prefeitura (DMAE)",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Saneamento – PMSB 2015",
+      "source": "https://drive.google.com/file/d/18SN6ofml2-2kIVr14AHNHIzJc7bHJyHN",
+      "pages": 196,
+      "textPages": 177,
+      "chunks": 357
+    },
+    {
+      "id": "pmsb-2015-vol3-programas-indicadores",
+      "title": "PMSB 2015 Vol3 Programas Indicadores",
+      "owner": "Prefeitura (DMAE)",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/Saneamento – PMSB 2015",
+      "source": "https://drive.google.com/file/d/1PXWW_n4d3j20IwLxkGcztFaskOPKN1Lp",
+      "pages": 152,
+      "textPages": 132,
+      "chunks": 300
+    },
+    {
+      "id": "pranchas-rs-portoal-sr-143-cprm",
+      "title": "Pranchas – RS PORTOAL SR 143 CPRM",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/1ee_Ko3DuErWh-G_BBHRcrF3vvcF4Gj7s",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 2
+    },
+    {
+      "id": "pranchas-rs-portoal-sr-144-cprm",
+      "title": "Pranchas – RS PORTOAL SR 144 CPRM",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/1kD02Npj020Jc_iX5QtnUrNc6A8RIAOR6",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 2
+    },
+    {
+      "id": "pranchas-rs-portoal-sr-145-cprm",
+      "title": "Pranchas – RS PORTOAL SR 145 CPRM",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/1WRt9nnjhssFNmLKxQZy6-9B_gcozxBza",
+      "pages": 1,
+      "textPages": 1,
+      "chunks": 2
+    },
+    {
+      "id": "rede-scbn-poa-apresentacao-30-jun-2026",
+      "title": "Rede SCbN POA – apresentação (30 jun 2026)",
+      "owner": "Rede SCbN POA",
+      "kind": "iniciativa",
+      "folder": "1 · Planos e estudos",
+      "source": "https://drive.google.com/file/d/1ehInELHn-uniOh6ian7f8vIvJnGC2gFr",
+      "pages": 20,
+      "textPages": 16,
+      "chunks": 16
+    },
+    {
+      "id": "regeneradiluvio-01-estudos-urbanisticos",
+      "title": "RegeneraDiluvio 01 Estudos Urbanisticos",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/17T4IgOxGWTXwUZzmHr7HMmIJzN5IYC1Y",
+      "pages": 243,
+      "textPages": 230,
+      "chunks": 423
+    },
+    {
+      "id": "regeneradiluvio-04-estudos-ambientais-saneamento-drenagem",
+      "title": "RegeneraDiluvio 04 Estudos Ambientais Saneamento Drenagem",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/1F8uninp0vLLVcd7rShteHl_hAvkajqqu",
+      "pages": 32,
+      "textPages": 25,
+      "chunks": 39
+    },
+    {
+      "id": "regeneradiluvio-06-1-minuta-projeto-de-lei-ouc",
+      "title": "RegeneraDiluvio 06.1 Minuta Projeto de Lei OUC",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/10miuH1ucXUY3RtO7i_lMAc1LJRjAiYWf",
+      "pages": 35,
+      "textPages": 35,
+      "chunks": 58
+    },
+    {
+      "id": "regeneradiluvio-apresentacao-consulta-publica-2025-03-13",
+      "title": "RegeneraDiluvio Apresentacao Consulta Publica 2025-03-13",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/1ndyhnnI0k47U1s8LHKpkXVFiWhJm2_kk",
+      "pages": 82,
+      "textPages": 67,
+      "chunks": 68
+    },
+    {
+      "id": "regeneradiluvio-avisos-audiencia-publica",
+      "title": "RegeneraDiluvio Avisos Audiencia Publica",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/1Jrg-wEUZfbjkQHVPoWQYc2qUibkAbsTB",
+      "pages": 6,
+      "textPages": 6,
+      "chunks": 10
+    },
+    {
+      "id": "regeneradiluvio-eia-vol1-diagnostico-2026-03-30",
+      "title": "RegeneraDiluvio EIA Vol1 Diagnostico 2026-03-30",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/1eCbdzLVFW8mkF_gXx3ukjjojujaG3eE8",
+      "pages": 546,
+      "textPages": 541,
+      "chunks": 802
+    },
+    {
+      "id": "regeneradiluvio-eia-vol4-intervencoes",
+      "title": "RegeneraDiluvio EIA Vol4 Intervencoes",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/12Bj0uSAPHYBb_KXMxwLZS7uX3OpthVPb",
+      "pages": 848,
+      "textPages": 746,
+      "chunks": 1288
+    },
+    {
+      "id": "regeneradiluvio-rima-2026-03-30",
+      "title": "RegeneraDiluvio RIMA 2026-03-30",
+      "owner": "SMAMUS (Regenera Dilúvio)",
+      "kind": "projeto",
+      "folder": "1 · Planos e estudos/Regenera Dilúvio",
+      "source": "https://drive.google.com/file/d/10IxEEr_ebZVRsLDBM1HXT4M9jlox_zeE",
+      "pages": 34,
+      "textPages": 31,
+      "chunks": 68
+    },
+    {
+      "id": "relatorio-relatorio-porto-alegre-2024-complementar",
+      "title": "Relatório – Relatório Porto Alegre 2024 complementar",
+      "owner": "Serviço Geológico do Brasil / Defesa Civil",
+      "kind": "plano",
+      "folder": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)",
+      "source": "https://drive.google.com/file/d/10ZDkimy9HH60071Ja6SGucrq-ajfQU6P",
+      "pages": 25,
+      "textPages": 22,
+      "chunks": 38
+    }
+  ],
+  "layers": [
+    {
+      "id": "cotas-inundacao",
+      "title": "Cotas de inundação do Guaíba (10 cm a 6 m)",
+      "owner": "SMAMUS",
+      "topic": "agua",
+      "mode": "lowest-level",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/inund_10cm_5m_res_horiz.geojson"
+      ],
+      "features": 37,
+      "source": "https://drive.google.com/file/d/1-z7CmsB4KQo-BdCLdT3EKKFxS7E8Eco2"
+    },
+    {
+      "id": "polder",
+      "title": "Pôlderes do Sistema de Proteção contra Cheias",
+      "owner": "DMAE / SMAMUS",
+      "topic": "agua",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/base_reconstrucao__Sistema_de_Prote_o_Mancha.geojson"
+      ],
+      "features": 22,
+      "source": "https://drive.google.com/file/d/1oECr3z03cZW_LLskQ89IeymxpGh16Z2F"
+    },
+    {
+      "id": "obras-polder",
+      "title": "Obras nos pôlderes (2025–2027)",
+      "owner": "DMAE",
+      "topic": "obras",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/DelimitacaoPolderes_V2_160326.geojson",
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/Obras_Localizadas___P_lder_3_060326.geojson",
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/Obras_Localizadas___P_lder_4_060326.geojson"
+      ],
+      "features": 12,
+      "source": "https://drive.google.com/file/d/1ck8ih9vD81kjcbkS9GwlkhrEMlLXQzmg"
+    },
+    {
+      "id": "ebap-contribuicao",
+      "title": "Áreas de contribuição das casas de bombas (EBAPs)",
+      "owner": "DMAE",
+      "topic": "agua",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/reas_de_Contribui_o_EBAPs_170326.geojson"
+      ],
+      "features": 23,
+      "source": "https://drive.google.com/file/d/1Zuc8rhdRbrKvj-w0jBbvxK6Y3ZjnYQWJ"
+    },
+    {
+      "id": "subbacia",
+      "title": "Sub-bacias hidrográficas",
+      "owner": "SMAMUS",
+      "topic": "agua",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/subbacias_poa_2008.geojson"
+      ],
+      "features": 123,
+      "source": "https://drive.google.com/file/d/1deGeLrWh1GjxHPIcFLVzGOmdZxGv7DsC"
+    },
+    {
+      "id": "app",
+      "title": "Áreas de Preservação Permanente (cursos d’água e nascentes)",
+      "owner": "SMAMUS",
+      "topic": "agua",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/app_cursos_dagua.geojson"
+      ],
+      "features": 1824,
+      "source": "https://drive.google.com/file/d/1Df75U2bUfRMTe9e3GtK2ZwaRpoze3WTV"
+    },
+    {
+      "id": "potencial-banhado",
+      "title": "Potencial de banhado (áreas úmidas)",
+      "owner": "SMAMUS (Profill, 2022)",
+      "topic": "agua",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/ram_pot_banhado_2022.geojson"
+      ],
+      "features": 1583,
+      "source": "https://drive.google.com/file/d/16xflyl7AYL-cSN2pe10Y0sUD63LWmxWX"
+    },
+    {
+      "id": "pontos-alagamento",
+      "title": "Pontos de alagamento",
+      "owner": "SMAMUS",
+      "topic": "agua",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/PontosdeAlagamento_Clip.geojson"
+      ],
+      "features": 9,
+      "source": "https://drive.google.com/file/d/1yBtYXOuizAp1gIdKuXhb97aT-iPwcQxL"
+    },
+    {
+      "id": "diques",
+      "title": "Diques",
+      "owner": "DMAE",
+      "topic": "agua",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/Diques_170326.geojson"
+      ],
+      "features": 48,
+      "source": "https://drive.google.com/file/d/1BJFK2kNMKz1So55aVImqjkksRDYY9eUg"
+    },
+    {
+      "id": "erosao",
+      "title": "Suscetibilidade à erosão",
+      "owner": "SMAMUS (2022)",
+      "topic": "risco",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Risco geológico e erosão/suscetibilidade_erosao_2022.geojson"
+      ],
+      "features": 212,
+      "source": "https://drive.google.com/file/d/18a0zYaPTkumukJXVZ0wq-56Vd7338Gcu"
+    },
+    {
+      "id": "socioambiental",
+      "title": "Levantamento socioambiental de áreas de risco",
+      "owner": "SMAMUS",
+      "topic": "risco",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/levant_socio_ambiental.geojson"
+      ],
+      "features": 21,
+      "source": "https://drive.google.com/file/d/1a9RVJPEekpSvt-aXLmFNZNYQSZV2rm05"
+    },
+    {
+      "id": "corredor-ecologico",
+      "title": "Corredores ecológicos propostos",
+      "owner": "SMAMUS (Profill, 2022)",
+      "topic": "verde",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/corredores_eco_proposta.geojson"
+      ],
+      "features": 6,
+      "source": "https://drive.google.com/file/d/18OzCOuDUsdEH-Chx9dt4a_q9kVqMy_lq"
+    },
+    {
+      "id": "unidade-conservacao",
+      "title": "Unidades de conservação",
+      "owner": "SMAMUS",
+      "topic": "verde",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/ucs_limites.geojson"
+      ],
+      "features": 5,
+      "source": "https://drive.google.com/file/d/1Z-tmRSZ15gKyCQVSFJXmYXkkEgUQSoJ6"
+    },
+    {
+      "id": "pracas-parques",
+      "title": "Praças e parques municipais",
+      "owner": "SMAMUS",
+      "topic": "verde",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/PRACAS_E_PARQUES_MUNICIPAIS_v2.geojson"
+      ],
+      "features": 704,
+      "source": "https://drive.google.com/file/d/1PUcjTpY8miw2HyM1i_OMg_6gNl6nYS2m"
+    },
+    {
+      "id": "area-recuperacao",
+      "title": "Áreas passíveis de recuperação",
+      "owner": "SMAMUS (Profill, 2022)",
+      "topic": "verde",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/ram_area_passivel_rec_2022.geojson"
+      ],
+      "features": 7524,
+      "source": "https://drive.google.com/file/d/1Mmxm-yYQOYALy8v6gaAJu_6tvcggxWDH"
+    },
+    {
+      "id": "tuneis-verdes",
+      "title": "Túneis verdes (eixos de urbanidade)",
+      "owner": "SMAMUS",
+      "topic": "verde",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/T_nel_Verde_AvPol_nia_160326.geojson",
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/T_nel_Verde_LeopoldoFroes_160326.geojson",
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/T_nel_verde_RuaParaiba_160326.geojson"
+      ],
+      "features": 3,
+      "source": "https://drive.google.com/file/d/1G1zz4lkr-52r9ud0n1zt4NAfz40zgdIF"
+    },
+    {
+      "id": "corredor-verde",
+      "title": "Corredor Verde",
+      "owner": "SMAMUS",
+      "topic": "verde",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/Corredor_Verde_160126.geojson"
+      ],
+      "features": 1,
+      "source": "https://drive.google.com/file/d/1KM0Mw_fqhwacovV8yNJnAsam_AMIJA-W"
+    },
+    {
+      "id": "caminhos-sustentaveis",
+      "title": "Caminhos Sustentáveis",
+      "owner": "SMAMUS",
+      "topic": "verde",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/Caminhos_Sustent_veis_160126.geojson"
+      ],
+      "features": 32,
+      "source": "https://drive.google.com/file/d/1aACRyfwpSf_XeqCwuVK6ShqomLAkmK3o"
+    },
+    {
+      "id": "aeis-reurb",
+      "title": "AEIS e regularização fundiária (REURB)",
+      "owner": "SMAMUS / DEMHAB",
+      "topic": "territorio",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Habitação e assentamentos/lim_aeis_x_reurb_2023.geojson"
+      ],
+      "features": 73,
+      "source": "https://drive.google.com/file/d/1PUWo24klwuv6WSsMqz464gwwKYPlLaLT"
+    },
+    {
+      "id": "vilas-irregulares",
+      "title": "Núcleos e vilas irregulares",
+      "owner": "DEMHAB (2022)",
+      "topic": "territorio",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Habitação e assentamentos/Vilas_Irregulares_DEMHAB_16_12_2022_TMPOA_pl.geojson"
+      ],
+      "features": 564,
+      "source": "https://drive.google.com/file/d/1BZlapobomJCFQLFxmQ6KFDFismoshB5X"
+    },
+    {
+      "id": "loteamentos-irregulares",
+      "title": "Loteamentos irregulares",
+      "owner": "DEMHAB (2022)",
+      "topic": "territorio",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Habitação e assentamentos/Loteamentos_Irregulares_DEMHAB_22_03_2022_TMPOA_pl.geojson"
+      ],
+      "features": 223,
+      "source": "https://drive.google.com/file/d/1wAh8i4-oEFo23imFb_4RdwXK3TaSAqlZ"
+    },
+    {
+      "id": "upl",
+      "title": "Unidades de Planejamento Local (Plano Diretor 2025)",
+      "owner": "SMAMUS",
+      "topic": "territorio",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Plano Diretor 2025/pdus_anexo04_upl.geojson"
+      ],
+      "features": 50,
+      "source": "https://drive.google.com/file/d/1wlOvo2MWMHRdYzOXT6SEFwuz4DfoqCDb"
+    },
+    {
+      "id": "transformacao-urbana",
+      "title": "Projetos de transformação urbana",
+      "owner": "Prefeitura (hub de reconstrução)",
+      "topic": "obras",
+      "mode": "contains",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_transf_urb__Transforma_o_Urbana.geojson"
+      ],
+      "features": 5,
+      "source": "https://drive.google.com/file/d/1wfc7Y9WzE2IJtvX_LRNZuaWdk-TqphpU"
+    },
+    {
+      "id": "centro-4d",
+      "title": "Intervenções financiadas (Banco Mundial / AFD, Centro+4D)",
+      "owner": "Prefeitura (SMPG)",
+      "topic": "obras",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/smpg_financiamentos_19_03_2026.geojson"
+      ],
+      "features": 48,
+      "source": "https://drive.google.com/file/d/1qAxpfPFGUdPgeiP9NCIPObiRuQLkuIl6"
+    },
+    {
+      "id": "reconstrucao",
+      "title": "Equipamentos na base de reconstrução e prevenção",
+      "owner": "Prefeitura (hub de reconstrução)",
+      "topic": "obras",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/base_reconstrucao__infraestrutura_centroid.geojson"
+      ],
+      "features": 313,
+      "source": "https://drive.google.com/file/d/1fFZcVV7QVa15WCRwFqyzZp1a94Zi7tqh"
+    },
+    {
+      "id": "pracas-4d",
+      "title": "Projetos de praças no 4º Distrito",
+      "owner": "SMAMUS",
+      "topic": "obras",
+      "mode": "near",
+      "files": [
+        "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/levantamento_projetos_pracas_4d.geojson"
+      ],
+      "features": 11,
+      "source": "https://drive.google.com/file/d/1BV8HA5Bl0ytmOurLxalLyyqdQonRbH65"
+    }
+  ],
+  "sheet": "knowledge/porto-alegre/plans/iniciativas.csv",
+  "placActions": "knowledge/porto-alegre/city/plac-acoes.json",
+  "contextModel": "claude-haiku-5-5",
+  "contextMissing": 0,
+  "skipped": [
+    {
+      "file": "1 · Planos e estudos/Plano Diretor 2025 (PDUS e LUOS, sancionados 14 jul 2026)/PDUS_2025_Anexo2_Modelo_Ocupacao.pdf",
+      "reason": "nenhuma página com texto (2 páginas — PDF escaneado ou só imagens)"
+    },
+    {
+      "file": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)/SGB_setorizacao_risco_POA_2013_sig.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "1 · Planos e estudos/SGB – Setorização de riscos Porto Alegre 2024 (complementar)/SGB_setorizacao_risco_POA_revisita2018_sig.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/areas-umidas_OSM.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/bairros-com-indicadores-de-risco_COUGAR.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Cheias 2024 – banco IPH-UFRGS/cheias_2024_RH_Guaiba_IPH_UFRGS_banco_v1.4.gpkg",
+      "reason": "GeoPackage (banco IPH-UFRGS): leitura ainda não implementada"
+    },
+    {
+      "file": "2 · Dados geográficos/Cheias 2024 – banco IPH-UFRGS/cheias_2024_RH_Guaiba_IPH_UFRGS_glossario_v1.4.csv",
+      "reason": "formato não lido (.csv)"
+    },
+    {
+      "file": "2 · Dados geográficos/Cheias 2024 – banco IPH-UFRGS/deslizamentos_2024_RH_Guaiba_NASA.gpkg",
+      "reason": "GeoPackage (banco IPH-UFRGS): leitura ainda não implementada"
+    },
+    {
+      "file": "2 · Dados geográficos/escolas_OSM.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/hospitais_OSM.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/inundacao-2024-05-06_Planet-SkySat.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/limite-municipal_OSM.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/MapBiomas/MapBiomas_Col11_cobertura_estados_municipios.xlsx",
+      "reason": "tabela estadual/municipal sem pergunta por lugar"
+    },
+    {
+      "file": "2 · Dados geográficos/parques_OSM.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Rede-SCbN-POA_organizacoes.kmz",
+      "reason": "mapa da Rede: as organizações já estão na plataforma"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/base_reconstrucao__Base_Infraestrutura.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/base_reconstrucao__Base_Preven_o.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/base_reconstrucao__Reconstru_o.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_base_financeiro__Base_da_Infraestrutura.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_base_financeiro__Financeiro.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_base_financeiro__Pror_Mapeadas_N_m_Equipamentos.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_base_financeiro__Recursos_Financeiros.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__Demanda_Encaminhada.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__Demanda_Mapeada.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__Demanda.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__DEMHAB_Reconstru_o.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__Oferta_Faixa_1.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__Oferta_Faixa_2.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_habitacao__Tabela_Demanda.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_transf_urb__A_es.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_transf_urb__Demanda_Mapeada.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/hub_transf_urb__Projetos.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Ações do PLAC, obras e projetos da Prefeitura/Urbanismo_T_tico___Financiamento_6_5_mi_160326.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/app_recursos_hidricos_2024.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/hidro_drenagem_superf_diag.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/hidro_drenagem_superf_profill.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/hidro_massa_dagua_2018_a.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/hidro_nascentes_p.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/ram_hidrografia_2022.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Água, APPs e áreas úmidas/ram_integridade_app_subbacia.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Bairros e limites/BAIRROS_POA_DENSIDADE_DEMOGR_2022.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Bairros e limites/lim_municipal.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/bairros_afetados.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/canal.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/cota_535.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/cotas_inundacao_300_535.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/cronologia_cheia24.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/Drenagem.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/inundacoes_cprm.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/Localiza_o_EBAPs_170326.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/populacao_afetada.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Inundação 2024 e proteção contra cheias/Situa_o_Comportas_170326.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Observatório urbano/observatorio_urbano__ou_camadas.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Observatório urbano/observatorio_urbano__ou_cidade_valores.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Observatório urbano/observatorio_urbano__ou_cidades.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Observatório urbano/observatorio_urbano__ou_eixos.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Observatório urbano/observatorio_urbano__ou_indicadores.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Observatório urbano/observatorio_urbano__ou_objetivos.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Plano Diretor 2025/pdus_anexo02_setores.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Plano Diretor 2025/pdus_anexo03_macrozonas.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Plano Diretor 2025/pdus_anexo5_zonasdeocupacao.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Risco geológico e erosão/analise_risco_geologico_cprm.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Risco geológico e erosão/movimento_massa_cprm.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Risco geológico e erosão/ram_area_risco_cprm.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/acoes_corredores_profill_2022.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/apcb_pampa_mma_2018.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/corredores_eco.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/Gravames_verdes.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/LOGRADOUROS_TUNEL_VERDE.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/luos_anexo01_areas_verdes.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/luos_anexo01_unidades_conservacao.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/pddua_revi_corredor_ecologico.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/pot_conex_frag_profill_2022.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/ucs_10k.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Servidor SMAMUS (ArcGIS)/Verde, parques e corredores ecológicos/vegetacao_fitofisionomias.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/setores-de-risco_SGB-CPRM.geojson",
+      "reason": "camada sem pergunta por lugar (fica no Drive; ver shared/city-layers.ts)"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_AEIS_areas_especiais_interesse_social_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_APP_areas_preservacao_permanente_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_APP_metadados.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_bairros_oficiais_LC12112_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_bairros_oficiais_metadados.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_eixos_logradouros_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_PDDUA_vigente_anexo1.1_zoneamento_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_PDDUA_vigente_anexo1.2_regime_urbanistico.xlsx",
+      "reason": "tabela estadual/municipal sem pergunta por lugar"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_PDDUA_vigente_metadados.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_regioes_orcamento_participativo_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/Shapefiles oficiais (dados abertos POA)/geo_regioes_planejamento_shp.zip",
+      "reason": "shapefile compactado: as mesmas camadas vieram do servidor da SMAMUS em GeoJSON"
+    },
+    {
+      "file": "2 · Dados geográficos/SMAMUS ARVC 2023 – rasters oficiais (EPSG 31997).zip",
+      "reason": "rasters ARVC já integrados ao mapa (knowledge/official-risk)"
+    },
+    {
+      "file": "FONTES – de onde veio cada arquivo",
+      "reason": "documento da coordenação (LEIA-ME / FONTES), não é fonte"
+    },
+    {
+      "file": "LEIA-ME",
+      "reason": "documento da coordenação (LEIA-ME / FONTES), não é fonte"
+    }
+  ]
+}

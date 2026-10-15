@@ -19,6 +19,7 @@
     "e4:fuzz": "tsx scripts/e4-fuzz.ts",
     "osm:refresh": "tsx scripts/refresh-osm-snapshots.ts",
     "official-risk:refresh": "tsx scripts/refresh-official-risk.ts",
+    "city:import": "tsx scripts/import-city-folder.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:e2e": "playwright test --project=chromium",

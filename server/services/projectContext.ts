@@ -18,6 +18,7 @@
 // be in a room together, and the room is the project.
 // ============================================================================
 
+import { cityMapFor } from './siteContext';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import { cohortMembers, cohortProjects, cohorts, type CohortProject } from '@shared/cohort-schema';
@@ -105,6 +106,7 @@ export async function loadProjectMembers(project: CohortProject): Promise<Projec
       tenure: facts?.tenure ?? null,
       currentUse: facts?.currentUse ?? null,
       photoNotesPt: facts?.photoNotesPt ?? [],
+      cityMapPt: cityMapFor(site).map(x => x.text),
       worry: worries[0] ?? null,
       familias: facts?.familias ?? [],
       solutions: facts?.solutions ?? [],

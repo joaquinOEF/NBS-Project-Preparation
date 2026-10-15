@@ -120,6 +120,21 @@ app.use((req, res, next) => {
         .then(m => m.runPhotoCaptionBackfillAtBoot())
         .catch(err => console.error('[photo-captions] boot hook failed:', err?.message || err));
 
+      // The city context base (knowledge/porto-alegre/city) is ~1.5 s of
+      // parsing the first time it is read. Paid here, after the server is
+      // listening, so no organisation's turn or coordinator's board waits on
+      // it. A missing or broken file costs its own lines, never the boot.
+      setTimeout(() => {
+        void Promise.all([import('./services/cityDocs'), import('./services/siteContext')])
+          .then(([docs, site]) => {
+            const t0 = Date.now();
+            const n = docs.cityPassageCount();
+            site.siteFacts(-30.03, -51.22);
+            console.log(`[city] base carregada: ${n} trechos e as camadas do mapa em ${Date.now() - t0}ms`);
+          })
+          .catch(err => console.error('[city] warm-up failed:', err?.message || err));
+      }, 2000);
+
       void import('./services/bairroRiskBackfill')
         .then(m => m.runBairroRiskBackfillAtBoot())
         .catch(err => console.error('[bairro-risk] boot hook failed:', err?.message || err));

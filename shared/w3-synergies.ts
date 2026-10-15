@@ -170,6 +170,12 @@ export interface SynergyMember {
    * cross-organisation prompt cannot. See docs/context-first.md.
    */
   photoNotesPt: string[];
+  /**
+   * What the city's map layers say at the marked site — polder, sub-basin,
+   * APP, REURB area, corridor, works nearby (server/services/siteContext.ts).
+   * Public map facts about a place, not anything the organisation said.
+   */
+  cityMapPt?: string[];
 }
 
 export type GroupAxis = 'territory' | 'mechanism' | 'arrangement';
@@ -574,6 +580,8 @@ export type SynergyFacts = {
   correctionsPt: string | null;
   /** Pre-digested photograph observations — see the doc on SynergyMember. */
   photoNotesPt: string[];
+  /** Filled server-side after synergyFactsFrom (siteContext.ts needs the layers on disk). */
+  cityMapPt?: string[];
   /** What Encontro 3 concluded, and this pass could not previously see. */
   approvalInstruments: string[];
   fundingOpen: string[];

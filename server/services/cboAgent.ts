@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { cityMapFor } from './siteContext';
+import { searchCityDocs } from './cityDocs';
 import type { Response } from "express";
 import {
   type CboState,
@@ -1259,7 +1261,7 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
   // topic and get an excerpt, instead of guessing a path. Mirrors Funga.
   const searchKnowledge = sdkTool(
     "search_knowledge",
-    "Search the knowledge base (interventions, co-benefits, financing sources, evidence, Brazilian case studies, Porto Alegre context) by topic/keyword and get the most relevant files with an excerpt. Use this to find the right file before read_knowledge, and especially to answer an 'I don't know / help me' question.",
+    "Search the knowledge base (interventions, co-benefits, financing sources, evidence, Brazilian case studies, Porto Alegre context) AND the city's own documents (the PLAC climate plan, the 2025 Plano Diretor, Regenera Dilúvio, the World Bank Centro+4D project, SGB risk mapping) by topic/keyword and get the most relevant files with an excerpt. Use this to find the right file before read_knowledge, and especially to answer an 'I don't know / help me' question.",
     { query: z.string().describe("Topic to look up, e.g. 'rain garden cost' or 'funding for community gardens'") },
     async (args: any) => {
       const files = await getKnowledgeFiles();
@@ -1269,12 +1271,18 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
         .filter(x => x.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, 6);
-      if (scored.length === 0) {
+      // The city's own documents (PLAC, Plano Diretor 2025, Regenera Dilúvio,
+      // Centro+4D, SGB, PMSB — imported by `npm run city:import`): passages,
+      // with document and page, so an answer about "what the city plans here"
+      // names its source instead of guessing.
+      const city = searchCityDocs(args.query, { k: 4, perDoc: 2 });
+      if (scored.length === 0 && city.length === 0) {
         return { content: [{ type: "text" as const, text: `No knowledge files matched "${args.query}".` }] };
       }
       const lines = scored.map(({ f, score }) =>
         `### ${f.path} (score ${score})${f.whenToUse ? `\n_${f.whenToUse}_` : ''}\n${extractExcerpt(f.content, terms)}`);
-      return { content: [{ type: "text" as const, text: `Top knowledge matches for "${args.query}":\n\n${lines.join('\n\n')}\n\nThe path is folder/file — use read_knowledge(folder, file) for the full file.` }] };
+      const cityLines = city.map(h => `### ${h.title}, p. ${h.page} (${h.owner})${h.ctx ? `\n_${h.ctx}_` : ''}\n${extractExcerpt(h.text, terms, 700)}`);
+      return { content: [{ type: "text" as const, text: `Top knowledge matches for "${args.query}":\n\n${lines.join('\n\n')}${cityLines.length ? `\n\n## City documents (cite as "document, p. N")\n\n${cityLines.join('\n\n')}` : ''}\n\nThe path is folder/file — use read_knowledge(folder, file) for the full file.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -1805,6 +1813,9 @@ async function buildFamiliaReco(
     // "ano passado a gente plantou e morreu tudo" — and it was the last thing
     // in the record that this pass could not see.
     saidInChat: canRun ? recentUserTurns(cboId) : [],
+    // The city's map layers at the marked site: inside an APP, a polder, a
+    // REURB area — facts that rule families in or out before anyone visits.
+    cityMap: canRun ? cityMapFor(Object.fromEntries(Object.entries(state.sections.intervention_site?.fields ?? {}).map(([k, f]: [string, any]) => [k, f?.value == null ? undefined : String(f.value)]))).map(x => x.text) : [],
   });
 
   // Record what was served and what the arithmetic alone would have said.
@@ -3784,7 +3795,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     normChip,
     extras: async () => {
       const full = await prenoteInputFor(cboId, state.sections, lang === 'en' ? 'en' : 'pt', { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
-      return { photos: full.photos, cohort: full.cohort };
+      return { photos: full.photos, cohort: full.cohort, cityMap: full.cityMap };
     },
     startAuthoring: () => { void runPrenoteAuthor(cboId); },
   };
@@ -4247,10 +4258,15 @@ async function runW3DigInner(cboId: string, round: 1 | 2): Promise<void> {
     // already want to build, in their own words, at length — and a question
     // that ignores it asks them to say again what they already wrote down.
     const withDocs = docs.filter((d: any) => d.fullText);
-    const record = withDocs.length
+    // The city's map layers at the marked site — a question can start there
+    // ("o lugar fica em APP — vocês sabiam?"), and it is a public fact, never
+    // something they are supposed to have said.
+    const siteRec = Object.fromEntries(Object.entries(state.sections?.intervention_site?.fields ?? {}).map(([k, f]: [string, any]) => [k, f?.value == null ? undefined : String(f.value)]));
+    const mapLines = cityMapFor(siteRec).map(x => `- ${x.text} (${x.source})`);
+    const record = (withDocs.length
       ? bundle + '\n\n# O QUE ELAS MESMAS ESCREVERAM\n' +
         withDocs.map((d: any) => '### ' + d.filename + '\n' + String(d.fullText).slice(0, 12_000)).join('\n\n')
-      : bundle;
+      : bundle) + (mapLines.length ? `\n\n# O LUGAR NOS MAPAS DA PREFEITURA (fatos públicos, não ditos por elas)\n${mapLines.join('\n')}` : '');
 
     const type: any = state.sections?.intervention_type?.fields ?? {};
     const already = parseDig(String(type.dig_json?.value ?? ''));
@@ -4392,6 +4408,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
       cohort: await cohortLinesFor(cboId, lang).catch(() => []),
+      cityMap: cityMapFor(site),
     }, lang);
 
     const out = await authorConceptNote(note, lang);

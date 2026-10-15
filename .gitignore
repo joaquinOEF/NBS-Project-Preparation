@@ -30,3 +30,6 @@ knowledge/runs/cbo-*/
 
 # screenshots produced by the synergy shot harness (scratch)
 shots/
+
+# scripts/import-city-folder.ts download cache
+/.cache/

@@ -34,6 +34,7 @@
 //               no single org could ever reach on its own.
 // ============================================================================
 
+import { cityMapFor } from './siteContext';
 import { z } from 'zod';
 import { createStructured, structuredProvider, type ContentPart } from './structuredModel';
 import { withBudget } from './passBudget';
@@ -231,6 +232,11 @@ export function verifyQuote(quote: string, documentText: string): boolean {
  */
 export function buildPrompt(input: AdvisorInput): string {
   const { state, orgName, messages, docs, questionCtx, cohort } = input;
+  // What the city's map layers say at the marked site (siteContext.ts): APP,
+  // polder, REURB area, corridor, works nearby. A gap or a strength the
+  // advisor names can rest on these, with the layer as its basis.
+  const mapFacts = cityMapFor(Object.fromEntries(Object.entries((state as any).sections?.intervention_site?.fields ?? {}).map(([k, f]: [string, any]) => [k, f?.value == null ? undefined : String(f.value)])))
+    .map(x => `- ${x.text} (${x.source})`);
 
   const theirs = buildContextMarkdown({
     orgName,
@@ -355,6 +361,7 @@ ${a.text}`)
     `\n# CATÁLOGO DE SOLUÇÕES (use apenas estes ids)\n${catalogue}`,
     docText ? '\n# O QUE ELES MESMOS ESCREVERAM (arquivos enviados)\n' + docText : '',
     fichas ? '\n# A SOLUÇÃO QUE ESCOLHERAM (nosso conteúdo revisado)\n' + fichas : '',
+    mapFacts.length ? '\n# O LUGAR NOS MAPAS DA PREFEITURA (fatos públicos sobre o ponto marcado, não ditos pela organização)\n' + mapFacts.join('\n') : '',
     cohort.length ? '\n# AS OUTRAS ORGANIZAÇÕES DESTE GRUPO\n' + cohort.map(c => `- ${c}`).join('\n') : '',
     knowledge,
     '\n# PERGUNTAS DISPONÍVEIS (escolha no máximo 3 destes ids, nada fora da lista)',

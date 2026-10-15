@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { cityDocsVersion } from './cityDocs';
 
 export interface PlanDoc {
   id: string;
@@ -67,6 +68,20 @@ export function loadPlanCorpus(root = ROOT()): PlanDoc[] {
     const title = /^#\s+(.+)$/m.exec(body)?.[1]?.trim() ?? f;
     docs.push({ id: `desk:${f}`, title, kind: f.startsWith('existing') ? 'plano' : 'projeto', source: `knowledge/porto-alegre/${f} (pesquisa de mesa)`, text: body });
   }
+  // The PLAC's 30 actions and the initiatives the city tracks under each, with
+  // stage and contract — imported from SMAMUS's GIS tables (city:import). Short
+  // and structured, so it travels whole: the action numbers are what a link
+  // to the climate plan should name.
+  const plac = path.join(root, 'city', 'plac-acoes.json');
+  if (existsSync(plac)) {
+    const t = JSON.parse(readFileSync(plac, 'utf8'));
+    const brl = (v: unknown) => (Number(v) > 0 ? `R$ ${Math.round(Number(v)).toLocaleString('pt-BR')}` : '');
+    const text = (t.actions ?? []).map((a: any) => [
+      `${a.id} — ${a.text}${a.hazards?.length ? ` (riscos: ${a.hazards.join(', ')})` : ''}`,
+      ...(a.initiatives ?? []).map((i: any) => `  · ${i.name}: ${i.contract}${i.stage ? ` [etapa: ${i.stage}]` : ''}${brl(i.value) ? ` [contrato ${brl(i.value)}]` : ''}${i.start ? ` [${i.start} a ${i.end ?? '?'}]` : ''}`),
+    ].join('\n')).join('\n');
+    docs.push({ id: 'city:plac-acoes', title: 'PLAC — as 30 ações e as iniciativas que a Prefeitura acompanha', owner: 'SMAMUS', kind: 'plano', source: t.source, text });
+  }
   const dir = path.join(root, 'plans');
   if (!existsSync(dir)) return docs;
   for (const f of readdirSync(dir).sort()) {
@@ -108,5 +123,7 @@ export function loadPlanCorpus(root = ROOT()): PlanDoc[] {
 export function corpusVersion(docs: PlanDoc[]): string {
   const h = createHash('sha1');
   for (const d of docs) h.update(d.id).update('\0').update(d.text).update('\0');
+  // The searchable city documents count too: a new import redoes the readings.
+  h.update(`city:${cityDocsVersion()}`);
   return h.digest('hex').slice(0, 12);
 }

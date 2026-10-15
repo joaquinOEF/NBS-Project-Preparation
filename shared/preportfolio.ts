@@ -74,6 +74,13 @@ export interface PortfolioOrg {
   planLinks?: PlanLink[];
   /** A reading is missing or out of date and is being redone. */
   planLinksPending?: boolean;
+  /**
+   * Polder, basin and proposed corridor at the marked site, from the city's
+   * maps (server/services/siteContext.ts) — set by the server. Two sites in the
+   * same polder share a pumping station and a drainage problem regardless of
+   * which bairro they are in.
+   */
+  places?: Partial<Record<'polder' | 'bacia' | 'corredor', string>>;
 }
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && v !== '' && v != null ? n : undefined; };
@@ -141,7 +148,10 @@ export function km(a: { lat?: number; lng?: number }, b: { lat?: number; lng?: n
  */
 export function distance(a: PortfolioOrg, b: PortfolioOrg, prefs: PortfolioPrefs): number {
   const d = km(a, b);
-  const geo = a.bairro && a.bairro === b.bairro ? 0 : d == null ? 0.7 : Math.min(d / 5, 1);
+  const sameWater = (k: 'polder' | 'bacia') => !!a.places?.[k] && a.places[k] === b.places?.[k];
+  const geo = (a.bairro && a.bairro === b.bairro) || sameWater('polder') ? 0
+    : sameWater('bacia') ? Math.min(0.3, d == null ? 0.3 : d / 5)
+    : d == null ? 0.7 : Math.min(d / 5, 1);
   const theme = a.families.some(f => b.families.includes(f)) ? 0 : a.familiaId && a.familiaId === b.familiaId ? 0.5 : 1;
   const w = Math.max(0, Math.min(1, prefs.geoWeight));
   return w * geo + (1 - w) * theme;
@@ -226,6 +236,15 @@ export function reasonFor(members: PortfolioOrg[], lang: Lang = 'pt'): string {
     for (const a of members) for (const b of members) { const d = km(a, b); if (d != null) max = Math.max(max, d); }
     if (max > 0 && max <= 5) parts.push(pt ? `a até ${Math.ceil(max)} km umas das outras` : `within ${Math.ceil(max)} km of each other`);
   }
+  // The city's own water geography, when every member's site is on it.
+  const all = (k: 'polder' | 'bacia' | 'corredor') => {
+    const v = members.map(m => m.places?.[k]);
+    return v.every(x => x && x === v[0]) ? v[0]! : null;
+  };
+  const polder = all('polder'), bacia = all('bacia'), corredor = all('corredor');
+  if (polder) parts.push(pt ? `o mesmo pôlder (${polder})` : `the same polder (${polder})`);
+  else if (bacia) parts.push(pt ? `a mesma bacia (${bacia.replace(/^Arroio /, 'arroio ')})` : `the same basin (${bacia})`);
+  if (corredor) parts.push(pt ? `o mesmo corredor ecológico proposto (${corredor})` : `the same proposed ecological corridor (${corredor})`);
   const shared = (['flood', 'heat', 'landslide'] as HazardKey[]).filter(h => members.every(m => m.families.includes(h)));
   if (shared.length) parts.push(pt ? `o mesmo problema (${shared.map(h => HAZARD_LABEL[h].pt).join(', ')})` : `the same problem (${shared.map(h => HAZARD_LABEL[h].en).join(', ')})`);
   const familias = Array.from(new Set(members.map(m => m.familiaId).filter(Boolean)));

@@ -213,6 +213,10 @@ export function analysisForModel(a: SynergyAnalysis): string {
     // same failing wall is a synergy no field expresses, and these sentences
     // are the only place it exists.
     for (const n of m.photoNotesPt ?? []) L.push(`    📷 nas fotos do lugar: ${n}`);
+    // Public map facts about the marked site (SMAMUS / DMAE layers): the same
+    // polder, sub-basin, corridor or REURB area across organisations is a
+    // shared constraint or a shared ask that no answer they gave expresses.
+    for (const n of m.cityMapPt ?? []) L.push(`    🗺 no mapa da cidade: ${n}`);
     // ⚠️ What Encontro 3 concluded. Until now this pass read the fields and
     // their own words and NOTHING the workshop produced — so the two most
     // poolable things a cohort has, the instrument each project goes through

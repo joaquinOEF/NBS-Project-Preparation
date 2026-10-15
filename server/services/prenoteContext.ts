@@ -16,6 +16,7 @@ import { buildConceptNote } from '@shared/concept-note';
 import { prenoteInputFromSections, prenoteSolution, conceptInputFor, type PrenoteInput } from '@shared/e4-prenote';
 import { listDocumentsForScope, getOrgIdForCboState } from './documentPersistence';
 import { authorConceptNote } from './conceptNoteAuthor';
+import { cityMapFor } from './siteContext';
 
 export const PRENOTE_AUTHOR_MODEL = process.env.PRENOTE_AUTHOR_MODEL || 'claude-opus-5-5';
 
@@ -35,7 +36,11 @@ export async function prenoteInputFor(
     .slice(0, 3)
     .map(d => ({ src: opts.photoUrl(d.id), caption: String(d.summary).trim().slice(0, 220) }));
   const cohort = await opts.cohortLines(cboStateId, lang).catch(() => [] as string[]);
-  return { ...base, photos, cohort };
+  // What the city's own maps say about the marked site — the same lines for the
+  // card, the drawer, the print and the summary, so the authored paragraphs
+  // validate against what prints.
+  const cityMap = cityMapFor(base.site);
+  return { ...base, photos, cohort, cityMap };
 }
 
 /**

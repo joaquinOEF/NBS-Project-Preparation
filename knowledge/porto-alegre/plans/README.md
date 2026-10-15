@@ -22,8 +22,13 @@ refeitas).
   Um PDF vira `.md` com qualquer conversor; o que importa é o texto.
 
 - **A planilha de iniciativas** (Vila Flores + Robson, inclusive empresas que
-  já fazem SbN): exportar como `iniciativas.csv`, com as colunas
+  já fazem SbN): é a planilha "Iniciativas SbN em POA" da pasta do Drive, e
+  `npm run city:import` a grava aqui como `iniciativas.csv`, com as colunas
   `nome, quem executa, tipo, bairro, endereço ou coordenadas, risco, tipo de solução, estágio, link ou documento, contato, observação`.
   Cada linha vira um documento. A coluna `contato` nunca é enviada ao modelo.
 
 A pasta `README.md` é ignorada.
+
+Os documentos longos (PLAC, Plano Diretor, Regenera Dilúvio, Banco Mundial…)
+não ficam aqui: vêm da pasta do Drive para `../city/` e são **buscados** pelo
+cruzamento, não lidos inteiros. Ver `../city/README.md`.

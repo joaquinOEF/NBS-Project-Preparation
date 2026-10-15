@@ -68,25 +68,27 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'planLinks',
     env: 'PREPORTFOLIO_PLAN_LINKS_TIMEOUT_MS',
     capMs: 120_000,
-    measuredMs: 13_104,
+    measuredMs: 24_237,
     measuredOn: '2026-10-15',
     how:
-      'Six live runs on claude-opus-5-5, three Floresta pre-notes against the desk-research corpus (2 documents, ~15 k characters): ' +
-      '9.7, 11.1, 11.2, 11.5, 12.1 and 12.3 s; with the whole-record pre-note (15 Oct) 8.1–13.1 s over six runs. ⚠️ The corpus will grow when the SMAMUS / Coalizão / Regenera documents land in ' +
-      'knowledge/porto-alegre/plans/ (14 k characters per document at most) — measure again then: scripts/plan-links-live.ts.',
+      'With the city context base (15 Oct): the pass searches ~17 k passages (PLAC, Plano Diretor 2025, Regenera Dilúvio, Centro+4D, PMSB) and may search ' +
+      'again up to 4 times before answering. Six live runs on claude-opus-5-5, three Floresta pre-notes with their map lines: 15.1, 15.6, 16.5, 17.9, 23.9 and ' +
+      '24.2 s (0–2 extra searches, 16–31 passages seen, 4 links kept each, none refused). Before the search: 8.1–13.1 s over the desk research alone. ' +
+      'scripts/plan-links-live.ts repeats it.',
     costsWhenItFires: "the organisation shows no connection to the city's plans on the board or the printed pre-portfolio — the Rede's differentiator, silently absent",
     blocking: false,
   },
   {
     id: 'projectNarrative',
     env: 'PREPORTFOLIO_NARRATIVE_TIMEOUT_MS',
-    capMs: 60_000,
-    measuredMs: 18_645,
+    capMs: 75_000,
+    measuredMs: 23_080,
     measuredOn: '2026-10-15',
     how:
       'Five live runs on claude-opus-5-5 (tool offered, not forced — the model refuses a forced one), a three-organisation Floresta project, ' +
       'full pre-notes as facts (~6 k characters): 14.8, 16.4, 16.6, 16.8 and 16.9 s; again on 15 Oct with the pre-note reading the whole record ' +
-      '(organisation, visit reading, notes, cohort counts, funding paths): 17.2, 18.3 and 18.6 s. scripts/project-narrative-live.ts repeats it.',
+      '(organisation, visit reading, notes, cohort counts, funding paths): 17.2, 18.3 and 18.6 s; with the map lines on each pre-note (same EBAP, same sub-basin, the Centro+4D works nearby): 17.2, 18.7, 21.0, 21.4 and 23.1 s. ' +
+      'scripts/project-narrative-live.ts repeats it.',
     costsWhenItFires: 'the project page shows only the arithmetic reason ("mesmo bairro, o mesmo problema") — no title, no synergies, no cautions',
     blocking: false,
   },
