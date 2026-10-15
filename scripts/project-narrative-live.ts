@@ -6,6 +6,7 @@ import { narrativeFacts, buildProjectNarrative } from '../server/services/projec
 import { buildPrenote } from '../shared/e4-prenote';
 import { portfolioOrg, projectCard } from '../shared/preportfolio';
 import { createEmptyCboState } from '../shared/cbo-schema';
+import { cityMapFor, siteGroupsFor } from '../server/services/siteContext';
 
 const mk = (o: Record<string, Record<string, string>>) => { const s = createEmptyCboState('porto-alegre'); for (const [sec, f] of Object.entries(o)) for (const [k, v] of Object.entries(f)) (s.sections as any)[sec].fields[k] = { value: v, confidence: 'high', source: 'user', userEdited: false }; return s.sections; };
 const orgs = [
@@ -13,9 +14,10 @@ const orgs = [
   ['m2', 'COOP20', mk({ org_profile: { org_name: 'COOP20' }, intervention_site: { bairro: 'Floresta', site_name: 'Galpão da Rua Câncio Gomes', _site_lat: '-30.0215', _site_lng: '-51.2050', site_worry: 'alagamento,heat', site_story: 'O galpão alaga e no verão ninguém aguenta trabalhar lá dentro.', land_tenure: 'formal-agreement', beneficiaries_note: '35 cooperados e as famílias deles' }, intervention_type: { solution_tests_json: JSON.stringify([{ solutionId: 'teto-verde', reaction: 'faz-sentido', areaM2: 300, who: 'contratar', testedAt: 'x' }]), _e4_changes: 'temperatura', construction_model: 'contratada', e4_contribution: 'o espaço e dois cooperados de manutenção' }, operations_sustain: { who_maintains: 'nos' } })],
   ['m3', 'Coletivo Rio Vivo', mk({ org_profile: { org_name: 'Coletivo Rio Vivo' }, intervention_site: { bairro: 'Floresta', site_name: 'Praça Florida', _site_lat: '-30.0230', _site_lng: '-51.2010', site_worry: 'alagamento', site_story: 'A praça vira lagoa e a água desce pra Voluntários.', land_tenure: 'public-informal', beneficiaries_note: 'o quarteirão inteiro, umas 120 pessoas' }, intervention_type: { solution_tests_json: JSON.stringify([{ solutionId: 'biovaletas', reaction: 'faz-sentido', areaM2: 200, who: 'nos-com-parceiro', testedAt: 'x' }]), _e4_changes: 'alagamentos', construction_model: 'mista', e4_contribution: 'Nada por enquanto', e4_partners: 'a prefeitura ou uma secretaria' }, operations_sustain: { who_maintains: 'parceria-prefeitura' } })],
 ] as const;
-const pos = orgs.map(([id, name, sec]) => portfolioOrg(id, name, sec));
+const siteOf = (sec: any) => Object.fromEntries(Object.entries(sec.intervention_site.fields).map(([k, v]: any) => [k, v.value]));
+const pos = orgs.map(([id, name, sec]) => ({ ...portfolioOrg(id, name, sec), places: siteGroupsFor(siteOf(sec)) }));
 const card = projectCard(pos.map(p => p.memberId), pos);
-const members = orgs.map(([, name, sec]) => ({ orgName: name, prenote: buildPrenote({ org: {}, site: Object.fromEntries(Object.entries((sec as any).intervention_site.fields).map(([k, v]: any) => [k, v.value])), type: Object.fromEntries(Object.entries((sec as any).intervention_type.fields).map(([k, v]: any) => [k, v.value])), ops: Object.fromEntries(Object.entries((sec as any).operations_sustain.fields).map(([k, v]: any) => [k, v.value])) } as any) }));
+const members = orgs.map(([, name, sec]) => ({ orgName: name, prenote: buildPrenote({ org: {}, site: Object.fromEntries(Object.entries((sec as any).intervention_site.fields).map(([k, v]: any) => [k, v.value])), type: Object.fromEntries(Object.entries((sec as any).intervention_type.fields).map(([k, v]: any) => [k, v.value])), ops: Object.fromEntries(Object.entries((sec as any).operations_sustain.fields).map(([k, v]: any) => [k, v.value])), cityMap: cityMapFor(siteOf(sec)) } as any) }));
 const facts = narrativeFacts(members, card);
 async function main() {
 const n = Number(process.argv[2] ?? 1);

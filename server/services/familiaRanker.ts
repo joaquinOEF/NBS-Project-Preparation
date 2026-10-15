@@ -85,6 +85,8 @@ export interface FamiliaRankerContext {
   docExcerpts?: string[];
   /** What they said in the chat that no field captured. */
   saidInChat?: string[];
+  /** What the city's map layers say at the marked site (siteContext.ts) — an APP or a polder changes which families fit. */
+  cityMap?: string[];
 }
 
 export interface RankedFamiliaItem {
@@ -141,6 +143,7 @@ function buildPrompt(ctx: FamiliaRankerContext): Message[] {
     ctx.baseline.siteName ? `Site: ${ctx.baseline.siteName}` : null,
     ctx.baseline.currentUse ? `What the place is like today: ${ctx.baseline.currentUse}` : null,
     ctx.landTenure ? `Access / tenure: ${ctx.landTenure}` : null,
+    ctx.cityMap?.length ? `What the city's own maps record at the marked site (public map layers, not their words):\n${ctx.cityMap.map(x => `  - ${x}`).join('\n')}` : null,
     ctx.worries?.length ? `What they said worries them here: ${ctx.worries.join(', ')}` : null,
     ctx.corrections && Object.keys(ctx.corrections).length
       ? `How they corrected our figures: ${Object.entries(ctx.corrections).map(([h, v]) => `${h}=${v}`).join(', ')}`

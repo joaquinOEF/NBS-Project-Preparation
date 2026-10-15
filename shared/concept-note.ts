@@ -238,6 +238,14 @@ export interface ConceptNoteFacts {
    */
   cohort: string[];
 
+  /**
+   * What the city's own maps say about the marked site — polder, sub-basin,
+   * APP, REURB area, corridor, the Guaíba level at which it floods, what the
+   * city built or plans nearby. One line per fact, the layer as its source.
+   * Computed by server/services/siteContext.ts; empty when no site is marked.
+   */
+  cityMap: Array<{ text: string; source: string }>;
+
   /** What the organisation itself puts in. Named, never priced. */
   contribution: string[];
   verdict: VerdictState;
@@ -555,6 +563,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     // already de-identified from cohortContext.ts; building any of them from a
     // peer's record at this layer would put a name on someone else's document.
     cohort: (input.cohort ?? []).map(l => String(l).trim()).filter(Boolean),
+    cityMap: (input.cityMap ?? []).filter(x => x?.text && x?.source),
     contribution,
     verdict: portfolioState(dossier.verdicts),
     gaps: dossier.gaps,
@@ -906,6 +915,13 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
           'figure',
         )
       : null,
+    // ⚠️ The site itself, not the bairro average above: what the city's maps
+    // record at the marked point. Each line keeps its own layer as source, so
+    // a reader can check "está no Pôlder EBAP 09" against the DMAE map.
+    f.cityMap.length
+      ? P(pt ? 'No lugar marcado, segundo os mapas da Prefeitura:' : "At the marked site, according to the city's maps:", [pt ? 'mapas da Prefeitura (servidor SIG da SMAMUS)' : "the city's maps (SMAMUS GIS server)"])
+      : null,
+    ...f.cityMap.map(x => P(x.text, [x.source], 'bullet')),
   ]);
 
   // ── 3 · O problema ────────────────────────────────────────────────────────

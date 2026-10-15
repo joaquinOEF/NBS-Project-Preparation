@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { cityMapFor } from '../services/siteContext';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
@@ -704,6 +705,7 @@ export function registerCboRoutes(app: Express): void {
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
       // Same layer the authoring pass saw. See runConceptNoteAuthor.
       cohort: await cohortLinesFor(req.params.id, lang).catch(() => []),
+      cityMap: cityMapFor(site),
     }, lang);
 
     // Prose written at the close, re-checked against the facts as they stand

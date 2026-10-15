@@ -63,6 +63,8 @@ export interface PrenoteInput {
   photos?: Array<{ src: string; caption: string }>;
   /** What this organisation shares with the cohort, as counts (cohortLines). */
   cohort?: string[];
+  /** What the city's maps say about the marked site (server/services/siteContext.ts). */
+  cityMap?: Array<{ text: string; source: string }>;
 }
 
 /** What Encontro 4 stores about the solution it confirmed. */
@@ -73,8 +75,8 @@ export interface E4Solution {
   units?: number;
 }
 
-export type PrenoteSectionId = 'organizacao' | 'problema' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
-export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['organizacao', 'problema', 'solucao', 'impacto', 'indicadores', 'orcamento', 'financiamento', 'parceiros', 'pendencias'];
+export type PrenoteSectionId = 'organizacao' | 'problema' | 'territorio' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
+export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['organizacao', 'problema', 'territorio', 'solucao', 'impacto', 'indicadores', 'orcamento', 'financiamento', 'parceiros', 'pendencias'];
 
 /** The five things Encontro 4 asks — one per gap, in the order it asks them. */
 export type PrenoteGap = 'beneficiarios' | 'mudancas' | 'quem-faz' | 'contrapartida' | 'parceiros';
@@ -257,14 +259,14 @@ export function editIsStale(edit: PrenoteEdit, basis: string): boolean {
 const T = {
   pt: {
     organizacao: 'A organização e o território',
-    problema: 'O problema', solucao: 'A solução', impacto: 'Impacto esperado', indicadores: 'Indicadores',
+    problema: 'O problema', territorio: 'O lugar nos mapas da cidade', solucao: 'A solução', impacto: 'Impacto esperado', indicadores: 'Indicadores',
     orcamento: 'Orçamento básico', financiamento: 'Caminhos de financiamento', parceiros: 'Parceiros e autorizações', pendencias: 'Pendências',
     estimate: 'estimativa técnica', reviewed: (by?: string, at?: string) => `revisada${by ? ` por ${by}` : ''}${at ? ` em ${fmtDate(at)}` : ''}`,
     waived: 'revisão técnica dispensada pela coordenação',
   },
   en: {
     organizacao: 'The organisation and the territory',
-    problema: 'The problem', solucao: 'The solution', impacto: 'Expected impact', indicadores: 'Indicators',
+    problema: 'The problem', territorio: "The site on the city's maps", solucao: 'The solution', impacto: 'Expected impact', indicadores: 'Indicators',
     orcamento: 'Basic budget', financiamento: 'Funding paths', parceiros: 'Partners and approvals', pendencias: 'Open items',
     estimate: 'technical estimate', reviewed: (by?: string, at?: string) => `reviewed${by ? ` by ${by}` : ''}${at ? ` on ${fmtDate(at)}` : ''}`,
     waived: 'technical review waived by the coordination',
@@ -284,6 +286,7 @@ function basisOf(id: PrenoteSectionId, input: PrenoteInput, sol: Prenote['soluti
     organizacao: [JSON.stringify(input.org ?? {}), s.bairro],
     financiamento: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), input.org?.has_cnpj, input.org?.funding_history, (input.cohort ?? []).join('|')],
     problema: [s.site_worry, s.site_story, s.beneficiaries_note],
+    territorio: [(input.cityMap ?? []).map(x => x.text).join('|')],
     solucao: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t.construction_model],
     impacto: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes],
     indicadores: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes, s.beneficiaries_note],
@@ -481,6 +484,13 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   // sourced paragraph, and so does the field registry for every answer that
   // declares where it belongs — so the pre-note takes ITS paragraphs for the
   // chosen solution, placed by section, never a second engine.
+  // ── The site on the city's maps ───────────────────────────────────────────
+  // Its own section, before the record's paragraphs are placed, so the same
+  // lines the concept note prints under "a organização e o território" are
+  // recognised as already said and not repeated there.
+  const cityMap = (input.cityMap ?? []).map(x => W(x.text, x.source));
+  if (cityMap.length) sections.splice(sections.findIndex(x => x.id === 'problema') + 1, 0, { id: 'territorio', title: L.territorio, lines: cityMap, missing: null });
+
   const extra = recordParagraphs(input, sol, lang);
   const seen = new Set<string>();
   const remember = (text: string) => seen.add(normText(text));
@@ -548,6 +558,7 @@ export function conceptInputFor(input: PrenoteInput, sol: NonNullable<Prenote['s
     ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}),
     w3: { ...input.type, ...(input.ops ?? {}), solution_tests_json: JSON.stringify(tests), chosen_solutions: sol.id, ...(sol.units ? { intervention_units: String(sol.units) } : {}) },
     cohort: input.cohort ?? [],
+    cityMap: input.cityMap ?? [],
   };
 }
 
@@ -591,7 +602,8 @@ function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solutio
     ? [{ text: pt ? `Já trabalhou com: ${site.prior_collaboration_detail!.trim()}.` : `Has worked with: ${site.prior_collaboration_detail!.trim()}.`, kind: 'written', source: pt ? 'a organização, Encontro 2' : 'the organisation, Encontro 2' }]
     : [];
   return {
-    organizacao: sec('organizacao').map(line),
+    // The map facts have their own section in the pre-note; their heading line stays in the long note.
+    organizacao: sec('organizacao').filter(p => !/^(No lugar marcado, segundo os mapas|At the marked site, according to)/.test(p.text)).map(line),
     problema: sec('problema').filter(notOwn).map(line),
     solucao: [...sec('intervencao').filter(notDescription).filter(notOwn), ...sec('porque').filter(notOwn)].map(line),
     impacto: sec('resultados').filter(notOwn).filter(notBenefit).map(line),

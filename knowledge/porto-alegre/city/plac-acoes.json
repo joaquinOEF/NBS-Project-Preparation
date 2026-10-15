@@ -1,0 +1,594 @@
+{
+  "source": "SMAMUS — servidor SIG, HUB/base_reconstrucao (Adaptação Climática: Ações e Iniciativas)",
+  "actions": [
+    {
+      "id": "A1",
+      "text": "Reformular e reestruturar o sistema de transporte coletivo público por ônibus e lotações, ampliando a frota de veículos de baixa emissão",
+      "hazards": [],
+      "initiatives": []
+    },
+    {
+      "id": "A2",
+      "text": "Melhorar as condições funcionais e estruturais do sistema viário do município, visando otimização do fluxo e priorização do transporte coletivo público",
+      "hazards": [
+        "calor"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A3",
+      "text": "Ampliar a infraestrutura cicloviária e construir passeios públicos e calçadas acessíveis, priorizando medidas resilientes às ameaças climáticas",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "calor"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A4",
+      "text": "Incentivar e difundir medidas de uso sustentável e racional do transporte motorizado individual",
+      "hazards": [],
+      "initiatives": []
+    },
+    {
+      "id": "A5",
+      "text": "Promover o desenvolvimento do Centro e do 4º Distrito por meio de investimentos na regeneração urbana verde, resiliente às mudanças climáticas e inclusiva",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "calor",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A6",
+      "text": "Fomentar construções sustentáveis e incentivar tecnologias verdes em edifícios públicos, residenciais, comerciais, industriais e de serviços",
+      "hazards": [
+        "tempestade"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A7",
+      "text": "Implementar Plano de transição energética nos prédios e espaços públicos",
+      "hazards": [],
+      "initiatives": []
+    },
+    {
+      "id": "A8",
+      "text": "Implantar o Plano de Logística Sustentável em todos os órgãos da administração pública",
+      "hazards": [
+        "calor",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A9",
+      "text": "Otimizar o sistema de gerenciamento de resíduos sólidos urbanos (RSU), visando ampliar a coleta e reduzir as disposições irregulares",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A10",
+      "text": "Qualificar a estrutura das Unidades de Triagem e de Cooperativas de catadores, visando reduzir a vulnerabilidade desta população",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A11",
+      "text": "Elaborar e implementar o Plano Municipal de Redução de Risco (PMRR) e identificar os grupos populacionais vulneráveis aos riscos climáticos",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento",
+        "calor",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": [
+        {
+          "name": "Plano de Preparação e Mitigação de Desastres e Atualização do Plano de Contingência",
+          "contract": "Elaboração de Modelo de gestão de riscos através de ações de prevenção e preparação da população em momentos de desastre, com a definição de rotas de fuga, centros de abrigo, centros de doações e logística de transporte.",
+          "stage": "Concluído",
+          "value": 350700,
+          "start": "2024-09-13",
+          "end": null
+        }
+      ]
+    },
+    {
+      "id": "A12",
+      "text": "Aperfeiçoar o sistema de previsão, monitoramento hidrometeorológico e alerta para riscos climáticos",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento",
+        "calor",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": [
+        {
+          "name": "Centro de Monitoramento e Contingência Climática",
+          "contract": "Execução e instalação do Centro de Monitoramento e Contingência Climática da SMAMUS",
+          "stage": "Execução",
+          "value": 3763158.5,
+          "start": "2024-07-18",
+          "end": "2025-05-30"
+        },
+        {
+          "name": "Implementação Física do Centro de Monitoramento e Alerta da Defesa Civil (CEMADEC) na sede da Defesa Civil",
+          "contract": "Aquisição dos itens necessários para a implementação física do Centro de Monitoramento e Alerta da Defesa Civil - CEMADEC de Porto Alegre.",
+          "stage": "Execução",
+          "value": 264598.19,
+          "start": "2024-11-30",
+          "end": "2025-11-30"
+        },
+        {
+          "name": "Manutenção do Sistema de Medição, Monitoramento e Alerta para Riscos Climáticos",
+          "contract": "Contratação de empresa para a manutenção do fornecimento de sistema integrado de repressão, monitoramento e atendimento de emergências, composto por módulos eletrônicos de segurança com estações meteorológicas e detector digital de vibrações e impactos, incluindo a operação de Central de Monitoramento e Atendimento, bem como link de dados para conexão dos equipamentos.",
+          "stage": "Execução",
+          "value": 2006804.4,
+          "start": "2026-01-08",
+          "end": "2027-01-08"
+        },
+        {
+          "name": "Monitoramento Meteorológico, Hidrológico e Geológico de Porto Alegre",
+          "contract": "Prestação de serviços especializados necessários para implementação e operação do CEMADEC do Município de Porto Alegre, realizando o monitoramento dos dados hidrometeorológicos provenientes de diversas fontes em tempo contínuo.",
+          "stage": "Execução",
+          "value": 1389996,
+          "start": "2025-01-31",
+          "end": "2026-01-28"
+        },
+        {
+          "name": "Monitoramento de descargas atmosféricas",
+          "contract": "Contratação de empresa para fornecimento de dados em tempo real sobre descargas atmosféricas no Município de Porto Alegre, incluindo a instalação e manutenção de sensor local, além da disponibilização de plataforma para visualização e monitoramento das informações coletadas.",
+          "stage": "Execução",
+          "value": 143880,
+          "start": "2026-02-11",
+          "end": "2027-02-11"
+        },
+        {
+          "name": "Monitoramento de nível da água de corpos hídricos via satélite",
+          "contract": "Contratação de fornecimento de dados, instalação, operação e manutenção de sensores de nível da água refletométrico telemétrico com disponibilização de dados online.",
+          "stage": "Contratação",
+          "value": 2476345.5,
+          "start": null,
+          "end": null
+        },
+        {
+          "name": "Plano de Preparação e Mitigação de Desastres e Atualização do Plano de Contingência",
+          "contract": "Elaboração de Modelo de gestão de riscos através de ações de prevenção e preparação da população em momentos de desastre, com a definição de rotas de fuga, centros de abrigo, centros de doações e logística de transporte.",
+          "stage": "Concluído",
+          "value": 350700,
+          "start": "2024-09-13",
+          "end": null
+        },
+        {
+          "name": "Revitalização Posto de Comando Móvel da Defesa Civil",
+          "contract": "Contratação de empresa para desmontagem, higienização, descontaminação e remontagem do veículo utilizado como unidade móvel da Defesa Civil.",
+          "stage": "Execução",
+          "value": 255719.6,
+          "start": "2025-05-05",
+          "end": "2025-09-05"
+        },
+        {
+          "name": "Sistema de Medição, Monitoramento e Alerta para Riscos Climáticos",
+          "contract": "Auxiliar o Município em suas ações de medição, monitoramento e alertas relacionados a riscos de desastres climáticos (deslizamentos, chuvas e volume de cursos d 'água). Instalação de 10 sensores e 10 réguas linimétricas.",
+          "stage": "Execução",
+          "value": 2444400,
+          "start": "2024-11-29",
+          "end": "2025-11-29"
+        }
+      ]
+    },
+    {
+      "id": "A13",
+      "text": "Construir moradias seguras e executar projetos de reabilitação urbana para populações que vivem em áreas de risco",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A14",
+      "text": "Desenvolver ações de educação ambiental e climática em escolas e comunidades",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento",
+        "calor",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": [
+        {
+          "name": "Revitalização Posto de Comando Móvel da Defesa Civil",
+          "contract": "Contratação de empresa para desmontagem, higienização, descontaminação e remontagem do veículo utilizado como unidade móvel da Defesa Civil.",
+          "stage": "Execução",
+          "value": 255719.6,
+          "start": "2025-05-05",
+          "end": "2025-09-05"
+        }
+      ]
+    },
+    {
+      "id": "A15",
+      "text": "Estabelecer medidas de preparação e resposta emergencial diante da ocorrência de eventos climáticos extremos",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento"
+      ],
+      "initiatives": [
+        {
+          "name": "Plano de Preparação e Mitigação de Desastres e Atualização do Plano de Contingência",
+          "contract": "Elaboração de Modelo de gestão de riscos através de ações de prevenção e preparação da população em momentos de desastre, com a definição de rotas de fuga, centros de abrigo, centros de doações e logística de transporte.",
+          "stage": "Concluído",
+          "value": 350700,
+          "start": "2024-09-13",
+          "end": null
+        },
+        {
+          "name": "Revitalização Posto de Comando Móvel da Defesa Civil",
+          "contract": "Contratação de empresa para desmontagem, higienização, descontaminação e remontagem do veículo utilizado como unidade móvel da Defesa Civil.",
+          "stage": "Execução",
+          "value": 255719.6,
+          "start": "2025-05-05",
+          "end": "2025-09-05"
+        }
+      ]
+    },
+    {
+      "id": "A16",
+      "text": "Criar o Plano de Contingência de Secas e implementar projetos de reuso de água e aproveitamento de água da chuva",
+      "hazards": [
+        "seca"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A17",
+      "text": "Criar o Plano Multisetorial de Resposta a Ondas de Calor e desenvolver as medidas para a operação",
+      "hazards": [
+        "calor"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A18",
+      "text": "Instalar estações meteorológicas e de monitoramento de qualidade do ar e temperatura em áreas críticas",
+      "hazards": [
+        "calor"
+      ],
+      "initiatives": [
+        {
+          "name": "Monitoramento e Qualidade do Ar",
+          "contract": "Engloba o fornecimento de equipamentos para medição de poluentes e parâmetros meteorológicos, incluindo instalação, serviços de operação e manutenção, fornecimento de relatórios mensais e anuais de monitoramento, e disponibilização de plataforma pública online para compartilhamento dos dados levantados.",
+          "stage": "Execução",
+          "value": 2949999.84,
+          "start": "2024-12-03",
+          "end": "2028-12-03"
+        }
+      ]
+    },
+    {
+      "id": "A19",
+      "text": "Capacitar servidores da área de saúde sobre ações de prevenção, orientação, alerta e monitoramento de doenças transmissíveis por vetores de arboviroses",
+      "hazards": [
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A20",
+      "text": "Implementar ações de controle mecânico e bloqueio químico em área(s) com surto de mosquito do tipo arbovírus e orientar a população sobre prevenção às doenças",
+      "hazards": [
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A21",
+      "text": "Ampliar e requalificar infraestruturas de macrodrenagem, com foco nas áreas críticas às inundações e alagamentos",
+      "hazards": [
+        "inundação",
+        "tempestade"
+      ],
+      "initiatives": [
+        {
+          "name": "Adaptação e melhoria do Sistema de Proteção contra cheias",
+          "contract": "Estudo para revisão do Sistema de Proteção Contra Cheia, garantindo novos parâmetros da cota de segurança do sistema, extensão do sistema para as áreas desprotegidas (Zona Sul).",
+          "stage": "Execução",
+          "value": 6816019.57,
+          "start": "2024-11-04",
+          "end": "2026-02-05"
+        },
+        {
+          "name": "Avaliação de Alternativas para Drenagem Urbana da Bacia do Arroio Passo das Pedras",
+          "contract": "Contratação para renovação do Plano Diretor de Drenagem Urbana da Bacia do Arroio Passo das Pedras.",
+          "stage": "Contratação",
+          "value": 2252055.43,
+          "start": null,
+          "end": null
+        },
+        {
+          "name": "Centro de Monitoramento e Contingência Climática",
+          "contract": "Execução e instalação do Centro de Monitoramento e Contingência Climática da SMAMUS",
+          "stage": "Execução",
+          "value": 3763158.5,
+          "start": "2024-07-18",
+          "end": "2025-05-30"
+        },
+        {
+          "name": "Manutenção do Sistema de Medição, Monitoramento e Alerta para Riscos Climáticos",
+          "contract": "Contratação de empresa para a manutenção do fornecimento de sistema integrado de repressão, monitoramento e atendimento de emergências, composto por módulos eletrônicos de segurança com estações meteorológicas e detector digital de vibrações e impactos, incluindo a operação de Central de Monitoramento e Atendimento, bem como link de dados para conexão dos equipamentos.",
+          "stage": "Execução",
+          "value": 2006804.4,
+          "start": "2026-01-08",
+          "end": "2027-01-08"
+        },
+        {
+          "name": "Monitoramento de nível da água de corpos hídricos via satélite",
+          "contract": "Contratação de fornecimento de dados, instalação, operação e manutenção de sensores de nível da água refletométrico telemétrico com disponibilização de dados online.",
+          "stage": "Contratação",
+          "value": 2476345.5,
+          "start": null,
+          "end": null
+        },
+        {
+          "name": "Sistema de Medição, Monitoramento e Alerta para Riscos Climáticos",
+          "contract": "Auxiliar o Município em suas ações de medição, monitoramento e alertas relacionados a riscos de desastres climáticos (deslizamentos, chuvas e volume de cursos d 'água). Instalação de 10 sensores e 10 réguas linimétricas.",
+          "stage": "Execução",
+          "value": 2444400,
+          "start": "2024-11-29",
+          "end": "2025-11-29"
+        }
+      ]
+    },
+    {
+      "id": "A22",
+      "text": "Reestruturar o sistema de proteção contra cheias do município e ampliar a permeabilidade em áreas públicas e privadas",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "seca"
+      ],
+      "initiatives": [
+        {
+          "name": "Adaptação e melhoria do Sistema de Proteção contra cheias",
+          "contract": "Estudo para revisão do Sistema de Proteção Contra Cheia, garantindo novos parâmetros da cota de segurança do sistema, extensão do sistema para as áreas desprotegidas (Zona Sul).",
+          "stage": "Execução",
+          "value": 6816019.57,
+          "start": "2024-11-04",
+          "end": "2026-02-05"
+        }
+      ]
+    },
+    {
+      "id": "A23",
+      "text": "Monitorar a qualidade das águas dos arroios no município e implementar projetos de revitalização das sub-bacias",
+      "hazards": [
+        "inundação",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": [
+        {
+          "name": "Despoluição do Arroio Dilúvio e Criação do Parque Linear",
+          "contract": "Aditivo contratual para a elaboração de projeto básico de parque linear e soluções de drenagem no Arroio Dilúvio e outras infraestruturas.",
+          "stage": "Análise",
+          "value": 1122569.53,
+          "start": "2026-01-04",
+          "end": "2026-12-04"
+        },
+        {
+          "name": "Ecobarreiras",
+          "contract": "Projeto de parceria entre a Prefeitura e o Instituto Safeweb, desde 2016. Equipamento de módulos flutuantes e uma espécie de grade que formam uma barreira ecológica, impedindo a passagem de todo o lixo flutuante.",
+          "stage": "Execução",
+          "value": null,
+          "start": "2016-03-28",
+          "end": null
+        }
+      ]
+    },
+    {
+      "id": "A24",
+      "text": "Ampliar a coleta e tratamento de esgoto no município",
+      "hazards": [],
+      "initiatives": []
+    },
+    {
+      "id": "A25",
+      "text": "Reduzir o desperdício e as perdas de água e garantir o abastecimento para toda a população",
+      "hazards": [
+        "calor",
+        "seca"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A26",
+      "text": "Executar a reestruturação urbana-ambiental na região das ilhas, recuperando sua vegetação nativa e sensibilizando a população no tocante aos riscos ambientais e climáticos que estão submetidos",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "seca",
+        "arboviroses"
+      ],
+      "initiatives": []
+    },
+    {
+      "id": "A27",
+      "text": "Instituir espaços de refúgio do calor e implementar estruturas que amenizem o efeito das ondas de calor em parques, praças, espaços públicos e privados",
+      "hazards": [
+        "calor"
+      ],
+      "initiatives": [
+        {
+          "name": "Ampliação da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Arborização e manutenção pós-plantio nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município.",
+          "stage": "Concluído",
+          "value": 2999999.99,
+          "start": "2024-02-22",
+          "end": "2025-02-21"
+        },
+        {
+          "name": "Continuação da manutenção da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Contratação de empresa para a prestação de serviços continuados referentes à manutenção arbórea pós-plantio nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município de Porto Alegre.",
+          "stage": "Execução",
+          "value": 1181545.96,
+          "start": "2025-08-11",
+          "end": "2026-08-11"
+        },
+        {
+          "name": "Continuação do plantio da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Contratação de empresa para a prestação de serviços continuados referentes à implantação da arborização nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município de Porto Alegre.",
+          "stage": "Execução",
+          "value": 2199999.91,
+          "start": "2025-06-30",
+          "end": "2026-06-30"
+        }
+      ]
+    },
+    {
+      "id": "A28",
+      "text": "Levantar áreas livres com potencial de implantação arbórea e ampliar arborização urbana com espécies nativas adaptadas às condições climáticas",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento",
+        "calor",
+        "seca"
+      ],
+      "initiatives": [
+        {
+          "name": "Ampliação da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Arborização e manutenção pós-plantio nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município.",
+          "stage": "Concluído",
+          "value": 2999999.99,
+          "start": "2024-02-22",
+          "end": "2025-02-21"
+        },
+        {
+          "name": "Continuação da manutenção da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Contratação de empresa para a prestação de serviços continuados referentes à manutenção arbórea pós-plantio nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município de Porto Alegre.",
+          "stage": "Execução",
+          "value": 1181545.96,
+          "start": "2025-08-11",
+          "end": "2026-08-11"
+        },
+        {
+          "name": "Continuação do plantio da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Contratação de empresa para a prestação de serviços continuados referentes à implantação da arborização nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município de Porto Alegre.",
+          "stage": "Execução",
+          "value": 2199999.91,
+          "start": "2025-06-30",
+          "end": "2026-06-30"
+        },
+        {
+          "name": "Cultivo e recepção de espécies da flora nativa resilientes à mudança do clima no viveiro municipal",
+          "contract": "Operação do Viveiro Municipal englobando serviços limpeza, manutenção e conservação da estrutura física interna e externa do Viveiro, e produção de mudas.",
+          "stage": "Execução",
+          "value": 1601886.12,
+          "start": "2023-11-03",
+          "end": "2026-11-02"
+        },
+        {
+          "name": "Despoluição do Arroio Dilúvio e Criação do Parque Linear",
+          "contract": "Aditivo contratual para a elaboração de projeto básico de parque linear e soluções de drenagem no Arroio Dilúvio e outras infraestruturas.",
+          "stage": "Análise",
+          "value": 1122569.53,
+          "start": "2026-01-04",
+          "end": "2026-12-04"
+        },
+        {
+          "name": "Inventário da Arborização Urbana nos espaços públicos",
+          "contract": "Elaboração de inventário quali-quantitativo da arborização de Porto Alegre: cadastro georreferenciado das árvores adultas existentes nos logradouros públicos.",
+          "stage": "Execução",
+          "value": 396899.98,
+          "start": "2024-09-18",
+          "end": "2025-12-09"
+        },
+        {
+          "name": "Monitoramento da arborização em espaços urbanos",
+          "contract": "Implementação de sistema tecnológico de gestão digital da arborização urbana, com fornecimento de licença de uso de software, capacitação e treinamento de pessoal.",
+          "stage": "Execução",
+          "value": 501970.31,
+          "start": "2023-05-09",
+          "end": "2026-04-12"
+        },
+        {
+          "name": "Plano Diretor de Arborização Urbana (PDAU)",
+          "contract": "Contratação de pessoa jurídica para a coordenação e execução das atividades referentes à revisão do Plano Diretor de Arborização Urbana de Porto Alegre",
+          "stage": "Elaboração de TR",
+          "value": 720590.43,
+          "start": null,
+          "end": null
+        }
+      ]
+    },
+    {
+      "id": "A29",
+      "text": "Recompor e preservar vegetação em APPs e UCs e recuperar áreas de nascentes e matas ciliares",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "deslizamento",
+        "calor",
+        "seca"
+      ],
+      "initiatives": [
+        {
+          "name": "Ampliação da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Arborização e manutenção pós-plantio nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município.",
+          "stage": "Concluído",
+          "value": 2999999.99,
+          "start": "2024-02-22",
+          "end": "2025-02-21"
+        },
+        {
+          "name": "Continuação da manutenção da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Contratação de empresa para a prestação de serviços continuados referentes à manutenção arbórea pós-plantio nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município de Porto Alegre.",
+          "stage": "Execução",
+          "value": 1181545.96,
+          "start": "2025-08-11",
+          "end": "2026-08-11"
+        },
+        {
+          "name": "Continuação do plantio da arborização e áreas de sombreamento, principalmente nas áreas mais vulneráveis aos efeitos de onda de calor",
+          "contract": "Contratação de empresa para a prestação de serviços continuados referentes à implantação da arborização nos logradouros públicos, áreas de preservação permanente públicas e próprios municipais do município de Porto Alegre.",
+          "stage": "Execução",
+          "value": 2199999.91,
+          "start": "2025-06-30",
+          "end": "2026-06-30"
+        }
+      ]
+    },
+    {
+      "id": "A30",
+      "text": "Implementar projetos de agroflorestas que estimulem produção de orgânicos, agricultura familiar e ecoturismo",
+      "hazards": [
+        "inundação",
+        "tempestade",
+        "seca"
+      ],
+      "initiatives": []
+    }
+  ]
+}

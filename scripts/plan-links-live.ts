@@ -6,6 +6,7 @@ import { readPlanLinks, prenoteFacts, planLinksKey } from '../server/services/pl
 import { loadPlanCorpus, corpusVersion } from '../server/services/planCorpus';
 import { buildPrenote, prenoteInputFromSections } from '../shared/e4-prenote';
 import { createEmptyCboState } from '../shared/cbo-schema';
+import { cityMapFor } from '../server/services/siteContext';
 
 const mk = (o: Record<string, Record<string, string>>) => { const s = createEmptyCboState('porto-alegre'); for (const [sec, f] of Object.entries(o)) for (const [k, v] of Object.entries(f)) (s.sections as any)[sec].fields[k] = { value: v, confidence: 'high', source: 'user', userEdited: false }; return s.sections; };
 const orgs = [
@@ -19,7 +20,8 @@ async function main() {
   console.log(`corpus: ${docs.length} documento(s) · ${corpusVersion(docs)} · ${docs.map(d => d.title).join(' | ')}`);
   const rounds = Number(process.argv[2] ?? 1);
   for (let r = 0; r < rounds; r++) for (const [, name, sec] of orgs) {
-    const p = buildPrenote(prenoteInputFromSections(sec));
+    const base = prenoteInputFromSections(sec);
+    const p = buildPrenote({ ...base, cityMap: cityMapFor(base.site) });
     const t0 = Date.now();
     const out = await readPlanLinks(name, p, docs, planLinksKey(prenoteFacts(name, p), corpusVersion(docs)));
     console.log(`RUN ${r + 1} ${name} ${Date.now() - t0}ms`, JSON.stringify(out?.links ?? null, null, 1));
