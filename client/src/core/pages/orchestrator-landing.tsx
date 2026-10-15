@@ -137,6 +137,7 @@ type CboDemoProject = {
     gapCount: number;
     coordinationItems: number;
     tested?: number;
+    visit?: { solutionId: string; summary: string } | null;
   };
   docPreview: { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean };
   /** Persisted org maturity tier (EF-5): set by the agent at E1 close,
@@ -1141,6 +1142,17 @@ function ProjectCard({
                 title={t('orchestrator.w3.testedHint', { defaultValue: 'Soluções testadas no Encontro 3 — gostadas ou não' })}
               >
                 {t('orchestrator.w3.tested', { defaultValue: '{{n}} testadas', n: project.w3.tested })}
+              </span>
+            )}
+            {/* The technical visit's recommendation — which organisations go
+                into Encontro 4 with a checked solution, and which pick alone. */}
+            {project.w3.visit && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-amber-200/70 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                data-testid={`w3-visit-${project.id}`}
+                title={t('orchestrator.w3.visitTitle', { defaultValue: 'Indicada na visita técnica: {{what}}', what: project.w3.visit.summary })}
+              >
+                {t('orchestrator.w3.visit', { defaultValue: 'visita ✓' })}
               </span>
             )}
             {project.w3.gapCount > 0 && (
