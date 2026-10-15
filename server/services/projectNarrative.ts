@@ -80,6 +80,7 @@ Regras:
 - why: 2 a 3 frases. O que as organizações compartilham NA PRÁTICA (território, problema, tipo de solução, quem executa, quem precisa autorizar) e como uma complementa a outra.
 - synergies: até 3 coisas concretas que juntas elas fazem melhor do que sozinhas (ex.: um mesmo estudo contratado uma vez, a mesma autorização pedida junto, o mesmo fornecedor de mudas, um mutirão compartilhado). Só se os fatos sustentarem.
 - cautions: até 2 pontos de atenção honestos (ex.: uma organização sem visita técnica, um orçamento ainda em aberto, prazos diferentes). Se o projeto mistura problemas diferentes, diga.
+- Não confunda "com quem a organização já conversou" (contatos, apoio) com "precisa dizer sim" (quem autoriza). Uma autorização só vale para o órgão listado em "precisa dizer sim".
 - Português do Brasil.`;
 
 type Narr = { title: string; why: string; synergies: string[]; cautions: string[] };

@@ -16,6 +16,23 @@ import { projectCard, HORIZON_LABEL, type PortfolioOrg, type PortfolioPrefs } fr
 
 type Group = { id: string; title: string; memberIds: string[]; story?: string; learnings?: string; quote?: string; projectId?: string };
 
+/** Names, stories and project links follow the members to the most similar new group. */
+export function carryOver(prev: Group[], fresh: Group[]): Group[] {
+  const used = new Set<string>();
+  return fresh.map(g => {
+    let best: Group | null = null, overlap = 0;
+    for (const p of prev) {
+      if (used.has(p.id) || !(p.title || p.story || p.learnings || p.quote || p.projectId)) continue;
+      const n = p.memberIds.filter(id => g.memberIds.includes(id)).length;
+      if (n > overlap) { best = p; overlap = n; }
+    }
+    if (!best) return g;
+    used.add(best.id);
+    const { title, story, learnings, quote, projectId } = best;
+    return { ...g, id: best.id, ...(title ? { title } : {}), ...(story ? { story } : {}), ...(learnings ? { learnings } : {}), ...(quote ? { quote } : {}), ...(projectId ? { projectId } : {}) };
+  });
+}
+
 const brl = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
 const HORIZON_CLS = {
   agora: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
@@ -95,16 +112,26 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
     return () => clearTimeout(h);
   }, [groups, loading, base]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ⚠️ A new suggestion replaces the arrangement. What people WROTE on it — a
+  // name, Vila Flores's story, the project a group became — is carried to the
+  // new group that shares the most organisations with the old one, never
+  // dropped; and if cards were moved by hand, it asks first.
+  const handEdited = useRef(false);
   const suggest = useCallback(async (next: PortfolioPrefs) => {
+    if (handEdited.current && !window.confirm(t('orchestrator.preportfolio.confirmResuggest', { defaultValue: 'Isso refaz a sugestão e desfaz o que foi movido à mão. Nomes e histórias passam para o grupo mais parecido. Continuar?' }) as string)) return;
     setPrefs(next);
     const r = await fetch(`${base}/suggest`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prefs: next, lang }),
     }).catch(() => null);
-    if (r?.ok) setGroups((await r.json()).groups ?? []);
-  }, [base, lang]);
+    if (!r?.ok) return;
+    const fresh: Group[] = (await r.json()).groups ?? [];
+    setGroups(prev => carryOver(prev, fresh));
+    handEdited.current = false;
+  }, [base, lang, t]);
 
   const move = (memberId: string, toId: string) => {
+    handEdited.current = true;
     setGroups(prev => {
       let next = prev.map(g => ({ ...g, memberIds: g.memberIds.filter(id => id !== memberId) }));
       if (toId === '__new') next = [...next, { id: `g${Date.now()}`, title: '', memberIds: [memberId] }];

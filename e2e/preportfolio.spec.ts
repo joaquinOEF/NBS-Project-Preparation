@@ -160,6 +160,16 @@ test.describe('the pre-portfolio — the board', () => {
     await page.getByTestId(`preportfolio-story-${gi}`).locator('textarea').first().fill('As três organizações se conheceram no Encontro 2 e decidiram juntar as obras.');
     await page.getByTestId('preportfolio-confirm').click();
     await expect(page.getByTestId('preportfolio-confirm-msg')).toContainText('2 projetos criados, 0 atualizados');
+    // A new suggestion after hand moves asks first — and what was written follows the members.
+    page.once('dialog', d => d.accept());
+    await page.getByTestId('pref-geo-0').click();
+    await expect.poll(async () => page.locator('input[data-testid^="preportfolio-title-"]').evaluateAll(els => els.map(e => (e as HTMLInputElement).value)))
+      .toContain('Encostas e quintais que seguram a chuva');
+    const after2 = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    await expect.poll(async () => (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json()).groups.some((g: any) => g.story?.startsWith('As três organizações') && g.projectId), { timeout: 5000 }).toBe(true);
+    void after2;
+    for (let i = 0; i < 2; i++) await expect(page.locator(`[data-testid="preportfolio-card-${i}"]`)).toHaveCount(1);
+    await page.getByTestId('pref-geo-0.5').click();
     const projects = (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/projects`)).json()).projects;
     expect(projects.map((p: any) => p.title)).toContain('Encostas e quintais que seguram a chuva');
     // Confirming again updates, never duplicates.
@@ -180,7 +190,8 @@ test.describe('the pre-portfolio — the board', () => {
     expect(html).toContain('Encostas e quintais que seguram a chuva');
     expect(html).toContain('As três organizações se conheceram');
     expect(html).toMatch(/2<\/strong><span>projetos coletivos/);
-    expect(html, 'the cached narrative reaches the page').toContain('Por que juntas');
+    // The narratives for the arrangement now on screen land once the board settles.
+    await expect.poll(async () => (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text()).includes('Por que juntas'), { timeout: 15_000 }).toBe(true);
     if (process.env.DRAWER_SHOTS) {
       await page.goto(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`);
       await page.setViewportSize({ width: 820, height: 1160 });
