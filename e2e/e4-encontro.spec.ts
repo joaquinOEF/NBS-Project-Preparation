@@ -241,6 +241,15 @@ test.describe('Encontro 4 — on the organisation\'s phone', () => {
     await expect(card).toBeVisible({ timeout: 30_000 });
     await expect(card).toContainText('Jardins de chuva');
     await expect(card.getByTestId('prenote-card-missing-problema')).toBeVisible();
+    // Markdown is rendered, never shown raw — and no line runs past three rows
+    // (a funding path is 400 characters; the whole text is in the PDF).
+    expect(await card.innerText(), 'no raw ** on the projector').not.toContain('**');
+    const rows = await card.getByTestId('prenote-card-line').evaluateAll(els => els.map(el => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || 16;
+      return Math.round(el.getBoundingClientRect().height / lh);
+    }));
+    expect(rows.length).toBeGreaterThan(3);
+    expect(Math.max(...rows), 'a card line is at most three rows').toBeLessThanOrEqual(3);
     if (process.env.DRAWER_SHOTS) await card.screenshot({ path: `${process.env.DRAWER_SHOTS}/e4-draft-card.png` });
   });
 });

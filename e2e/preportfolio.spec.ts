@@ -207,6 +207,13 @@ test.describe('the pre-portfolio — the board', () => {
     }, { timeout: 20_000 }).toBe(4);
     const html = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text();
     expect(html).toContain('Conexões com os planos da cidade');
+    // …and the board shows them once they have landed.
+    await expect(page.getByTestId('preportfolio-plans-0')).toBeVisible({ timeout: 25_000 });
+    // …and opens to the passages themselves, not a hover tooltip.
+    await page.getByTestId('preportfolio-plans-0').click();
+    const list = page.getByTestId('preportfolio-plans-list-0');
+    await expect(list).toBeVisible();
+    await expect(list.getByTestId('preportfolio-plan-link').first()).toContainText('“');
     expect(html).toContain('Pré-portfólio de projetos');
     expect(html).toContain('Encostas e quintais que seguram a chuva');
     expect(html, 'a map with numbered pins, on the cover and per project').toMatch(/class="ppin"/);
