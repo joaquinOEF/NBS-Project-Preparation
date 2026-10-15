@@ -24,7 +24,7 @@
 
 import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
-import { withPendingQuestion } from './pendingQuestion';
+import { withPendingQuestion, reemitPending } from './pendingQuestion';
 import { getSolution, NBS_SOLUTIONS } from '@shared/nbs-catalog';
 import { parseTests, testOf } from '@shared/w3-tests';
 import { SOLUTION_COSTS, roundAreaM2 } from '@shared/w3-sizing';
@@ -441,6 +441,11 @@ async function serveE4Inner(
 
   // ── Routing ───────────────────────────────────────────────────────────────
   if (E4_ENTRY.test(raw) || E4_RESUME.test(raw)) {
+    // ⚠️ A return re-asks EXACTLY what was on screen. Some questions are not a
+    // step of their own ("Qual solução? Escreve o nome", "O que mudou?", the
+    // "Mudar algo" menu) and re-deriving the step would land somewhere else —
+    // the fuzzer found 14 walks in 70 doing it (scripts/e4-fuzz.ts, I5).
+    if (type('_e4_opened') && reemitPending(state, TYPE, pushEvent)) return finish('resume-pending');
     if (!type('_e4_opened')) writeType({ _e4_opened: 'yes' });
     return serve(type('_e4_step') ? 'resume' : 'open');
   }
