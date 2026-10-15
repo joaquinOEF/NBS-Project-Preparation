@@ -1473,7 +1473,7 @@ export default function OrchestratorLandingPage() {
   const {
     cohort, members, isAdmin, allCohorts,
     invite, unlockPhase, openWorkshopPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
-    switchCohort, provisionCohort, refresh,
+    switchCohort, provisionCohort, refresh, refreshProjects,
     projects: cohortProjects, createProject, updateProject, deleteProject,
     cloneMember, importMember,
   } = useCohort();
@@ -2312,6 +2312,7 @@ export default function OrchestratorLandingPage() {
               members={members}
               cohortId={cohort?.id ?? null}
               cohortSlug={cohort?.coordinatorSlug ?? null}
+              onRefresh={() => { void refreshProjects(); }}
               onCreate={openCreateProject}
               onShare={shareProject}
               onArchive={handleArchiveProject}

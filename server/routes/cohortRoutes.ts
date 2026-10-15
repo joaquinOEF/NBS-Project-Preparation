@@ -57,8 +57,9 @@ import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
 import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
-import { portfolioOrg, suggestGroups, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
+import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
 import { renderPrenoteHtml } from '../services/prenotePrint';
+import { renderPreportfolioHtml } from '../services/preportfolioPrint';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -549,7 +550,7 @@ export function registerCohortRoutes(app: Express): void {
   // ── The pre-portfolio board (shared/preportfolio.ts) ──────────────────────
   // Layer 1 is computed here, per organisation, from each live record; the
   // board computes layer 2 (the project cards) itself on every drop.
-  const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en'): Promise<PortfolioOrg[]> => {
+  const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en', prenotes?: Map<string, ReturnType<typeof buildPrenote>>): Promise<PortfolioOrg[]> => {
     const members = (await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)))
       .filter(m => !m.excludeFromPortfolio && m.cboStateId);
     const ids = members.map(m => m.cboStateId!);
@@ -559,6 +560,7 @@ export function registerCohortRoutes(app: Express): void {
       const live = getCboState(m.cboStateId!);
       const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
+      prenotes?.set(m.id, buildPrenote(prenoteInputFromSections(sections), lang));
       return portfolioOrg(m.id, orgName, sections, lang);
     });
   };
@@ -587,6 +589,20 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ orgs, prefs, groups, saved: !!saved, updatedAt: saved?.updatedAt ?? null });
   }));
 
+  /** The pre-portfolio, printed: the board's saved arrangement (or the suggestion), one page per project. */
+  app.get('/api/cohort/:coordinatorSlug/preportfolio/print', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const prenotes = new Map<string, ReturnType<typeof buildPrenote>>();
+    const orgs = await portfolioOrgsOf(cohort.id, 'pt', prenotes);
+    const saved = (cohort.settings as CohortSettings | null)?.preportfolio;
+    const known = new Set(orgs.map(o => o.memberId));
+    const groups = saved
+      ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
+      : suggestGroups(orgs, DEFAULT_PREFS, 'pt').map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderPreportfolioHtml({ cohortName: (cohort as any).name ?? 'Rede', groups, orgs, prenotes }));
+  }));
+
   /** A suggestion under these preferences — not saved until the board saves it. */
   app.post('/api/cohort/:coordinatorSlug/preportfolio/suggest', wrap(async (req, res) => {
     const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
@@ -596,6 +612,38 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ prefs, groups: suggestGroups(orgs, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds })) });
   }));
 
+  /**
+   * "Confirmar arranjo": every group on the board becomes a project — or
+   * updates the one it already became — with its members and its name. A
+   * group without a name takes its reason. Projects the board no longer has
+   * are left alone: archiving is a decision, not a side effect.
+   */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/confirm', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const saved = (cohort.settings as CohortSettings | null)?.preportfolio;
+    if (!saved?.groups.length) { res.status(409).json({ error: 'nothing on the board yet' }); return; }
+    const orgs = await portfolioOrgsOf(cohort.id, 'pt');
+    const existing = await db.select().from(cohortProjects).where(eq(cohortProjects.cohortId, cohort.id));
+    const groups = [];
+    let created = 0, updated = 0;
+    for (const g of saved.groups) {
+      const title = g.title || projectCard(g.memberIds, orgs, 'pt').reason;
+      const mine = g.projectId ? existing.find(p => p.id === g.projectId && !p.archivedAt) : undefined;
+      if (mine) {
+        await db.update(cohortProjects).set({ title, memberIds: g.memberIds }).where(eq(cohortProjects.id, mine.id));
+        groups.push({ ...g, projectId: mine.id });
+        updated++;
+      } else {
+        const p = await createCohortProject(cohort, title, g.memberIds);
+        groups.push({ ...g, projectId: p.id });
+        created++;
+      }
+    }
+    const settings: CohortSettings = { ...(cohort.settings as CohortSettings), preportfolio: { ...saved, groups, updatedAt: new Date().toISOString() } };
+    await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, created, updated, groups });
+  }));
+
   /** Save the board as it stands. Every member id must be this cohort's; each appears once. */
   app.put('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
     const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
@@ -603,12 +651,21 @@ export function registerCohortRoutes(app: Express): void {
     const valid = new Set(members.map(m => m.id));
     const seen = new Set<string>();
     const incoming: any[] = Array.isArray(req.body?.groups) ? req.body.groups : [];
-    const groups = incoming.slice(0, 60).map((g, i) => ({
-      id: String(g?.id ?? `g${i + 1}`).slice(0, 40),
-      title: String(g?.title ?? '').trim().slice(0, 140),
-      memberIds: (Array.isArray(g?.memberIds) ? g.memberIds.map(String) : [])
-        .filter((id: string) => valid.has(id) && !seen.has(id) && (seen.add(id), true)),
-    })).filter(g => g.memberIds.length);
+    const prev = new Map(((cohort.settings as CohortSettings | null)?.preportfolio?.groups ?? []).map(g => [g.id, g]));
+    const text = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n);
+    const groups = incoming.slice(0, 60).map((g, i) => {
+      const id = String(g?.id ?? `g${i + 1}`).slice(0, 40);
+      return {
+        id,
+        title: text(g?.title, 140),
+        memberIds: (Array.isArray(g?.memberIds) ? g.memberIds.map(String) : [])
+          .filter((m: string) => valid.has(m) && !seen.has(m) && (seen.add(m), true)),
+        // Vila Flores's part of the page — the story, what was learned, a voice.
+        story: text(g?.story, 2000), learnings: text(g?.learnings, 1200), quote: text(g?.quote, 400),
+        // The project a confirmed group became — set by /confirm, never by the board.
+        ...(prev.get(id)?.projectId ? { projectId: prev.get(id)!.projectId } : {}),
+      };
+    }).filter(g => g.memberIds.length);
     const settings: CohortSettings = {
       ...(cohort.settings as CohortSettings),
       preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
@@ -623,6 +680,31 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ projects: rows.map(projectView) });
   }));
 
+  /**
+   * A project and its shared session, created together so the link always
+   * resolves — no snapshot dance, no "first opener creates it" race. Used by
+   * the board's "Novo projeto" and by the pre-portfolio's "Confirmar arranjo".
+   */
+  const createCohortProject = async (cohort: typeof cohorts.$inferSelect, title: string, memberIds: string[]) => {
+    const state = createEmptyCboState('porto-alegre');
+    state.orgName = title;
+    state.phase = 3;
+    state.metadata.language = ((cohort.settings as CohortSettings | null)?.language ?? 'pt');
+    setCboState(state.id, state);
+    const [project] = await db.insert(cohortProjects).values({
+      cohortId: cohort.id,
+      title,
+      capabilityToken: slug(),
+      cboStateId: state.id,
+      memberIds,
+    }).returning();
+    // The discriminator, written after the row exists so the id is real.
+    state.metadata.project = { id: project.id, cohortId: cohort.id };
+    setCboState(state.id, state);
+    debouncedPersist(state.id);
+    return project;
+  };
+
   app.post('/api/cohort/:coordinatorSlug/projects', wrap(async (req, res) => {
     const cohort = (req as any).cohort;
     const title = String(req.body?.title ?? '').trim().slice(0, 140);
@@ -636,24 +718,7 @@ export function registerCohortRoutes(app: Express): void {
     const kept = memberIds.filter(id => known.has(id));
     if (!kept.length) { res.status(400).json({ error: 'no member belongs to this cohort' }); return; }
 
-    // The shared session, created WITH the project so the link always
-    // resolves — no snapshot dance, no "first opener creates it" race.
-    const state = createEmptyCboState('porto-alegre');
-    state.orgName = title;
-    state.phase = 3;
-    state.metadata.language = ((cohort.settings as CohortSettings | null)?.language ?? 'pt');
-    setCboState(state.id, state);
-    const [project] = await db.insert(cohortProjects).values({
-      cohortId: cohort.id,
-      title,
-      capabilityToken: slug(),
-      cboStateId: state.id,
-      memberIds: kept,
-    }).returning();
-    // The discriminator, written after the row exists so the id is real.
-    state.metadata.project = { id: project.id, cohortId: cohort.id };
-    setCboState(state.id, state);
-    debouncedPersist(state.id);
+    const project = await createCohortProject(cohort, title, kept);
     res.json({ project: projectView(project) });
   }));
 

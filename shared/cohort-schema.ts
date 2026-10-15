@@ -35,7 +35,13 @@ export type CohortSettings = {
    */
   preportfolio?: {
     prefs: { geoWeight: number; theme: 'flood' | 'heat' | 'landslide' | null; allowSingle: boolean };
-    groups: Array<{ id: string; title: string; memberIds: string[] }>;
+    groups: Array<{
+      id: string; title: string; memberIds: string[];
+      /** Vila Flores's part of the project page. */
+      story?: string; learnings?: string; quote?: string;
+      /** The project this group became on "confirmar". */
+      projectId?: string;
+    }>;
     updatedAt: string;
   };
 };

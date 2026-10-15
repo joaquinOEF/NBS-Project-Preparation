@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { projectCard, HORIZON_LABEL, type PortfolioOrg, type PortfolioPrefs } from '@shared/preportfolio';
 
-type Group = { id: string; title: string; memberIds: string[] };
+type Group = { id: string; title: string; memberIds: string[]; story?: string; learnings?: string; quote?: string; projectId?: string };
 
 const brl = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
 const HORIZON_CLS = {
@@ -23,7 +23,7 @@ const HORIZON_CLS = {
   '1-ano': 'border-orange-200 bg-orange-50 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300',
 } as const;
 
-export function PreportfolioBoard({ cohortSlug }: { cohortSlug: string }) {
+export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: string; onConfirmed?: () => void }) {
   const { t, i18n } = useTranslation();
   const lang: 'pt' | 'en' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const base = `/api/cohort/${cohortSlug}/preportfolio`;
@@ -78,6 +78,20 @@ export function PreportfolioBoard({ cohortSlug }: { cohortSlug: string }) {
     });
   };
   const rename = (id: string, title: string) => setGroups(prev => prev.map(g => (g.id === id ? { ...g, title } : g)));
+  const setText = (id: string, k: 'story' | 'learnings' | 'quote', v: string) => setGroups(prev => prev.map(g => (g.id === id ? { ...g, [k]: v } : g)));
+  const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
+  const confirm = async () => {
+    setConfirmMsg(null);
+    // Save what is on screen first — the autosave may still be waiting.
+    const put = await fetch(base, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefs, groups }) }).catch(() => null);
+    const r = put?.ok ? await fetch(`${base}/confirm`, { method: 'POST', credentials: 'include' }).catch(() => null) : null;
+    if (!r?.ok) { setConfirmMsg(t('orchestrator.preportfolio.confirmFailed', { defaultValue: 'Não confirmou — tenta de novo.' })); return; }
+    const d = await r.json();
+    first.current = true; // the returned groups carry project ids; not a user move
+    setGroups(d.groups ?? groups);
+    onConfirmed?.();
+    setConfirmMsg(t('orchestrator.preportfolio.confirmed', { defaultValue: '{{c}} projetos criados, {{u}} atualizados. Cada um tem a sua conversa e o seu link na lista abaixo.', c: d.created, u: d.updated }));
+  };
 
   const byId = useMemo(() => new Map(orgs.map(o => [o.memberId, o])), [orgs]);
   const totals = useMemo(() => {
@@ -142,11 +156,18 @@ export function PreportfolioBoard({ cohortSlug }: { cohortSlug: string }) {
           <input type="checkbox" checked={prefs.allowSingle} onChange={e => suggest({ ...prefs, allowSingle: e.target.checked })} data-testid="pref-single" />
           {t('orchestrator.preportfolio.single', { defaultValue: 'Permitir projeto de uma organização só' })}
         </label>
-        <button type="button" onClick={() => suggest(prefs)} className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-muted/50" data-testid="preportfolio-resuggest">
+        <a href={`${base}/print`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-muted/50" data-testid="preportfolio-print">
+          {t('orchestrator.preportfolio.print', { defaultValue: 'Pré-portfólio (PDF)' })}
+        </a>
+        <button type="button" onClick={confirm} className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2 py-1 text-[12px] font-semibold text-white" data-testid="preportfolio-confirm">
+          {t('orchestrator.preportfolio.confirm', { defaultValue: 'Confirmar arranjo' })}
+        </button>
+        <button type="button" onClick={() => suggest(prefs)} className="ml-0 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-muted/50" data-testid="preportfolio-resuggest">
           <Sparkles className="h-3 w-3" />{t('orchestrator.preportfolio.resuggest', { defaultValue: 'Sugerir de novo' })}
         </button>
       </div>
 
+      {confirmMsg && <p className="text-[12.5px] text-emerald-800 dark:text-emerald-300" data-testid="preportfolio-confirm-msg">{confirmMsg}</p>}
       <p className="text-[12.5px]" data-testid="preportfolio-totals">
         {t('orchestrator.preportfolio.totals', {
           defaultValue: '{{n}} projetos · estimativa somada {{range}}',
@@ -219,6 +240,26 @@ export function PreportfolioBoard({ cohortSlug }: { cohortSlug: string }) {
                   );
                 })}
               </ul>
+              {/* Vila Flores's part of the page: the story the numbers cannot tell. */}
+              <details className="rounded-lg border border-dashed border-border/70 px-2 py-1" data-testid={`preportfolio-story-${gi}`}>
+                <summary className="cursor-pointer text-[11.5px] font-medium text-muted-foreground">
+                  {t('orchestrator.preportfolio.storyTitle', { defaultValue: 'História do projeto (Vila Flores)' })}{g.story ? ' ✓' : ''}
+                </summary>
+                <div className="space-y-1.5 py-1.5">
+                  {([
+                    ['story', t('orchestrator.preportfolio.story', { defaultValue: 'A história: como essas organizações chegaram até aqui' }), 3],
+                    ['learnings', t('orchestrator.preportfolio.learnings', { defaultValue: 'O que a Rede aprendeu nesse caminho' }), 2],
+                    ['quote', t('orchestrator.preportfolio.quote', { defaultValue: 'Uma frase de alguém da comunidade (com o nome)' }), 1],
+                  ] as const).map(([k, label, rows]) => (
+                    <label key={k} className="block text-[11px] text-muted-foreground">
+                      {label}
+                      <textarea value={(g as any)[k] ?? ''} rows={rows} onChange={e => setText(g.id, k, e.target.value)}
+                        className="mt-0.5 w-full rounded border border-border bg-background px-1.5 py-1 text-[12px] text-foreground" data-testid={`preportfolio-${k}-${gi}`} />
+                    </label>
+                  ))}
+                </div>
+              </details>
+              {g.projectId && <p className="text-[10.5px] text-emerald-700 dark:text-emerald-400">{t('orchestrator.preportfolio.isProject', { defaultValue: '✓ confirmado como projeto' })}</p>}
             </div>
           );
         })}
