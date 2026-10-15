@@ -6,6 +6,16 @@
 import { Printer } from 'lucide-react';
 import type { Prenote } from '@shared/e4-prenote';
 
+/**
+ * The page's light markdown, rendered — never shown raw. A quoted answer
+ * arrives as "**Onde a organização atua:** “Floresta”"; stripping or printing
+ * the asterisks both read wrong on a projector.
+ */
+function Inline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  return <>{parts.map((p, i) => (p.startsWith('**') && p.endsWith('**') ? <strong key={i} className='font-semibold not-italic'>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>))}</>;
+}
+
 const STRINGS = {
   pt: { label: 'Pré-nota de projeto', print: 'Baixar a pré-nota (PDF)', status: 'Situação', missing: 'Falta' },
   en: { label: 'Project pre-note', print: 'Download the pre-note (PDF)', status: 'Status', missing: 'Missing' },
@@ -42,10 +52,13 @@ export function CboPrenoteCard({ prenote, cboId, lang }: { prenote: Prenote; cbo
               ? prenote.budget.map(b => (
                   <p key={b.label} className='m-0 flex justify-between gap-2'><span>{b.label}</span><span className='font-semibold text-right'>{b.value}</span></p>
                 ))
+              // ⚠️ Three lines, and each at most three rows: a funding path is a
+              // 400-character paragraph, and three of them turned the card into
+              // a wall the chat scrolled through. The whole text is in the PDF.
               : sec.lines.slice(0, 3).map((l, i) =>
                   l.kind === 'quote'
-                    ? <blockquote key={i} className='my-0.5 border-l-2 border-[#c9bd9a] pl-2 italic text-muted-foreground'>{l.text}</blockquote>
-                    : <p key={i} className='m-0 mb-0.5'>{sec.id === 'indicadores' ? l.text.replace(/\*\*/g, '').split('. Como medir')[0].split('. How to measure')[0] : l.text.replace(/\*\*/g, '')}</p>,
+                    ? <blockquote key={i} className='my-0.5 border-l-2 border-[#c9bd9a] pl-2 italic text-muted-foreground line-clamp-3' data-testid='prenote-card-line'><Inline text={l.text} /></blockquote>
+                    : <p key={i} className='m-0 mb-0.5 line-clamp-3' data-testid='prenote-card-line'><Inline text={sec.id === 'indicadores' ? l.text.split('. Como medir')[0].split('. How to measure')[0] : l.text} /></p>,
                 )}
             {sec.id !== 'orcamento' && sec.lines.length > 3 && (
               <p className='m-0 text-[10.5px] italic text-muted-foreground'>{lang === 'pt' ? `+ ${sec.lines.length - 3} no PDF` : `+ ${sec.lines.length - 3} in the PDF`}</p>
