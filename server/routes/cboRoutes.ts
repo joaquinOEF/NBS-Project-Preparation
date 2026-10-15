@@ -5,6 +5,8 @@ import { renderConceptNoteHtml } from '../services/conceptNotePrint';
 import { renderComparisonHtml, renderScenarioHtml } from '../services/comparisonPrint';
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
+import { buildPrenote, prenoteInputFromSections } from '@shared/e4-prenote';
+import { renderPrenoteHtml } from '../services/prenotePrint';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import {
   streamCboChat,
@@ -622,6 +624,19 @@ export function registerCboRoutes(app: Express): void {
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderComparisonHtml(comparison, lang));
+  });
+
+  /** Encontro 4's one page — the organisation's copy, same builder as the coordinator's. */
+  app.get("/api/cbo/:id/prenote", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) state = persisted.state;
+    }
+    if (!state) return res.status(404).send("Not found");
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderPrenoteHtml(buildPrenote(prenoteInputFromSections(state.sections), lang), lang));
   });
 
   /** One tested scenario, on its own page. 404 for a solution never tested. */

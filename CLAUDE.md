@@ -273,6 +273,14 @@ is the brief rebuilt from every member's live record, and the model gets the
 project context instead of one organisation's state. ⚠️ New table
 `cohort_projects` — `db:push` before deploy.
 
+### Encontro 4 is the pre-note — `docs/e4-flow.md`
+Input (one-tap confirmations) → the page drafted at once → only the open gaps →
+one check. `buildPrenote` (shared/e4-prenote.ts) is the one page for the chat
+card, the drawer and the print — no model in it. The solution comes from E4's
+confirmation, else the technical visit (`_visit_json`), else the first liked
+test, and the page says which. Nothing waits on a person: an unclosed E3 is
+closed as it stands, the review stamp is optional.
+
 ### The organisation's profile — `docs/org-profile.md`
 "Perfil (PDF)" in the org drawer and "Todos os perfis (PDF)" above the roster:
 everything an organisation has shared, stage-aware, print-first, pt/en from the

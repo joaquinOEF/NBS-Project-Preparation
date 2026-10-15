@@ -4,6 +4,7 @@
  *   (chat transcript) · Perfil (profile doc). Opens from an orchestrator card;
  *   reads are ownership-gated server-side. Snapshot on open + a manual refresh.
  */
+import { PrenotePanel } from './PrenotePanel';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical } from 'lucide-react';
@@ -208,6 +209,9 @@ export function CboFilesDrawer({
                 document they hold, not a copy of it. */}
             <TabsContent value="documentos" className="flex-1 min-h-0 overflow-auto mt-2">
               <div className="space-y-2 px-1">
+                {/* Encontro 4's one page — computed from the record, reviewed
+                    (optionally) and adjusted here. */}
+                <PrenotePanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
                 <p className="text-[12px] leading-snug text-muted-foreground">
                   {t('cboView.documentsHint', {
                     defaultValue: 'Os documentos do Encontro 3 — a comparação e uma página por cenário. Abrem numa aba nova, exatamente como a organização os vê.',

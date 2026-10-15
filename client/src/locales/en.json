@@ -104,7 +104,7 @@
         "building": "Phase 3a — What We're Building",
         "impact": "Phase 3b — Expected Impact",
         "operations": "Phase 3c — Ops & Sustainability",
-        "needs": "Phase 4 — What We Need",
+        "needs": "Phase 4 — The pre-note",
         "results": "Phase 5 — Results & Evidence"
       },
       "intervention": {
@@ -1921,7 +1921,7 @@
       "step1": "Who you are",
       "step2": "Where you work",
       "step3": "Test the solutions",
-      "step4": "What you need",
+      "step4": "The pre-note",
       "step5": "Results & evidence",
       "ctaStart": "Start",
       "ctaResume": "Continue where I left off",
@@ -1935,7 +1935,7 @@
         "who": "Who you are",
         "where": "Where you work",
         "building": "Test the solutions",
-        "needs": "What you need",
+        "needs": "The pre-note",
         "results": "Results & evidence"
       },
       "lockedWithWorkshop": "Opens after {{workshop}}{{date}}",

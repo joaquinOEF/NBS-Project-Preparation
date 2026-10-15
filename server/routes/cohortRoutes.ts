@@ -56,6 +56,8 @@ import { renderComparisonHtml, renderScenarioHtml } from '../services/comparison
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
+import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
+import { renderPrenoteHtml } from '../services/prenotePrint';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -1019,7 +1021,7 @@ export function registerCohortRoutes(app: Express): void {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     const kind = String(req.params.kind);
-    if (kind !== 'nota' && kind !== 'rota' && kind !== 'comparacao' && kind !== 'cenario') { res.status(404).json({ error: 'unknown document' }); return; }
+    if (kind !== 'nota' && kind !== 'rota' && kind !== 'comparacao' && kind !== 'cenario' && kind !== 'prenota') { res.status(404).json({ error: 'unknown document' }); return; }
     if (!member.cboStateId) { res.status(404).send('sem registro'); return; }
 
     let state = getCboState(member.cboStateId) ?? null;
@@ -1047,6 +1049,7 @@ export function registerCohortRoutes(app: Express): void {
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (kind === 'prenota') { res.send(renderPrenoteHtml(buildPrenote(prenoteInputFromSections(state.sections), lang), lang)); return; }
     if (kind === 'comparacao' || kind === 'cenario') {
       const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), input.solutions);
       const cmp = buildComparison(input as any, tests, lang, type.technical_note || null);
@@ -1813,6 +1816,71 @@ export function registerCohortRoutes(app: Express): void {
     // there when the drawer closes, not a debounce later.
     await flushNow(member.cboStateId);
     res.json({ ok: true, visit });
+  }));
+
+  /**
+   * The pre-note as data, for the drawer: the sections, the budget, what is
+   * still missing, the review stamp. Same builder as the printed page.
+   */
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/prenote', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.json({ prenote: null }); return; }
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.json({ prenote: null }); return; }
+    const lang = req.query.lang === 'en' ? 'en' : 'pt';
+    res.json({ prenote: buildPrenote(prenoteInputFromSections(state.sections), lang) });
+  }));
+
+  /**
+   * The one optional technical review of a pre-note: `revisada` (by whom),
+   * `dispensada`, or null to take the stamp off. Anyone on the coordinator
+   * side can set it — nothing waits on one reviewer (JVP, 14 Oct).
+   */
+  app.patch('/api/cohort/:coordinatorSlug/member/:memberId/prenote/review', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    const status = req.body?.status;
+    if (status !== null && status !== 'revisada' && status !== 'dispensada') { res.status(400).json({ error: 'status must be revisada, dispensada or null' }); return; }
+    const by = String(req.body?.by ?? '').trim().slice(0, 80);
+    const review = status ? { status, at: new Date().toISOString(), ...(by ? { by } : {}) } : null;
+    writeSectionFields(member.cboStateId, state, 'intervention_type', { _prenote_review_json: review ? JSON.stringify(review) : '' }, () => {}, 'coordinator');
+    await flushNow(member.cboStateId);
+    res.json({ ok: true, review });
+  }));
+
+  /**
+   * The coordination rewrites one section's text (a word Vila Flores wants
+   * changed). Pinned to the inputs the section was built from: when an answer
+   * underneath changes, the computed text comes back rather than an edit that
+   * no longer matches the record. `text: null` removes the edit.
+   */
+  app.patch('/api/cohort/:coordinatorSlug/member/:memberId/prenote/edit', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    const section = String(req.body?.section ?? '') as PrenoteSectionId;
+    if (!PRENOTE_SECTIONS.includes(section)) { res.status(400).json({ error: 'unknown section' }); return; }
+    const input = prenoteInputFromSections(state.sections);
+    let edits: Record<string, unknown> = {};
+    try { edits = JSON.parse(input.type._prenote_edits_json || '{}') || {}; } catch { edits = {}; }
+    const text = req.body?.text;
+    if (text === null || String(text ?? '').trim() === '') delete edits[section];
+    else {
+      const by = String(req.body?.by ?? '').trim().slice(0, 80);
+      edits[section] = { text: String(text).slice(0, 4000).trim(), at: new Date().toISOString(), basis: editBasis(input, section), ...(by ? { by } : {}) };
+    }
+    writeSectionFields(member.cboStateId, state, 'intervention_type', { _prenote_edits_json: JSON.stringify(edits) }, () => {}, 'coordinator');
+    await flushNow(member.cboStateId);
+    res.json({ ok: true, prenote: buildPrenote(prenoteInputFromSections(state.sections), 'pt') });
   }));
 
   /**
