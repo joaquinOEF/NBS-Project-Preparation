@@ -72,6 +72,7 @@ import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
+import { serveE4Checkpoint } from "./cboE4Checkpoint";
 import { reemitPending, withPendingQuestion, recordingPush } from "./pendingQuestion";
 import { parsePending, PENDING_FIELD } from "@shared/pending-question";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
@@ -3429,6 +3430,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_brief', brief: (event as any).brief }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_project_plan') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_plan', plan: (event as any).plan }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_prenote') {
+      // Encontro 4's page, as it stood when shown — a reload finds it where it was.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'prenote', prenote: (event as any).prenote }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_project_note') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_note', note: (event as any).note }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_test') {
@@ -3772,6 +3776,23 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     }
   }
 
+  // Encontro 4 — the one-page pre-note (server/services/cboE4Checkpoint.ts).
+  const e4Deps: Parameters<typeof serveE4Checkpoint>[6] = {
+    writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
+    recordCheckpoint: (step) => recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
+    normChip,
+  };
+  if (!state.metadata?.project && state.phase === 4) {
+    try {
+      if (await serveE4Checkpoint(cboId, userMessage, state, pushEvent, lang, turnKind, e4Deps)) {
+        res.end();
+        return;
+      }
+    } catch (err) {
+      console.error(`[cbo] e4 checkpoint error for ${cboId} \u2014 falling through to the model:`, err);
+    }
+  }
+
   // ⚠️ ENCONTRO 3 NEVER ENDS A TURN IN SILENCE. Its beats are templates, but a
   // free question, an unrecognised chip or an upload outside a beat still goes
   // to the model — and a model turn can end on prose with nothing to tap
@@ -3780,6 +3801,21 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // that happens inside an open Encontro 3, the encontro asks its own current
   // question again. Derived from the record, like every resume.
   const reaskE3IfSilent = async () => {
+    // Encontro 4: same rule, shorter — after a model turn, the encontro's own
+    // question goes back on screen (the model answered a doubt; the step is
+    // still theirs to answer).
+    if (!state.metadata?.project && state.phase === 4) {
+      const f4 = (state.sections as any).intervention_type?.fields ?? {};
+      if (String(f4._e4_opened?.value ?? '') !== 'yes') return;
+      const last4 = getCboMessages(cboId).slice(-1)[0];
+      let kind4 = '';
+      if (last4?.role === 'assistant' && last4.messageType === 'composer') { try { kind4 = JSON.parse(last4.content)?.kind ?? ''; } catch { /* prose */ } }
+      if (kind4 === 'open_map') return;
+      if (reemitPending(state, 'intervention_type', pushEvent)) return;
+      try { await serveE4Checkpoint(cboId, lang === 'pt' ? 'Vamos começar o Encontro 4.' : "Let's start Encontro 4.", state, pushEvent, lang, 'system', e4Deps); }
+      catch (err) { console.error(`[cbo] e4 reask failed for ${cboId}:`, err); }
+      return;
+    }
     if (state.metadata?.project || state.phase !== 3) return;
     const f = (state.sections as any).intervention_type?.fields ?? {};
     if (String(f._e3_opened?.value ?? '') !== 'yes' || String(f._e3_closed?.value ?? '') === 'yes') return;

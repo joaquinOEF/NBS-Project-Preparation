@@ -98,6 +98,33 @@ const E2: Record<Path, Record<Lang, EncontroBase>> = {
   },
 };
 
+// E4 — the pre-note. Same for every path: by now each organisation has ONE
+// solution, chosen after the technical visit.
+const E4: Record<Lang, EncontroBase> = {
+  pt: {
+    title: 'A pré-nota',
+    lead: 'Hoje a solução escolhida vira uma página: o problema, a solução, o que ela muda, como medir, quanto custa e com quem.',
+    bullets: [
+      'Confirmar a solução, o tamanho e o problema',
+      'Ver a pré-nota montada com o que vocês já contaram',
+      'Responder só o que falta — no máximo cinco perguntas rápidas',
+    ],
+    timeEstimate: '15–20 min · Salva sozinho',
+    cta: 'Começar',
+  },
+  en: {
+    title: 'The pre-note',
+    lead: 'Today the chosen solution becomes one page: the problem, the solution, what it changes, how to measure it, what it costs and who with.',
+    bullets: [
+      'Confirm the solution, the size and the problem',
+      'See the pre-note built from what you already told us',
+      'Answer only what is missing — at most five quick questions',
+    ],
+    timeEstimate: '15–20 min · Saves automatically',
+    cta: 'Start',
+  },
+};
+
 // Config registry. Single-path encontros are stored as plain Record<Lang>;
 // path-aware ones are stored as Record<Path, Record<Lang>>. Helper below
 // disambiguates.
@@ -107,7 +134,8 @@ type PathAwareConfig = Record<Path, Record<Lang, EncontroBase>>;
 const ENCONTRO_CONFIGS: Partial<Record<number, SinglePathConfig | PathAwareConfig>> = {
   1: E1,
   2: E2,
-  // 3, 4, 5, 6 — to be added with their respective skill PRs
+  4: E4,
+  // 3, 5, 6 — to be added with their respective skill PRs
 };
 
 function isPathAware(cfg: SinglePathConfig | PathAwareConfig): cfg is PathAwareConfig {

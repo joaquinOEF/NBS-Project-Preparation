@@ -83,6 +83,7 @@ import { CboSolutionTest } from '@/core/components/cbo/CboSolutionTest';
 import { CboComparison } from '@/core/components/cbo/CboComparison';
 import { CboProjectBrief } from '@/core/components/cbo/CboProjectBrief';
 import { CboProjectPlan } from '@/core/components/cbo/CboProjectPlan';
+import { CboPrenoteCard } from '@/core/components/cbo/CboPrenoteCard';
 import { CboProjectNote } from '@/core/components/cbo/CboProjectNote';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
@@ -1557,6 +1558,11 @@ export default function CboProfilePage() {
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'roadmap', roadmap: (event as any).roadmap }), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
+      case 'show_prenote': {
+        // Encontro 4's page — mid-turn, an ask_user follows it.
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'prenote', prenote: (event as any).prenote }), messageType: 'composer', timestamp: new Date().toISOString() }]);
+        break;
+      }
       case 'show_project_brief':
       case 'show_project_plan':
       case 'show_project_note': {
@@ -2607,6 +2613,13 @@ export default function CboProfilePage() {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
                       <CboProjectPlan plan={parsed.plan} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'prenote' && parsed.prenote) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboPrenoteCard prenote={parsed.prenote} cboId={cboId ?? ''} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
                     </div>
                   );
                 }

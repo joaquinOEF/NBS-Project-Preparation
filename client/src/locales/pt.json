@@ -295,9 +295,9 @@
         "expectedOutput": "Uma comparação das soluções testadas, com a leitura da organização sobre cada uma e um cenário por página — a base para a conversa de portfólio. O detalhamento do projeto (quem constrói, prazo, dinheiro) fica para o Encontro 4."
       },
       "w4": {
-        "name": "Encontro 4 — O que precisamos",
-        "description": "O CBO mapeia as lacunas — apoio técnico, situação regulatória, capacitação, lacuna financeira, equipamentos e parcerias. O agente o conecta a fontes de financiamento reais e adequadas para SbN de escala comunitária em Porto Alegre.",
-        "expectedOutput": "Uma lista específica de necessidades (técnica / regulatória / financeira / parcerias), uma estimativa da lacuna financeira e uma nota de consciência regulatória. O CBO é conectado a financiadores Tier-1 relevantes (Teia, Fundo Casa RS, Periferias Verdes, GEF SGP)."
+        "name": "Encontro 4 — A pré-nota",
+        "description": "Cada organização transforma a solução escolhida depois da visita técnica numa pré-nota de uma página: o problema, a solução, o impacto esperado com 2 a 4 indicadores, um orçamento básico (implantação, estudos, manutenção no 1º ano, contrapartida) e os parceiros. A página é montada com o que os encontros 1 a 3 já registraram; o encontro pergunta só o que falta — no máximo cinco perguntas — e termina com uma conferida na página inteira.",
+        "expectedOutput": "Uma pré-nota de uma página por organização, para imprimir, que a coordenação pode revisar e ajustar — a unidade do pré-portfólio da Rede."
       },
       "w5": {
         "name": "Encontro 5 — Resultados e evidências",
@@ -2107,7 +2107,7 @@
       "step1": "Quem somos",
       "step2": "Onde trabalhamos",
       "step3": "Testar as soluções",
-      "step4": "O que precisamos",
+      "step4": "A pré-nota",
       "step5": "Resultados e evidências",
       "ctaStart": "Começar",
       "ctaResume": "Continuar de onde parei",
@@ -2121,7 +2121,7 @@
         "who": "Quem somos",
         "where": "Onde trabalhamos",
         "building": "Testar as soluções",
-        "needs": "O que precisamos",
+        "needs": "A pré-nota",
         "results": "Resultados e evidências"
       },
       "lockedWithWorkshop": "Abre depois do {{workshop}}{{date}}",

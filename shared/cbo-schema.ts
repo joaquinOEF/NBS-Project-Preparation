@@ -140,6 +140,13 @@ export function encontroClosed(
     const f = (state.sections as any)?.intervention_type?.fields ?? {};
     if (String(f._e3_closed?.value ?? '').trim() === 'yes') return true;
   }
+  if (phase === 4) {
+    // Encontro 4 is the pre-note (server/services/cboE4Checkpoint.ts); it
+    // writes into the sections Encontros 2–3 built, not needs_assessment, so
+    // only its own marker can say it closed.
+    const f = (state.sections as any)?.intervention_type?.fields ?? {};
+    if (String(f._e4_closed?.value ?? '').trim() === 'yes') return true;
+  }
   return phaseComplete(state, phase);
 }
 
@@ -447,6 +454,8 @@ export type CboEvent =
   // the multi-organisation summary at the end.
   | { type: 'show_project_plan'; plan: ProjectPlan }
   | { type: 'show_project_note'; note: ProjectNote }
+  // Encontro 4's one page, drafted from the record (shared/e4-prenote.ts).
+  | { type: 'show_prenote'; prenote: import('./e4-prenote').Prenote }
   | { type: 'show_comparison'; comparison: W3Comparison }
   | { type: 'show_dossier'; dossier: W3Dossier }
   | { type: 'show_roadmap'; roadmap: W3Roadmap }

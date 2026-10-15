@@ -229,6 +229,20 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
     skipIf: NO_ANSWER,
   },
 
+  // ── Encontro 4 — the pre-note's own two answers (shared/e4-prenote.ts) ────
+  e4_contribution: {
+    feeds: 'custo',
+    labelPt: 'O que a organização já tem para colocar no projeto',
+    labelEn: 'What the organisation already has to put into the project',
+    skipIf: NO_ANSWER,
+  },
+  e4_partners: {
+    feeds: 'exige',
+    labelPt: 'Com quem a organização já conversou sobre o projeto',
+    labelEn: 'Who the organisation has already talked to about the project',
+    skipIf: NO_ANSWER,
+  },
+
   technical_note: {
     feeds: 'intervencao',
     labelPt: 'Leitura técnica da coordenação',

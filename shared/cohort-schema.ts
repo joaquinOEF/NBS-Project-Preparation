@@ -235,11 +235,11 @@ export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
     expectedOutput: 'A comparison of the solutions tested, with the organisation\'s reading of each and one scenario per page — the basis for the portfolio conversation. Project detailing (who builds, timeline, money) moves to Workshop 4.',
   },
   {
-    name: 'Workshop 4 — What We Need',
+    name: 'Workshop 4 — The pre-note',
     date: null,
     unlocksPhase: 4,
-    description: 'The CBO maps out gaps — technical support, regulatory status, training, financial gap, equipment, and partnerships. The agent connects them to real funding sources appropriate for community-scale NBS in Porto Alegre.',
-    expectedOutput: 'A specific needs list (technical / regulatory / financial / partnership), an estimated financial gap, and a regulatory awareness score. CBO is matched to relevant Tier-1 funders (Teia, Fundo Casa RS, Periferias Verdes, GEF SGP).',
+    description: 'Each organisation turns the ONE solution chosen after the technical visit into a one-page pre-note: the problem, the solution, the expected impact with 2–4 indicators, a basic budget (works, studies, first-year upkeep, its own contribution) and partners. The page is drafted from what Workshops 1–3 already hold; the workshop asks only what is missing (at most five short questions) and ends on one check of the whole page.',
+    expectedOutput: 'A one-page pre-note per organisation, printable, that the coordination may review and adjust — the unit of the Rede\'s pre-portfolio.',
   },
   {
     name: 'Workshop 5 — Results & Evidence',
