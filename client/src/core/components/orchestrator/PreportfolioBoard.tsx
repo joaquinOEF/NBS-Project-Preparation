@@ -49,6 +49,8 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
   const [prefs, setPrefs] = useState<PortfolioPrefs>({ geoWeight: 0.5, theme: null, allowSingle: false });
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  // Which project's plan links are open — the passages, not just their count.
+  const [plansOpen, setPlansOpen] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const [dragging, setDragging] = useState<string | null>(null);
   const first = useRef(true);
@@ -286,13 +288,28 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                 <span className={`rounded-full border px-2 py-0.5 ${HORIZON_CLS[card.horizon]}`} title={card.slowest ? `${card.slowest.orgName}: ${card.slowest.why.join('; ')}` : ''} data-testid={`preportfolio-horizon-${gi}`}>{card.horizonLabel}</span>
                 {card.unpriced.length > 0 && <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground">{t('orchestrator.preportfolio.unpriced', { defaultValue: 'sem valor: {{names}}', names: card.unpriced.join(', ') })}</span>}
                 {card.planLinks.length > 0 && (
-                  <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
-                    title={card.planLinks.map(l => `${l.title} — ${l.orgName}: ${l.connection}`).join('\n')} data-testid={`preportfolio-plans-${gi}`}>
-                    {t('orchestrator.preportfolio.plans', { defaultValue: '{{n}} conexões com planos', n: card.planLinks.length })}
-                  </span>
+                  <button type="button" onClick={() => setPlansOpen(p => ({ ...p, [g.id]: !p[g.id] }))} aria-expanded={!!plansOpen[g.id]}
+                    className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-800 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300"
+                    data-testid={`preportfolio-plans-${gi}`}>
+                    {t('orchestrator.preportfolio.plans', { defaultValue: '{{n}} conexões com planos', n: card.planLinks.length })} {plansOpen[g.id] ? '▴' : '▾'}
+                  </button>
                 )}
                 {card.unvisited.length > 0 && <span className="rounded-full border border-dashed border-amber-300 px-2 py-0.5 text-amber-800 dark:text-amber-300">{t('orchestrator.preportfolio.unvisited', { defaultValue: 'sem visita: {{n}}', n: card.unvisited.length })}</span>}
               </div>
+              {/* ⚠️ The passages, readable on the board — a count with a hover
+                  tooltip meant the Rede's differentiator (Antonia, 13 Oct) could
+                  only be shown on paper. Same objects the print renders. */}
+              {plansOpen[g.id] && card.planLinks.length > 0 && (
+                <ul className="space-y-1.5 rounded-md border border-violet-200 bg-violet-50/50 p-2 text-[11.5px] dark:border-violet-900 dark:bg-violet-950/20" data-testid={`preportfolio-plans-list-${gi}`}>
+                  {card.planLinks.map((l, k) => (
+                    <li key={`${l.docId}-${k}`} className="space-y-0.5" data-testid="preportfolio-plan-link">
+                      <p className="m-0"><span className="font-semibold">{l.title}</span>{l.owner ? <span className="text-muted-foreground"> · {l.owner}</span> : null} <span className="text-muted-foreground">· {l.orgName}</span></p>
+                      <p className="m-0">{l.connection}</p>
+                      <blockquote className="m-0 border-l-2 border-violet-300 pl-2 italic text-muted-foreground">“{l.passage}”</blockquote>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <ul className="space-y-1.5">
                 {g.memberIds.map(id => {
                   const o = byId.get(id);
