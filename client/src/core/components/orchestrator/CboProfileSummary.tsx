@@ -9,40 +9,136 @@ import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
 import { Loader2, FileText, Check } from 'lucide-react';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
+import { parseVisit, visitOptions, visitSummary, sizedByUnits } from '@shared/e4-visit';
+import { parseTests } from '@shared/w3-tests';
 
 type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'> & { health?: HealthEntry[]; maturityHeld?: string[] };
 
 /**
- * The coordination's technical reading of this organisation — Robson's field
- * visit (28–29 Sept), typed in here. Optional: the comparison and the synergy
- * pass print it when it is there and nothing when it is not. Saved through
- * PATCH …/technical-note into the organisation's own record.
+ * The technical visit, in one place: which solution Vila Flores and Robson
+ * recommend, at what size, on what day, and what they saw (`technical_note`,
+ * which the comparison and the synergy pass print). Encontro 4 opens on the
+ * recommended solution — "Depois da visita, a escolha foi X. É essa?" — and
+ * when nothing is recorded the organisation picks for itself and its card says
+ * "sem visita". Anyone on the coordinator side can record or change it.
+ * Saved through PATCH …/visit into the organisation's own record.
  */
-function TechnicalNoteEditor({ cohortSlug, memberId, initial }: { cohortSlug: string; memberId: string; initial: string }) {
-  const { t } = useTranslation();
-  const [note, setNote] = useState(initial);
-  const [saved, setSaved] = useState<string>(initial);
+function VisitEditor({ cohortSlug, memberId, fields }: { cohortSlug: string; memberId: string; fields: Record<string, { value?: unknown } | undefined> }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language?.startsWith('pt') ? 'pt' : 'en';
+  const str = (k: string) => String(fields?.[k]?.value ?? '');
+  const initial = parseVisit(str('_visit_json'));
+  const options = visitOptions(str('solution_tests_json'), lang);
+  const [solutionId, setSolutionId] = useState(initial?.solutionId ?? '');
+  const [size, setSize] = useState(String(initial?.areaM2 ?? initial?.units ?? ''));
+  const [date, setDate] = useState(initial?.date ?? '');
+  const [note, setNote] = useState(str('technical_note'));
+  const [saved, setSaved] = useState(() => ({ visit: initial, note: str('technical_note') }));
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setNote(initial); setSaved(initial); }, [initial]);
-  const dirty = note.trim() !== saved.trim();
+  const byUnits = solutionId ? sizedByUnits(solutionId) : false;
+  const dirty =
+    solutionId !== (saved.visit?.solutionId ?? '') ||
+    size !== String(saved.visit?.areaM2 ?? saved.visit?.units ?? '') ||
+    date !== (saved.visit?.date ?? '') ||
+    note.trim() !== saved.note.trim();
+  const reactionMark: Record<string, string> = { 'faz-sentido': '✓', 'ainda-nao-sabemos': '?', 'nao-e-pra-gente': '✗' };
+
   const save = async () => {
     setBusy(true); setFailed(false);
-    const r = await fetch(`/api/cohort/${cohortSlug}/member/${memberId}/technical-note`, {
+    const body = solutionId
+      ? { solutionId, ...(byUnits ? { units: size } : { areaM2: size }), date, note: note.trim() }
+      : { solutionId: null, note: note.trim() };
+    const r = await fetch(`/api/cohort/${cohortSlug}/member/${memberId}/visit`, {
       method: 'PATCH', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note: note.trim() }),
+      body: JSON.stringify(body),
     }).catch(() => null);
     setBusy(false);
     if (!r?.ok) { setFailed(true); return; }
-    setSaved(note.trim());
+    const data = await r.json().catch(() => ({}));
+    setSaved({ visit: data.visit ?? null, note: note.trim() });
   };
+
   return (
-    <div className="rounded-lg border border-amber-200/70 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 px-3 py-2 space-y-1.5" data-testid="technical-note-editor">
-      <label htmlFor={`technical-note-${memberId}`} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-lg border border-amber-200/70 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 px-3 py-2 space-y-2" data-testid="visit-editor">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('cboView.visit', { defaultValue: 'Visita técnica' })}
+        </span>
+        <span className="text-[11px] text-muted-foreground" data-testid="visit-status">
+          {saved.visit
+            ? t('cboView.visitRecorded', { defaultValue: 'Registrada: {{what}}', what: visitSummary(saved.visit, lang) })
+            : t('cboView.visitNone', { defaultValue: 'Sem visita registrada' })}
+        </span>
+      </div>
+      <p className="text-[11.5px] leading-snug text-muted-foreground">
+        {t('cboView.visitHint', { defaultValue: 'A solução indicada abre o Encontro 4 ("É essa?"). Sem ela, a organização escolhe sozinha entre as que testou, e o card marca "sem visita". Pode ser preenchida ou mudada a qualquer momento.' })}
+      </p>
+      <label className="block text-[11.5px] font-medium" htmlFor={`visit-solution-${memberId}`}>
+        {t('cboView.visitSolution', { defaultValue: 'Solução indicada' })}
+      </label>
+      <select
+        id={`visit-solution-${memberId}`}
+        value={solutionId}
+        onChange={e => {
+          // Start from the size they tested it at — the visit usually confirms
+          // or corrects it rather than starting over.
+          const id = e.target.value;
+          const test = parseTests(str('solution_tests_json')).find(x => x.solutionId === id);
+          setSolutionId(id);
+          setSize(String((sizedByUnits(id) ? test?.units : test?.areaM2) || ''));
+        }}
+        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+        data-testid="visit-solution"
+      >
+        <option value="">{t('cboView.visitSolutionNone', { defaultValue: '— ainda não indicada —' })}</option>
+        {options.tested.length > 0 && (
+          <optgroup label={t('cboView.visitTested', { defaultValue: 'Testadas no Encontro 3' })}>
+            {options.tested.map(o => (
+              <option key={o.solutionId} value={o.solutionId}>{`${reactionMark[o.reaction ?? ''] ?? '·'} ${o.label}`}</option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label={t('cboView.visitOthers', { defaultValue: 'Outras soluções' })}>
+          {options.others.map(o => <option key={o.solutionId} value={o.solutionId}>{o.label}</option>)}
+        </optgroup>
+      </select>
+      {solutionId && (
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-[11.5px] font-medium" htmlFor={`visit-size-${memberId}`}>
+              {byUnits ? t('cboView.visitUnits', { defaultValue: 'Quantidade' }) : t('cboView.visitArea', { defaultValue: 'Área (m²)' })}
+            </label>
+            <input
+              id={`visit-size-${memberId}`}
+              inputMode="decimal"
+              value={size}
+              onChange={e => setSize(e.target.value)}
+              placeholder={t('cboView.visitSizeHint', { defaultValue: 'opcional' })}
+              className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm"
+              data-testid="visit-size"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-[11.5px] font-medium" htmlFor={`visit-date-${memberId}`}>
+              {t('cboView.visitDate', { defaultValue: 'Data da visita' })}
+            </label>
+            <input
+              id={`visit-date-${memberId}`}
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm"
+              data-testid="visit-date"
+            />
+          </div>
+        </div>
+      )}
+      <label htmlFor={`technical-note-${memberId}`} className="block text-[11.5px] font-medium">
         {t('cboView.technicalNote', { defaultValue: 'Leitura técnica da coordenação' })}
       </label>
-      <p className="text-[11.5px] leading-snug text-muted-foreground">
+      <p className="text-[11px] leading-snug text-muted-foreground">
         {t('cboView.technicalNoteHint', { defaultValue: 'O que a visita técnica viu no lugar. Aparece na comparação da organização e no relatório de sinergias, com esta atribuição. Opcional.' })}
       </p>
       <textarea
@@ -59,13 +155,13 @@ function TechnicalNoteEditor({ cohortSlug, memberId, initial }: { cohortSlug: st
           type="button"
           onClick={save}
           disabled={!dirty || busy}
-          data-testid="technical-note-save"
+          data-testid="visit-save"
           className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40"
         >
           {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
           {t('cboView.technicalNoteSave', { defaultValue: 'Salvar' })}
         </button>
-        {!dirty && saved && <span className="text-[11px] text-muted-foreground">{t('cboView.technicalNoteSaved', { defaultValue: 'Salvo' })}</span>}
+        {!dirty && (saved.visit || saved.note) && <span className="text-[11px] text-muted-foreground">{t('cboView.technicalNoteSaved', { defaultValue: 'Salvo' })}</span>}
         {failed && <span className="text-[11px] text-destructive">{t('cboView.technicalNoteFailed', { defaultValue: 'Não salvou — tenta de novo' })}</span>}
       </div>
     </div>
@@ -135,10 +231,11 @@ export function CboProfileSummary({
         </p>
       )}
 
-      <TechnicalNoteEditor
+      <VisitEditor
+        key={`${memberId}-${reloadKey}`}
         cohortSlug={cohortSlug}
         memberId={memberId}
-        initial={String((profile.sections as any)?.intervention_type?.fields?.technical_note?.value ?? '')}
+        fields={(profile.sections as any)?.intervention_type?.fields ?? {}}
       />
 
       {/* Sections → fields */}

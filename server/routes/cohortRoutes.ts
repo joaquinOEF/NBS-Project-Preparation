@@ -55,6 +55,7 @@ import { renderConceptNoteHtml } from '../services/conceptNotePrint';
 import { renderComparisonHtml, renderScenarioHtml } from '../services/comparisonPrint';
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
+import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -300,10 +301,16 @@ export type MemberW3Signal = {
    * labels them so instead of offering them beside the comparison as equals.
    */
   detailed: boolean;
+  /**
+   * The technical visit's recommendation, when someone recorded it
+   * (shared/e4-visit.ts) — the roster shows which organisations go into
+   * Encontro 4 with a checked solution and which will pick on their own.
+   */
+  visit: { solutionId: string; summary: string } | null;
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
-  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false,
+  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false, visit: null,
 };
 
 /** The dossier, computed from a member's live state. Since Encontro 3 ends at
@@ -321,10 +328,13 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
   const solutions = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
   const testedIds = parseTests(type.solution_tests_json).map(t => t.solutionId);
   const tested = testedIds.length;
+  const v = parseVisit(type._visit_json);
+  const visit = v ? { solutionId: v.solutionId, summary: visitSummary(v, 'pt') } : null;
   // Nothing chosen, nothing tested and no place marked = this org has not
   // started W3. Reporting a verdict for it would put a badge on a row that has
-  // no project behind it.
-  if (!solutions.length && !tested && !site._site_lat && !site.site_lat) return EMPTY_W3;
+  // no project behind it. A recorded visit still shows: it is the
+  // coordination's own work, whatever the organisation has done.
+  if (!solutions.length && !tested && !site._site_lat && !site.site_lat) return { ...EMPTY_W3, visit };
 
   const areaM2 = Number(site.site_area_m2) || 0;
   const impact = asRecord('impact_monitoring');
@@ -348,6 +358,7 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     tested,
     testedIds,
     detailed,
+    visit,
   };
 }
 
@@ -1767,6 +1778,41 @@ export function registerCohortRoutes(app: Express): void {
     if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
     writeSectionFields(member.cboStateId, state, 'intervention_type', { technical_note: note }, () => {}, 'coordinator');
     res.json({ ok: true, note });
+  }));
+
+  /**
+   * The technical visit, recorded from the drawer: which solution Vila Flores
+   * and Robson recommend, at what size, on what day — and their reading, in the
+   * same save. Encontro 4 opens on this choice ("É essa?") when it is there and
+   * lets the organisation pick when it is not (shared/e4-visit.ts). Anyone on
+   * the coordinator side can record, change or clear it; nothing waits on it.
+   *
+   * `solutionId: null` clears the choice. The reading is written only when the
+   * body carries `note`, so a save from an older drawer cannot blank it.
+   */
+  app.patch('/api/cohort/:coordinatorSlug/member/:memberId/visit', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    const fields: Record<string, string> = {};
+    let visit: VisitChoice | null = null;
+    if (req.body?.solutionId === null) {
+      fields._visit_json = '';
+    } else {
+      const parsed = visitFromInput(req.body ?? {});
+      if ('error' in parsed) { res.status(400).json({ error: parsed.error }); return; }
+      visit = parsed;
+      fields._visit_json = JSON.stringify(parsed);
+    }
+    if (typeof req.body?.note === 'string') fields.technical_note = req.body.note.slice(0, 4000).trim();
+    writeSectionFields(member.cboStateId, state, 'intervention_type', fields, () => {}, 'coordinator');
+    // The roster reads the stored rows, not memory — flush so the chip is
+    // there when the drawer closes, not a debounce later.
+    await flushNow(member.cboStateId);
+    res.json({ ok: true, visit });
   }));
 
   /**

@@ -23,6 +23,7 @@ const T = {
     photos: 'Fotografias enviadas', files: 'Documentos enviados',
     tested: 'Soluções testadas no Encontro 3', solution: 'Solução', reaction: 'Leitura da organização', blocks: 'O que trava', cost: 'Custo de referência',
     technical: 'Leitura técnica da coordenação',
+    visit: 'Indicada na visita técnica',
     closing: 'Observações do fechamento do Encontro 3',
     also: 'Também registrado', notes: 'Anotações da visita', notesHint: 'Espaço para validar ou ajustar no território.',
     visitWhen: 'Visita em ____ / ____ / ______   ·   por ______________________________________',
@@ -42,6 +43,7 @@ const T = {
     photos: 'Photographs sent', files: 'Documents sent',
     tested: 'Solutions tested in Encontro 3', solution: 'Solution', reaction: "The organisation's reading", blocks: 'What blocks it', cost: 'Reference cost',
     technical: "The coordination's technical reading",
+    visit: 'Recommended by the technical visit',
     closing: 'Encontro 3 closing observations',
     also: 'Also recorded', notes: 'Visit notes', notesHint: 'Room to validate or adjust on site.',
     visitWhen: 'Visited on ____ / ____ / ______   ·   by ______________________________________',
@@ -124,6 +126,7 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
     <tbody>${p.tested.map(s => `<tr><td><strong>${esc(s.label)}</strong><span class="fam">${esc(s.familia)}</span></td><td>${esc(s.reaction ?? '—')}</td><td>${esc(s.verdict)}${s.ready ? '' : `: ${esc(s.unblockedBy)}`}</td><td>${esc(s.cost ?? '—')}</td></tr>`).join('')}</tbody></table>
   </section>` : ''}
 
+  ${p.visit ? `<section class="tech"><h4>${esc(t.visit)}</h4><p>${esc(p.visit)}</p></section>` : ''}
   ${p.technicalNote ? `<section class="tech"><h4>${esc(t.technical)}</h4><p>${md(p.technicalNote)}</p></section>` : ''}
   ${p.closingNotes?.length ? `<section class="tech"><h4>${esc(t.closing)}</h4><ul>${p.closingNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></section>` : ''}
 
@@ -135,7 +138,7 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
   ${p.documents.length ? `<p class="files"><strong>${esc(t.files)}:</strong> ${esc(p.documents.join(' · '))}</p>` : ''}
 
   <footer>
-    ${reached.length ? `<p class="src">${esc(t.source)}: ${esc([t.answers(reached), p.place?.risks ? t.srcRisk : null, p.tested.length ? t.srcFichas : null, p.technicalNote ? t.srcTech : null].filter(Boolean).join(' · '))}</p>` : ''}
+    ${reached.length ? `<p class="src">${esc(t.source)}: ${esc([t.answers(reached), p.place?.risks ? t.srcRisk : null, p.tested.length ? t.srcFichas : null, p.technicalNote || p.visit ? t.srcTech : null].filter(Boolean).join(' · '))}</p>` : ''}
     <p>${esc(t.foot)}</p>
     <p>${esc(t.printed)} ${esc(new Date().toLocaleDateString(p.lang === 'pt' ? 'pt-BR' : 'en-GB'))}.</p>
   </footer>

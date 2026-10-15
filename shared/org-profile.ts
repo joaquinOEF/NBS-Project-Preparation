@@ -25,6 +25,7 @@
 // renders it). Written register on the page: docs/document-register.md.
 // ============================================================================
 
+import { parseVisit, visitSummary } from './e4-visit';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from './cbo-schema';
 import { cboFieldLabel, cboDisplayValue } from './cbo-field-catalog';
 import { parseTests, seedTestsFromChosen } from './w3-tests';
@@ -69,6 +70,8 @@ export interface OrgProfile {
   tested: ProfileScenario[];
   /** The coordination's technical reading (JVP, 21 Sept: it prints on the org's copy). */
   technicalNote: string | null;
+  /** The solution the technical visit recommended, one line (shared/e4-visit.ts). */
+  visit: string | null;
   /** Encontro 3's closing beat — the visit and the room, in their words, one entry per line. */
   closingNotes: string[];
   /** Every public answer the layout above did not place, grouped by section. */
@@ -160,6 +163,7 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
   const chosen = (typeRec.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
   const tests = seedTestsFromChosen(parseTests(typeRec.solution_tests_json), chosen);
   const technicalNote = (typeRec.technical_note ?? '').trim() || null;
+  const visitChoice = parseVisit(typeRec._visit_json);
   let tested: ProfileScenario[] = [];
   if (tests.length) {
     const w3Input: W3Input = {
@@ -230,6 +234,7 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
     documents: docs.filter(d => d.kind !== 'image').map(d => d.filename),
     tested,
     technicalNote,
+    visit: visitChoice ? visitSummary(visitChoice, lang) : null,
     closingNotes: (typeRec.closing_observations ?? '').split('\n').map(l => l.trim()).filter(Boolean),
     alsoRecorded,
   };
