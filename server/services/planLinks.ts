@@ -90,7 +90,9 @@ export function verifyLinks(raw: z.infer<typeof Schema>['links'], docs: PlanDoc[
 
 export async function readPlanLinks(orgName: string, prenote: Prenote, docs: PlanDoc[], key: string): Promise<StoredPlanLinks | null> {
   if (!prenote.solution || docs.length === 0) return null;
-  if (process.env.CBO_FAKE_MODEL === '1') {
+  // PREPORTFOLIO_LIVE=1 lets a fake-model test server call the real model for
+  // these two passes only — how the pre-portfolio film is made.
+  if (process.env.CBO_FAKE_MODEL === '1' && process.env.PREPORTFOLIO_LIVE !== '1') {
     // The test seam: the first document's first long line, verbatim — it passes the check.
     const d = docs[0];
     const line = d.text.split('\n').map(x => x.trim()).find(x => x.length > 40 && !x.startsWith('#'));

@@ -124,7 +124,9 @@ export async function buildProjectNarrative(
   if (members.length === 0) return null;
   const facts = narrativeFacts(members, card);
   // The test seam: a labelled stand-in, so the wiring can be walked without a key.
-  if (process.env.CBO_FAKE_MODEL === '1') {
+  // PREPORTFOLIO_LIVE=1 lets a fake-model test server call the real model for
+  // these two passes only — how the pre-portfolio film is made.
+  if (process.env.CBO_FAKE_MODEL === '1' && process.env.PREPORTFOLIO_LIVE !== '1') {
     return { title: `Projeto ${card.orgNames.join(' + ')}`, why: `${card.reason}.`, synergies: [], cautions: card.unvisited.length ? [`Sem visita técnica registrada: ${card.unvisited.join(', ')}.`] : [], model: 'fake', at: new Date().toISOString() };
   }
   if (!structuredProvider()) return null;
