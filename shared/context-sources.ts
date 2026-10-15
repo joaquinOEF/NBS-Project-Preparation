@@ -266,6 +266,49 @@ export const MODEL_PASSES: ModelPass[] = [
     },
   },
   {
+    id: 'projectNarrative',
+    purpose: "the pre-portfolio's page for one collective project: a name, why these organisations go together, what they do better together, what to watch",
+    file: 'server/services/projectNarrative.ts',
+    sources: {
+      // The pre-notes ARE the record, already digested: problem with their
+      // story quoted, solution and size, impact, indicators, the budget rows,
+      // partners and approvals, open items — one block per organisation.
+      fields: uses,
+      ownWords: uses,
+      transcript: no("each pre-note already carries what the encontros captured from the conversation; several organisations' transcripts in one call would bury the page's facts"),
+      docSummary: no('documents inform each organisation\'s own record and pre-note; the project page argues from those, not from files a reader cannot check'),
+      docFullText: no('same: the documents reached the pre-notes through the encontros, and a cross-organisation call is not the place to re-read them'),
+      photos: no('a page about why several projects belong together is not argued from photographs; they reach the record through the advisor\'s observations'),
+      geo: uses,
+      fichas: uses,
+      evidence: uses,
+      knowledge: no("approvals come through each pre-note's 'precisa dizer sim'; the funding landscape is the next phase's, with Coalizão and BWB"),
+      cohort: uses,
+      artefacts: uses,
+    },
+  },
+  {
+    id: 'planLinks',
+    purpose: "reads one organisation's pre-note against the city's plans and initiatives and names where it connects, each with a literal passage",
+    file: 'server/services/planLinks.ts',
+    sources: {
+      fields: uses,
+      ownWords: uses,
+      geo: uses,
+      fichas: uses,
+      // The plan corpus (knowledge/porto-alegre/plans + the desk research) IS
+      // the knowledge this pass exists to read.
+      knowledge: uses,
+      artefacts: uses,
+      transcript: no('the pre-note already carries what the encontros captured; the comparison is against plans, not conversation'),
+      docSummary: no("the organisation's own files informed its record and pre-note; the documents this pass reads are the city's"),
+      docFullText: no("same: its own files reached the pre-note through the encontros; this pass reads the city's documents in full instead"),
+      photos: no('a connection to a plan is argued from what the project is and where, not from photographs'),
+      evidence: no('it names connections; the figures it may repeat are the pre-note\'s own, and a number from anywhere else is refused'),
+      cohort: no('per organisation by design (layer 1): the project card makes the union, so a card moved between projects never re-runs this'),
+    },
+  },
+  {
     id: 'projectChat',
     purpose: "a project's shared session — several organisations in one chat, opened on every member's record (docs/projects.md)",
     file: 'server/services/projectContext.ts',

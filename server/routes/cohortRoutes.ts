@@ -57,7 +57,13 @@ import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
 import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
+import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
 import { renderPrenoteHtml } from '../services/prenotePrint';
+import { renderPreportfolioHtml } from '../services/preportfolioPrint';
+import { buildProjectNarrative, narrativeFacts, narrativeKey } from '../services/projectNarrative';
+import { readPlanLinks, prenoteFacts, planLinksKey } from '../services/planLinks';
+import { loadPlanCorpus, corpusVersion } from '../services/planCorpus';
+import { parsePlanLinks } from '@shared/plan-links';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -545,11 +551,247 @@ export function registerCohortRoutes(app: Express): void {
     archivedAt: p.archivedAt,
   });
 
+  // ── The pre-portfolio board (shared/preportfolio.ts) ──────────────────────
+  // Layer 1 is computed here, per organisation, from each live record; the
+  // board computes layer 2 (the project cards) itself on every drop.
+  // Plan readings in flight, by session — one at a time per organisation, at
+  // most two at once, never awaited by a request.
+  const planLinksInFlight = new Set<string>();
+  const planLinksQueue: Array<() => Promise<void>> = [];
+  let planLinksRunning = 0;
+  const pumpPlanLinks = () => {
+    while (planLinksRunning < 2 && planLinksQueue.length) {
+      const job = planLinksQueue.shift()!;
+      planLinksRunning++;
+      void job().finally(() => { planLinksRunning--; pumpPlanLinks(); });
+    }
+  };
+  const queuePlanLinks = (cboStateId: string, orgName: string, prenote: ReturnType<typeof buildPrenote>, key: string) => {
+    if (planLinksInFlight.has(cboStateId)) return;
+    planLinksInFlight.add(cboStateId);
+    planLinksQueue.push(async () => {
+      try {
+        const out = await readPlanLinks(orgName, prenote, loadPlanCorpus(), key);
+        if (!out) return;
+        let state = getCboState(cboStateId) ?? null;
+        if (!state) state = (await loadCboFromDb(cboStateId))?.state ?? null;
+        if (!state) return;
+        writeSectionFields(cboStateId, state, 'intervention_type', { _plan_links_json: JSON.stringify(out) }, () => {}, 'coordinator');
+        await flushNow(cboStateId);
+      } finally {
+        planLinksInFlight.delete(cboStateId);
+      }
+    });
+    pumpPlanLinks();
+  };
+
+  const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en', prenotes?: Map<string, ReturnType<typeof buildPrenote>>): Promise<PortfolioOrg[]> => {
+    const version = corpusVersion(loadPlanCorpus());
+    const members = (await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)))
+      .filter(m => !m.excludeFromPortfolio && m.cboStateId);
+    const ids = members.map(m => m.cboStateId!);
+    const rows = ids.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, ids)) : [];
+    const stored = new Map(rows.map(r => [r.id, r.sections]));
+    return members.map(m => {
+      const live = getCboState(m.cboStateId!);
+      const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
+      const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
+      const prenote = buildPrenote(prenoteInputFromSections(sections), lang);
+      prenotes?.set(m.id, prenote);
+      const org = portfolioOrg(m.id, orgName, sections, lang);
+      // The plan cross-reading: shown only when it was made for this pre-note
+      // and this corpus; otherwise redone in the background.
+      if (prenote.solution) {
+        const key = planLinksKey(prenoteFacts(orgName, prenote), version);
+        const stored = parsePlanLinks(String((sections as any)?.intervention_type?.fields?._plan_links_json?.value ?? ''));
+        if (stored?.key === key) org.planLinks = stored.links;
+        else { org.planLinksPending = true; queuePlanLinks(m.cboStateId!, orgName, prenote, key); }
+      }
+      return org;
+    });
+  };
+  const prefsFrom = (raw: any): PortfolioPrefs => ({
+    geoWeight: Math.max(0, Math.min(1, Number(raw?.geoWeight ?? DEFAULT_PREFS.geoWeight))),
+    theme: ['flood', 'heat', 'landslide'].includes(raw?.theme) ? raw.theme : null,
+    allowSingle: raw?.allowSingle === true,
+  });
+
+  /** The board: every organisation's layer-1 facts, the preferences, the saved arrangement (or a suggestion). */
+  app.get('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const lang = req.query.lang === 'en' ? 'en' : 'pt';
+    const orgs = await portfolioOrgsOf(cohort.id, lang);
+    const saved = (cohort.settings as CohortSettings | null)?.preportfolio ?? null;
+    const prefs = saved ? prefsFrom(saved.prefs) : DEFAULT_PREFS;
+    const known = new Set(orgs.map(o => o.memberId));
+    // A saved arrangement keeps only organisations still on the board; anyone
+    // new goes to a column of their own, so nobody is silently missing.
+    const groups = saved
+      ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
+      : suggestGroups(orgs, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    const placed = new Set(groups.flatMap(g => g.memberIds));
+    const loose = orgs.filter(o => !placed.has(o.memberId)).map(o => o.memberId);
+    if (loose.length) groups.push({ id: `novas-${loose.length}`, title: lang === 'pt' ? 'Ainda sem projeto' : 'Not in a project yet', memberIds: loose });
+    res.json({ orgs, prefs, groups, saved: !!saved, updatedAt: saved?.updatedAt ?? null });
+  }));
+
+  /** The pre-portfolio, printed: the board's saved arrangement (or the suggestion), one page per project. */
+  app.get('/api/cohort/:coordinatorSlug/preportfolio/print', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const prenotes = new Map<string, ReturnType<typeof buildPrenote>>();
+    const orgs = await portfolioOrgsOf(cohort.id, 'pt', prenotes);
+    const saved = (cohort.settings as CohortSettings | null)?.preportfolio;
+    const known = new Set(orgs.map(o => o.memberId));
+    const groups = saved
+      ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
+      : suggestGroups(orgs, DEFAULT_PREFS, 'pt').map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    const narratives = (cohort.settings as CohortSettings | null)?.preportfolioNarratives ?? {};
+    const withText = groups.map(g => {
+      const ids = [...g.memberIds].sort();
+      const card = projectCard(ids, orgs, 'pt');
+      const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
+      return { ...g, narrative: narratives[narrativeKey(ids, narrativeFacts(members, card))] ?? null };
+    });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderPreportfolioHtml({ cohortName: (cohort as any).name ?? 'Rede', groups: withText, orgs, prenotes }));
+  }));
+
+  /**
+   * Layer 3: the narrative for one group of organisations — cached by member
+   * set and their facts; computed (Opus, ~17 s) only when missing. The board
+   * asks for it once a column settles; a drag never waits on it.
+   */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/narrative', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const memberIds: string[] = Array.isArray(req.body?.memberIds) ? req.body.memberIds.map(String).slice(0, 12) : [];
+    if (!memberIds.length) { res.status(400).json({ error: 'memberIds required' }); return; }
+    const prenotes = new Map<string, ReturnType<typeof buildPrenote>>();
+    const orgs = await portfolioOrgsOf(cohort.id, 'pt', prenotes);
+    // Sorted: the same members in any order are the same project, and the same cache entry.
+    const ids = memberIds.filter(id => orgs.some(o => o.memberId === id)).sort();
+    if (!ids.length) { res.status(400).json({ error: 'no member belongs to this board' }); return; }
+    const card = projectCard(ids, orgs, 'pt');
+    const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
+    const key = narrativeKey(ids, narrativeFacts(members, card));
+    const cached = (cohort.settings as CohortSettings | null)?.preportfolioNarratives?.[key];
+    if (cached) { res.json({ key, narrative: cached, cached: true }); return; }
+    const narrative = await buildProjectNarrative(members, card);
+    if (!narrative) { res.json({ key, narrative: null }); return; }
+    const { dropped, ...kept } = narrative;
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
+    const narratives = { ...(cur.preportfolioNarratives ?? {}), [key]: kept };
+    // Keep the newest 60 — a board that has been rearranged all afternoon
+    // should not grow the cohort row without bound.
+    const trimmed = Object.fromEntries(Object.entries(narratives).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, 60));
+    await db.update(cohorts).set({ settings: { ...cur, preportfolioNarratives: trimmed } }).where(eq(cohorts.id, cohort.id));
+    res.json({ key, narrative: kept, cached: false });
+  }));
+
+  /** A suggestion under these preferences — not saved until the board saves it. */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/suggest', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const lang = req.body?.lang === 'en' ? 'en' : 'pt';
+    const prefs = prefsFrom(req.body?.prefs);
+    const orgs = await portfolioOrgsOf(cohort.id, lang);
+    res.json({ prefs, groups: suggestGroups(orgs, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds })) });
+  }));
+
+  /**
+   * "Confirmar arranjo": every group on the board becomes a project — or
+   * updates the one it already became — with its members and its name. A
+   * group without a name takes its reason. Projects the board no longer has
+   * are left alone: archiving is a decision, not a side effect.
+   */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/confirm', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const saved = (cohort.settings as CohortSettings | null)?.preportfolio;
+    if (!saved?.groups.length) { res.status(409).json({ error: 'nothing on the board yet' }); return; }
+    const orgs = await portfolioOrgsOf(cohort.id, 'pt');
+    const existing = await db.select().from(cohortProjects).where(eq(cohortProjects.cohortId, cohort.id));
+    const groups = [];
+    let created = 0, updated = 0;
+    for (const g of saved.groups) {
+      const title = g.title || projectCard(g.memberIds, orgs, 'pt').reason;
+      const mine = g.projectId ? existing.find(p => p.id === g.projectId && !p.archivedAt) : undefined;
+      if (mine) {
+        await db.update(cohortProjects).set({ title, memberIds: g.memberIds }).where(eq(cohortProjects.id, mine.id));
+        groups.push({ ...g, projectId: mine.id });
+        updated++;
+      } else {
+        const p = await createCohortProject(cohort, title, g.memberIds);
+        groups.push({ ...g, projectId: p.id });
+        created++;
+      }
+    }
+    const settings: CohortSettings = { ...(cohort.settings as CohortSettings), preportfolio: { ...saved, groups, updatedAt: new Date().toISOString() } };
+    await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, created, updated, groups });
+  }));
+
+  /** Save the board as it stands. Every member id must be this cohort's; each appears once. */
+  app.put('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const members = await db.select({ id: cohortMembers.id }).from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const valid = new Set(members.map(m => m.id));
+    const seen = new Set<string>();
+    const incoming: any[] = Array.isArray(req.body?.groups) ? req.body.groups : [];
+    const prev = new Map(((cohort.settings as CohortSettings | null)?.preportfolio?.groups ?? []).map(g => [g.id, g]));
+    const text = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n);
+    const groups = incoming.slice(0, 60).map((g, i) => {
+      const id = String(g?.id ?? `g${i + 1}`).slice(0, 40);
+      return {
+        id,
+        title: text(g?.title, 140),
+        memberIds: (Array.isArray(g?.memberIds) ? g.memberIds.map(String) : [])
+          .filter((m: string) => valid.has(m) && !seen.has(m) && (seen.add(m), true)),
+        // Vila Flores's part of the page — the story, what was learned, a voice.
+        story: text(g?.story, 2000), learnings: text(g?.learnings, 1200), quote: text(g?.quote, 400),
+        // The project a confirmed group became — set by /confirm, never by the board.
+        ...(prev.get(id)?.projectId ? { projectId: prev.get(id)!.projectId } : {}),
+      };
+    }).filter(g => g.memberIds.length);
+    // Re-read: a narrative may have landed since this request loaded the cohort.
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
+    const settings: CohortSettings = {
+      ...cur,
+      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
+    };
+    await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, groups });
+  }));
+
   app.get('/api/cohort/:coordinatorSlug/projects', wrap(async (req, res) => {
     const cohort = (req as any).cohort;
     const rows = await db.select().from(cohortProjects).where(eq(cohortProjects.cohortId, cohort.id)).orderBy(desc(cohortProjects.createdAt));
     res.json({ projects: rows.map(projectView) });
   }));
+
+  /**
+   * A project and its shared session, created together so the link always
+   * resolves — no snapshot dance, no "first opener creates it" race. Used by
+   * the board's "Novo projeto" and by the pre-portfolio's "Confirmar arranjo".
+   */
+  const createCohortProject = async (cohort: typeof cohorts.$inferSelect, title: string, memberIds: string[]) => {
+    const state = createEmptyCboState('porto-alegre');
+    state.orgName = title;
+    state.phase = 3;
+    state.metadata.language = ((cohort.settings as CohortSettings | null)?.language ?? 'pt');
+    setCboState(state.id, state);
+    const [project] = await db.insert(cohortProjects).values({
+      cohortId: cohort.id,
+      title,
+      capabilityToken: slug(),
+      cboStateId: state.id,
+      memberIds,
+    }).returning();
+    // The discriminator, written after the row exists so the id is real.
+    state.metadata.project = { id: project.id, cohortId: cohort.id };
+    setCboState(state.id, state);
+    debouncedPersist(state.id);
+    return project;
+  };
 
   app.post('/api/cohort/:coordinatorSlug/projects', wrap(async (req, res) => {
     const cohort = (req as any).cohort;
@@ -564,24 +806,7 @@ export function registerCohortRoutes(app: Express): void {
     const kept = memberIds.filter(id => known.has(id));
     if (!kept.length) { res.status(400).json({ error: 'no member belongs to this cohort' }); return; }
 
-    // The shared session, created WITH the project so the link always
-    // resolves — no snapshot dance, no "first opener creates it" race.
-    const state = createEmptyCboState('porto-alegre');
-    state.orgName = title;
-    state.phase = 3;
-    state.metadata.language = ((cohort.settings as CohortSettings | null)?.language ?? 'pt');
-    setCboState(state.id, state);
-    const [project] = await db.insert(cohortProjects).values({
-      cohortId: cohort.id,
-      title,
-      capabilityToken: slug(),
-      cboStateId: state.id,
-      memberIds: kept,
-    }).returning();
-    // The discriminator, written after the row exists so the id is real.
-    state.metadata.project = { id: project.id, cohortId: cohort.id };
-    setCboState(state.id, state);
-    debouncedPersist(state.id);
+    const project = await createCohortProject(cohort, title, kept);
     res.json({ project: projectView(project) });
   }));
 

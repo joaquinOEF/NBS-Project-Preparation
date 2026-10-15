@@ -27,6 +27,31 @@ export type CohortSettings = {
   // OVERRIDES the org's browser language detection (so a PT phone in an EN
   // cohort still gets EN, and vice-versa). Undefined = fall back to detection.
   language?: 'pt' | 'en';
+  /**
+   * The pre-portfolio board's working draft (shared/preportfolio.ts): the
+   * coordination's preferences and the arrangement as last saved. A draft, not
+   * a decision — "confirmar" turns groups into projects. Kept in settings so
+   * the board needs no table of its own.
+   */
+  preportfolio?: {
+    prefs: { geoWeight: number; theme: 'flood' | 'heat' | 'landslide' | null; allowSingle: boolean };
+    groups: Array<{
+      id: string; title: string; memberIds: string[];
+      /** Vila Flores's part of the project page. */
+      story?: string; learnings?: string; quote?: string;
+      /** The project this group became on "confirmar". */
+      projectId?: string;
+    }>;
+    updatedAt: string;
+  };
+  /**
+   * Layer 3 — the pre-portfolio narrative per project, keyed by member set + a
+   * fingerprint of their facts (server/services/projectNarrative.ts), so a card
+   * moved back finds its text and a changed pre-note is written again. Its own
+   * key: a board nobody has touched yet has no draft, and its narratives must
+   * not wait for one.
+   */
+  preportfolioNarratives?: Record<string, { title: string; why: string; synergies: string[]; cautions: string[]; model: string; at: string }>;
 };
 
 // RequestSupport — async escalation queue. CBO submits via chat-header button;

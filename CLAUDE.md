@@ -281,6 +281,12 @@ confirmation, else the technical visit (`_visit_json`), else the first liked
 test, and the page says which. Nothing waits on a person: an unclosed E3 is
 closed as it stands, the review stamp is optional.
 
+### The pre-portfolio: three layers — `docs/preportfolio.md`
+Per org (cached, incl. Opus plan links with literal passages) · per project on
+every drop (pure arithmetic) · per project when the board settles (Opus
+narrative, cached by member set + facts). A drag never waits on a model. The
+board's draft lives in `cohort.settings.preportfolio`.
+
 ### The organisation's profile — `docs/org-profile.md`
 "Perfil (PDF)" in the org drawer and "Todos os perfis (PDF)" above the roster:
 everything an organisation has shared, stage-aware, print-first, pt/en from the

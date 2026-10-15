@@ -14,6 +14,7 @@ import { Archive, ArchiveRestore, ExternalLink, FileText, Link as LinkIcon, Mess
 import type { CohortMember, CohortProject } from '@shared/cohort-schema';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent } from '@/core/components/ui/card';
+import { PreportfolioBoard } from './PreportfolioBoard';
 
 export function projectLinkUrl(p: { capabilityToken: string }): string {
   return `${window.location.origin}/cbo-profile?p=${p.capabilityToken}`;
@@ -22,11 +23,15 @@ export function projectLinkUrl(p: { capabilityToken: string }): string {
 type SynergyLine = { namePt?: string; nameEn?: string; orgNames?: string[]; rationalePt?: string; rationaleEn?: string };
 
 export function ProjectsView({
-  projects, members, cohortId, onCreate, onShare, onArchive, onDelete,
+  projects, members, cohortId, cohortSlug, onCreate, onShare, onArchive, onDelete, onRefresh,
 }: {
   projects: CohortProject[];
   members: CohortMember[];
   cohortId: string | null;
+  /** The pre-portfolio board's routes are keyed by the coordinator slug. */
+  cohortSlug?: string | null;
+  /** Reload the project list — after the pre-portfolio is confirmed. */
+  onRefresh?: () => void;
   onCreate: (initial?: { title?: string; memberIds?: string[] } | null) => void;
   onShare: (p: CohortProject) => void;
   onArchive: (p: CohortProject, archived: boolean) => void;
@@ -67,6 +72,7 @@ export function ProjectsView({
 
   return (
     <div data-testid="projects-view">
+      {cohortSlug && <PreportfolioBoard cohortSlug={cohortSlug} onConfirmed={onRefresh} />}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="max-w-[64ch] text-[13px] text-muted-foreground">
