@@ -126,6 +126,8 @@ export interface AuthorOutcome {
 export async function authorConceptNote(
   note: ConceptNote,
   lang: 'pt' | 'en' = 'pt',
+  /** A model for this call — the pre-note's summary runs on the strongest one. */
+  model?: string,
 ): Promise<AuthorOutcome> {
   if (!structuredProvider()) return { note, reason: 'no API key', accepted: 0, rejected: [] };
 
@@ -140,7 +142,7 @@ export async function authorConceptNote(
             { role: 'user', content: buildUserContent(note, lang) },
           ],
           config: {
-            ...(AUTHOR_MODEL ? { model: AUTHOR_MODEL } : {}),
+            ...(model || AUTHOR_MODEL ? { model: model || AUTHOR_MODEL } : {}),
             reasoningEffort: 'medium',
             maxCompletionTokens: 4096,
           },

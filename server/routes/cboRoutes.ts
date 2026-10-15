@@ -5,7 +5,8 @@ import { renderConceptNoteHtml } from '../services/conceptNotePrint';
 import { renderComparisonHtml, renderScenarioHtml } from '../services/comparisonPrint';
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
-import { buildPrenote, prenoteInputFromSections } from '@shared/e4-prenote';
+import { buildPrenote } from '@shared/e4-prenote';
+import { prenoteInputFor } from '../services/prenoteContext';
 import { renderPrenoteHtml } from '../services/prenotePrint';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import {
@@ -636,7 +637,8 @@ export function registerCboRoutes(app: Express): void {
     if (!state) return res.status(404).send("Not found");
     const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(renderPrenoteHtml(buildPrenote(prenoteInputFromSections(state.sections), lang), lang));
+    const full = await prenoteInputFor(req.params.id, state.sections, lang, { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
+    res.send(renderPrenoteHtml(buildPrenote(full, lang), lang));
   });
 
   /** One tested scenario, on its own page. 404 for a solution never tested. */

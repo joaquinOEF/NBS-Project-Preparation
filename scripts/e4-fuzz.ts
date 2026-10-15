@@ -56,6 +56,8 @@ const base = (extra: Array<{ sectionId: string; field: string; value: string }>)
   { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
   { sectionId: 'intervention_site', field: 'site_story', value: 'Quando chove forte a água entra pelo portão.' },
   { sectionId: 'intervention_site', field: 'land_tenure', value: 'private-owned' },
+  { sectionId: 'intervention_site', field: 'prior_collaboration_detail', value: 'COOP20' },
+  { sectionId: 'org_profile', field: 'team_size', value: '6-15' },
   ...extra,
 ];
 const PLACE = [{ sectionId: 'intervention_site', field: '_site_lat', value: '-30.0198' }, { sectionId: 'intervention_site', field: '_site_lng', value: '-51.2032' }];

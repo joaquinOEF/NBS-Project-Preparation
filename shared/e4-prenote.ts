@@ -41,6 +41,9 @@ import { WORRY_SUBTYPES } from './site-knowledge';
 import { cboDisplayValue } from './cbo-field-catalog';
 import { parseVisit } from './e4-visit';
 import { noteIndicators, INDICATOR_MENU_REVIEW, type ResolvedIndicator } from './e4-indicators';
+import { buildConceptNote, applyStoredAuthoring, conceptNoteFacts, type ConceptSectionId, type Paragraph } from './concept-note';
+import type { W3Input } from './w3-dossier';
+import { FIELD_DESTINY } from './field-destiny';
 
 type Lang = 'pt' | 'en';
 type Rec = Record<string, string | undefined>;
@@ -53,6 +56,13 @@ export interface PrenoteInput {
   type: Rec;
   /** operations_sustain / impact_monitoring fields, merged (who maintains, upkeep cost). */
   ops?: Rec;
+  /**
+   * Their photographs, with the CAPTION only (never a literal description) —
+   * passed by the server, which holds the documents. The first one prints.
+   */
+  photos?: Array<{ src: string; caption: string }>;
+  /** What this organisation shares with the cohort, as counts (cohortLines). */
+  cohort?: string[];
 }
 
 /** What Encontro 4 stores about the solution it confirmed. */
@@ -63,8 +73,8 @@ export interface E4Solution {
   units?: number;
 }
 
-export type PrenoteSectionId = 'problema' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'parceiros' | 'pendencias';
-export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['problema', 'solucao', 'impacto', 'indicadores', 'orcamento', 'parceiros', 'pendencias'];
+export type PrenoteSectionId = 'organizacao' | 'problema' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
+export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['organizacao', 'problema', 'solucao', 'impacto', 'indicadores', 'orcamento', 'financiamento', 'parceiros', 'pendencias'];
 
 /** The five things Encontro 4 asks — one per gap, in the order it asks them. */
 export type PrenoteGap = 'beneficiarios' | 'mudancas' | 'quem-faz' | 'contrapartida' | 'parceiros';
@@ -118,6 +128,13 @@ export interface Prenote {
   /** "estimativa técnica" until a review stamp says otherwise. */
   status: string;
   indicatorsReviewed: boolean;
+  /**
+   * The summary written over the facts when Encontro 4 closed (the concept
+   * note's authoring pass, same guards) — empty until it has run.
+   */
+  summary: string[];
+  /** One of their photographs, captioned, when there is one. */
+  photo: { src: string; caption: string } | null;
 }
 
 // ⚠️ The chip labels are spoken ("A gente mesmo"); a page is written. The
@@ -239,14 +256,16 @@ export function editIsStale(edit: PrenoteEdit, basis: string): boolean {
 
 const T = {
   pt: {
+    organizacao: 'A organização e o território',
     problema: 'O problema', solucao: 'A solução', impacto: 'Impacto esperado', indicadores: 'Indicadores',
-    orcamento: 'Orçamento básico', parceiros: 'Parceiros e autorizações', pendencias: 'Pendências',
+    orcamento: 'Orçamento básico', financiamento: 'Caminhos de financiamento', parceiros: 'Parceiros e autorizações', pendencias: 'Pendências',
     estimate: 'estimativa técnica', reviewed: (by?: string, at?: string) => `revisada${by ? ` por ${by}` : ''}${at ? ` em ${fmtDate(at)}` : ''}`,
     waived: 'revisão técnica dispensada pela coordenação',
   },
   en: {
+    organizacao: 'The organisation and the territory',
     problema: 'The problem', solucao: 'The solution', impacto: 'Expected impact', indicadores: 'Indicators',
-    orcamento: 'Basic budget', parceiros: 'Partners and approvals', pendencias: 'Open items',
+    orcamento: 'Basic budget', financiamento: 'Funding paths', parceiros: 'Partners and approvals', pendencias: 'Open items',
     estimate: 'technical estimate', reviewed: (by?: string, at?: string) => `reviewed${by ? ` by ${by}` : ''}${at ? ` on ${fmtDate(at)}` : ''}`,
     waived: 'technical review waived by the coordination',
   },
@@ -262,6 +281,8 @@ function fmtDate(iso: string): string {
 function basisOf(id: PrenoteSectionId, input: PrenoteInput, sol: Prenote['solution']): string {
   const t = input.type, s = input.site, o = input.ops ?? {};
   const parts: Record<PrenoteSectionId, Array<string | undefined>> = {
+    organizacao: [JSON.stringify(input.org ?? {}), s.bairro],
+    financiamento: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), input.org?.has_cnpj, input.org?.funding_history, (input.cohort ?? []).join('|')],
     problema: [s.site_worry, s.site_story, s.beneficiaries_note],
     solucao: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t.construction_model],
     impacto: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes],
@@ -289,7 +310,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   if (!sol) {
     return {
       solution: null, title: pt ? 'Pré-nota' : 'Pre-note', orgName, place, sections: [], budget: [], total: null,
-      indicators: [], gaps, review, status, indicatorsReviewed: !!INDICATOR_MENU_REVIEW,
+      indicators: [], gaps, review, status, indicatorsReviewed: !!INDICATOR_MENU_REVIEW, summary: [], photo: input.photos?.[0] ?? null,
     };
   }
 
@@ -450,6 +471,50 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   if (sol.source !== 'visita') open.push(W(pt ? 'A escolha da solução ainda não passou pela visita técnica.' : 'The choice of solution has not been through the technical visit yet.', pt ? 'coordenação' : 'the coordination'));
   sections.push({ id: 'pendencias', title: L.pendencias, lines: open, missing: null });
 
+  // ── Everything else the record holds ──────────────────────────────────────
+  // ⚠️ The first version printed only what Encontro 4 asked plus a few E2/E3
+  // fields — and left out Robson's visit reading, who the organisation is,
+  // the closing observations, the questions written for this organisation,
+  // what their own files say, the bairro's data and the funding paths, all of
+  // which the record already held (JVP, 15 Oct: "use as much context as
+  // possible"). The concept note already turns every one of those into a
+  // sourced paragraph, and so does the field registry for every answer that
+  // declares where it belongs — so the pre-note takes ITS paragraphs for the
+  // chosen solution, placed by section, never a second engine.
+  const extra = recordParagraphs(input, sol, lang);
+  const seen = new Set<string>();
+  const remember = (text: string) => seen.add(normText(text));
+  for (const sec of sections) for (const l of sec.lines) remember(l.text);
+  for (const b of budget) remember(`${b.label}: ${b.value}`);
+  const fresh = (ls: PrenoteLine[]) => ls.filter(l => {
+    const k = normText(l.text);
+    if (!k || Array.from(seen).some(x => x.includes(k) || (k.length > 40 && k.includes(x) && x.length > 40))) return false;
+    seen.add(k);
+    return true;
+  });
+  const into = (id: PrenoteSectionId, ls: PrenoteLine[], where: 'start' | 'end' = 'end') => {
+    const sec = sections.find(x => x.id === id);
+    if (!sec) return;
+    const add = fresh(ls);
+    sec.lines = where === 'start' ? [...add, ...sec.lines] : [...sec.lines, ...add];
+  };
+  const organizacao = fresh(extra.organizacao);
+  if (organizacao.length) sections.unshift({ id: 'organizacao', title: L.organizacao, lines: organizacao, missing: null });
+  into('problema', extra.problema);
+  into('solucao', extra.solucao);
+  into('impacto', extra.impacto);
+  into('orcamento', extra.orcamento);
+  const financiamento = fresh(extra.financiamento);
+  if (financiamento.length) sections.splice(sections.findIndex(x => x.id === 'parceiros'), 0, { id: 'financiamento', title: L.financiamento, lines: financiamento, missing: null });
+  into('parceiros', extra.parceiros);
+  into('pendencias', extra.pendencias);
+  // What the organisation brings, from Encontros 1–3, when Encontro 4 has not
+  // been asked yet — said as the record's, so the room confirms it.
+  if (!has(type.e4_contribution) && extra.contribution.length) {
+    const row = budget.find(b => b.source === (pt ? 'ainda não respondido' : 'not answered yet'));
+    if (row) { row.value = extra.contribution.join('; '); row.source = pt ? 'Encontros 1 a 3 — a confirmar' : 'Encontros 1 to 3 — to confirm'; }
+  }
+
   // ── Coordinator rewrites, where they still hold ───────────────────────────
   const edits = parseEdits(type._prenote_edits_json);
   for (const sec of sections) {
@@ -464,6 +529,79 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
     title: `${solLabel}${has(site.site_name) ? ` · ${site.site_name}` : ''}`,
     orgName, place, sections, budget, total, indicators, gaps, review, status,
     indicatorsReviewed: !!INDICATOR_MENU_REVIEW,
+    summary: extra.summary,
+    photo: input.photos?.[0] ?? null,
+  };
+}
+
+const normText = (t: string) => t.toLowerCase().replace(/\*\*|_|[“”"'«»]/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 160);
+
+/** The concept note's input for the ONE solution of the pre-note, at its confirmed size. */
+export function conceptInputFor(input: PrenoteInput, sol: NonNullable<Prenote['solution']>): W3Input {
+  const tests = parseTests(input.type.solution_tests_json).map(t => (t.solutionId === sol.id
+    ? { ...t, ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}), ...(sol.units ? { units: sol.units } : {}) }
+    : t));
+  return {
+    site: input.site,
+    org: input.org ?? {},
+    solutions: [sol.id],
+    ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}),
+    w3: { ...input.type, ...(input.ops ?? {}), solution_tests_json: JSON.stringify(tests), chosen_solutions: sol.id, ...(sol.units ? { intervention_units: String(sol.units) } : {}) },
+    cohort: input.cohort ?? [],
+  };
+}
+
+/**
+ * Every sourced paragraph the concept note would write for this solution,
+ * sorted into the pre-note's sections. Answers the field registry routes to a
+ * section ("feeds") and the questions written for this organisation come with
+ * them, so a field declared once reaches both documents.
+ */
+function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solution']>, lang: Lang) {
+  const pt = lang === 'pt';
+  const ci = conceptInputFor(input, sol);
+  const note = applyStoredAuthoring(buildConceptNote(ci, lang), input.type._prenote_authored_json, lang).note;
+  const facts = conceptNoteFacts(ci, lang);
+  const sec = (id: ConceptSectionId): Paragraph[] => note.sections.find(x => x.id === id)?.paragraphs ?? [];
+  const line = (p: Paragraph): PrenoteLine => ({
+    text: p.kind === 'bullet' ? `• ${p.text}` : p.text,
+    kind: p.kind === 'quote' ? 'quote' : p.kind === 'figure' ? 'figure' : 'written',
+    source: p.sources.join(' · '),
+  });
+  // A paragraph from the record itself — an answer, a question asked in the room, a file.
+  // Answers the pre-note already prints in its own words — not twice.
+  const ownLabels = ['beneficiaries_note', 'e4_contribution', 'e4_partners', 'site_story']
+    .map(f => (FIELD_DESTINY as any)[f]).filter((d: any) => d && 'feeds' in d).map((d: any) => `**${pt ? d.labelPt : d.labelEn}:**`);
+  const notOwn = (p: Paragraph) => !ownLabels.some(l => p.text.startsWith(l));
+  const fromRecord = (p: Paragraph) => p.sources.some(x => /organiza[çc][ãa]o, nos encontros|organisation, during|Encontro 3 question|pergunta do Encontro 3|arquivo enviado|file sent/i.test(x));
+  const solLabel = getSolution(sol.id) ? (pt ? getSolution(sol.id)!.pt.label : getSolution(sol.id)!.en.label) : sol.id;
+  const notDescription = (p: Paragraph) => !p.text.startsWith(`**${solLabel}** —`) && !/^(Dimensão|Size|Execução|Delivery):/.test(p.text);
+  // The generic funding paragraphs (philanthropic vs commercial, the
+  // aggregation argument, the caveat) belong to the long note; the pre-note
+  // keeps what is specific: the cohort counts and the paths matched to them.
+  const specificFunding = (p: Paragraph) => p.kind === 'bullet' || p.text.startsWith('**') || /não chega sozinho|does not arrive alone|Fora de alcance|Out of reach/.test(p.text);
+  // The benefit paragraph repeats the pre-note's own impact lines.
+  const notBenefit = (p: Paragraph) => !p.text.startsWith(`**${solLabel}.** `);
+  // Matched paths first, capped: a one-page note names the best few; the long note has them all.
+  const funding = sec('financiamento').filter(specificFunding);
+  const paths = funding.filter(p => p.text.startsWith('**'));
+  // Who they have worked with (Encontro 2) — named, as a partner to confirm.
+  const site = input.site;
+  const partnersFromRecord: PrenoteLine[] = has(site.prior_collaboration_detail)
+    ? [{ text: pt ? `Já trabalhou com: ${site.prior_collaboration_detail!.trim()}.` : `Has worked with: ${site.prior_collaboration_detail!.trim()}.`, kind: 'written', source: pt ? 'a organização, Encontro 2' : 'the organisation, Encontro 2' }]
+    : [];
+  return {
+    organizacao: sec('organizacao').map(line),
+    problema: sec('problema').filter(notOwn).map(line),
+    solucao: [...sec('intervencao').filter(notDescription).filter(notOwn), ...sec('porque').filter(notOwn)].map(line),
+    impacto: sec('resultados').filter(notOwn).filter(notBenefit).map(line),
+    orcamento: [...sec('custo'), ...sec('manutencao')].filter(fromRecord).filter(notOwn).map(line),
+    financiamento: [...funding.filter(p => !p.text.startsWith('**')), ...paths.slice(0, 4)]
+      .sort((a, b) => funding.indexOf(a) - funding.indexOf(b)).map(line),
+    parceiros: [...partnersFromRecord, ...sec('exige').filter(p => fromRecord(p) || /visita|visit|coordena/i.test(p.sources.join(' '))).filter(notOwn).map(line)],
+    pendencias: sec('pendencias').filter(p => !/pr[óo]ximos passos|next steps/i.test(p.text)).map(line),
+    summary: sec('resumo').filter(p => p.authored).map(p => p.text),
+    contribution: facts.contribution,
   };
 }
 
@@ -485,4 +623,23 @@ export function prenoteInputFromSections(sections: unknown): PrenoteInput {
     type: rec('intervention_type'),
     ops: { ...rec('impact_monitoring'), ...rec('operations_sustain') },
   };
+}
+
+/**
+ * What the record already says the organisation brings (Encontros 1–3: who
+ * builds, the team, years in the territory, the land) — Encontro 4 offers it
+ * as a confirmation instead of asking cold.
+ */
+export function recordedContribution(input: PrenoteInput, lang: Lang = 'pt'): string[] {
+  const sol = prenoteSolution(input);
+  if (!sol) return [];
+  return conceptNoteFacts(conceptInputFor(input, sol), lang).contribution;
+}
+
+/** Who the record already names as a partner or a contact (Encontros 2–3). */
+export function recordedPartners(input: PrenoteInput): string[] {
+  const s = input.site;
+  return [s.prior_collaboration_detail, s.institution_contact_note]
+    .filter((v): v is string => has(v) && !NOT_KNOWN.test(v.trim()))
+    .map(v => v.trim().replace(/[.;]+$/, ''));
 }

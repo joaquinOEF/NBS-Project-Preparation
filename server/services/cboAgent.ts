@@ -73,6 +73,7 @@ import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
 import { serveE4Checkpoint } from "./cboE4Checkpoint";
+import { prenoteInputFor, authorPrenote } from "./prenoteContext";
 import { reemitPending, withPendingQuestion, recordingPush } from "./pendingQuestion";
 import { parsePending, PENDING_FIELD } from "@shared/pending-question";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
@@ -3781,6 +3782,11 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
     recordCheckpoint: (step) => recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
     normChip,
+    extras: async () => {
+      const full = await prenoteInputFor(cboId, state.sections, lang === 'en' ? 'en' : 'pt', { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
+      return { photos: full.photos, cohort: full.cohort };
+    },
+    startAuthoring: () => { void runPrenoteAuthor(cboId); },
   };
   if (!state.metadata?.project && state.phase === 4) {
     try {
@@ -4321,6 +4327,31 @@ function setAuthoringState(cboId: string, value: string): void {
   } as any;
   setCboState(cboId, fresh);
   debouncedPersist(cboId);
+}
+
+/**
+ * The pre-note's written summary, when Encontro 4 closes (prenoteContext.ts).
+ * Fire and forget: the page is complete without it, and a run that fails
+ * leaves the deterministic page exactly as it was.
+ */
+async function runPrenoteAuthor(cboId: string): Promise<void> {
+  const started = Date.now();
+  try {
+    const state = getCboState(cboId);
+    if (!state?.sections?.intervention_type) return;
+    const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const input = await prenoteInputFor(cboId, state.sections, lang, { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
+    const out = await authorPrenote(input, lang);
+    const fresh = getCboState(cboId);
+    if (!fresh?.sections?.intervention_type) return;
+    fresh.sections.intervention_type.fields._prenote_authoring = { value: out ? 'done' : 'skipped', confidence: 'high', source: 'agent', userEdited: false } as any;
+    if (out) fresh.sections.intervention_type.fields._prenote_authored_json = { value: out.stored, confidence: 'medium', source: 'agent', userEdited: false } as any;
+    setCboState(cboId, fresh);
+    debouncedPersist(cboId);
+    console.log(`[prenote-author] ${cboId}: ${out ? `${out.accepted} parágrafo(s) aceitos, ${out.rejected} recusado(s)` : 'nada escrito — a página determinística fica'} em ${Date.now() - started}ms`);
+  } catch (err: any) {
+    console.error(`[prenote-author] ${cboId} failed (the page stands as computed):`, err?.message || err);
+  }
 }
 
 async function runConceptNoteAuthor(cboId: string): Promise<void> {

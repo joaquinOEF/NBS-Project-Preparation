@@ -62,6 +62,7 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
       ...BASE_FIELDS, ...PLACE,
       { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
       { sectionId: 'intervention_type', field: '_visit_json', value: JSON.stringify({ solutionId: 'jardins-de-chuva', areaM2: 140, date: '2026-10-23', recordedAt: 'x' }) },
+      { sectionId: 'intervention_site', field: 'prior_collaboration_detail', value: 'COOP20 e a escola estadual' },
     ] });
     const r = page.request;
 
@@ -86,10 +87,13 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     s = await step(r, cboId, 'Isso ✓');
     expect(s.ask.question).toMatch(/quem cuida no dia a dia/);
     s = await step(r, cboId, 'Voluntários da comunidade');
-    expect(s.ask.question).toMatch(/O que vocês já têm pra colocar/);
+    // What they bring, from what the record already says — confirmed, then added to.
+    expect(s.ask.question).toMatch(/Pelo que vocês já contaram, a organização coloca no projeto: \*\*Mutirão; terreno já em uso pela organização\*\*/);
+    s = await step(r, cboId, 'Isso, e mais coisa');
     s = await step(r, cboId, 'Mutirão de 20 pessoas e as mudas do viveiro', 'text');
-    expect(s.ask.question).toMatch(/Com quem vocês já conversaram/);
-    s = await step(r, cboId, 'A escola');
+    // Who they worked with in Encontro 2 — offered as the partners, confirmed in one tap.
+    expect(s.ask.question).toMatch(/No registro de vocês aparece: \*\*COOP20 e a escola estadual\*\*/);
+    s = await step(r, cboId, 'Isso ✓');
     expect(s.ask.question).toBe('Está bom assim?');
     const full = s.events.find(e => e.type === 'show_prenote').prenote;
     expect(full.gaps).toEqual([]);
@@ -103,9 +107,12 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     expect(st.sections.intervention_site.fields.beneficiaries_note.value).toBe('Umas 40 famílias da rua de baixo');
     expect(prenoteGaps(prenoteInputFromSections(st.sections))).toEqual([]);
 
+    expect(t.e4_contribution.value).toBe('Mutirão; terreno já em uso pela organização; Mutirão de 20 pessoas e as mudas do viveiro');
+    expect(t.e4_partners.value).toBe('COOP20 e a escola estadual');
     const html = await (await r.get(`/api/cbo/${cboId}/prenote`)).text();
     expect(html).toContain('meta: 40 famílias');
     expect(html).toContain('Mutirão de 20 pessoas e as mudas do viveiro');
+    expect(html).toContain('COOP20 e a escola estadual');
   });
 
   test('nothing waits on a person: E3 still open, no visit, no place, no size', async ({ page }) => {
@@ -156,7 +163,7 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     s = await step(r, cboId, 'Continuar da Fase 4', 'text');
     expect(s.ask.question, 'a return re-asks what was on screen').toBe(q);
 
-    for (const [msg, kind] of [['Isso ✓', 'chip'], ['Isso ✓', 'chip'], ['Não sei dizer', 'chip'], ['Menos água parada / menos alagamento', 'chip'], ['Isso ✓', 'chip'], ['A própria organização', 'chip'], ['Nada por enquanto', 'chip'], ['Ninguém ainda', 'chip']] as const) {
+    for (const [msg, kind] of [['Isso ✓', 'chip'], ['Isso ✓', 'chip'], ['Não sei dizer', 'chip'], ['Menos água parada / menos alagamento', 'chip'], ['Isso ✓', 'chip'], ['A própria organização', 'chip'], ['Não é bem isso', 'chip'], ['Nada por enquanto', 'chip'], ['Ninguém ainda', 'chip']] as const) {
       s = await step(r, cboId, msg, kind);
     }
     expect(s.ask.question).toBe('Está bom assim?');
