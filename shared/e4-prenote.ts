@@ -34,7 +34,7 @@ import { parseTests, sizeOf, testOf, type SolutionTest } from './w3-tests';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { studyRequirement } from './w3-dossier';
-import { studyCostLine } from './w3-studies';
+import { studyCostLine, STUDY_COSTS } from './w3-studies';
 import { approvalRequirement } from './nbs-approvals';
 import { HARDEST, type HardestId } from './w3-criteria';
 import { WORRY_SUBTYPES } from './site-knowledge';
@@ -384,12 +384,22 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   });
   const study = studyRequirement(sol.id, site);
   const studyLine = study ? studyCostLine(study.pt, lang) : null;
-  const studyFig = studyLine?.match(/R\$ ([\d.,]+)(?:–R\$ ([\d.,]+))?/);
-  const num = (x: string) => Number(x.replace(/[.,]/g, ''));
+  const sc = study ? STUDY_COSTS[study.pt] : undefined;
+  // ⚠️ Only a figure that buys THE STUDY enters the total. The ART row prices
+  // the registration fee alone (R$ 103–271); the professional's work is the
+  // real cost and has no reference — summing the fee made a study look free.
+  const feeOnly = !!sc?.scalePt && /\btaxa\b/i.test(sc.scalePt);
+  const studyPriced = sc?.lowBrl != null && !feeOnly;
   budget.push({
     label: pt ? 'Estudos e licenças' : 'Studies and permits',
-    value: study ? (studyFig ? studyFig[0] : (pt ? 'a cotar' : 'to be quoted')) : (pt ? 'nenhum estudo exigido pela ficha' : 'no study required by the ficha'),
-    ...(studyFig ? { low: num(studyFig[1]), high: num(studyFig[2] ?? studyFig[1]) } : {}),
+    value: !study
+      ? (pt ? 'nenhum estudo exigido pela ficha' : 'no study required by the ficha')
+      : studyPriced
+        ? range(sc!.lowBrl!, sc!.highBrl ?? sc!.lowBrl!, lang)
+        : feeOnly && sc?.lowBrl != null
+          ? (pt ? `a cotar (a taxa da ART é ${range(sc.lowBrl, sc.highBrl ?? sc.lowBrl, lang)}; o trabalho do profissional, à parte)` : `to be quoted (the ART fee is ${range(sc.lowBrl, sc.highBrl ?? sc.lowBrl, lang)}; the professional's work on top)`)
+          : (pt ? 'a cotar' : 'to be quoted'),
+    ...(studyPriced ? { low: sc!.lowBrl!, high: sc!.highBrl ?? sc!.lowBrl! } : {}),
     source: study ? (pt ? `${study.pt} — custos de estudo` : `${study.en} — study costs`) : (pt ? 'ficha da solução' : "the solution's ficha"),
   });
   budget.push({
