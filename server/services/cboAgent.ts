@@ -4217,6 +4217,43 @@ export async function cohortLinesFor(cboId: string, lang: 'pt' | 'en' = 'pt'): P
 }
 
 /**
+ * The cohort lines for MANY organisations of one cohort at once — each peer
+ * read once, not once per organisation. The pre-portfolio board asked
+ * cohortLinesFor for all 24 members, and each call re-read the other 23:
+ * 552 record reads per page load.
+ */
+export async function cohortLinesForMany(cboIds: string[], lang: 'pt' | 'en' = 'pt'): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!cboIds.length) return out;
+  const [membership] = await db.select({ cohortId: cohortMembers.cohortId }).from(cohortMembers).where(eq(cohortMembers.cboStateId, cboIds[0])).limit(1);
+  if (!membership?.cohortId) return out;
+  const siblings = await db
+    .select({ cboStateId: cohortMembers.cboStateId, excludeFromPortfolio: cohortMembers.excludeFromPortfolio })
+    .from(cohortMembers)
+    .where(eq(cohortMembers.cohortId, membership.cohortId));
+  const read = async (stateId: string) => {
+    const st = getCboState(stateId) ?? (await loadCboFromDb(stateId).catch(() => null))?.state ?? null;
+    if (!st?.sections) return null;
+    const facts = synergyFactsFrom(st.sections as any);
+    const site: any = (st.sections as any)?.intervention_site?.fields ?? {};
+    const val = (k: string) => String(site[k]?.value ?? '').trim() || null;
+    return peerFrom(facts, val('bairro'), val('site_worry'));
+  };
+  const peersById = new Map<string, CohortPeer>();
+  await Promise.all(siblings.filter(m => m.cboStateId && !m.excludeFromPortfolio).map(async m => {
+    const p = await read(m.cboStateId!).catch(() => null);
+    if (p) peersById.set(m.cboStateId!, p);
+  }));
+  for (const id of cboIds) {
+    const mine = peersById.get(id) ?? (await read(id).catch(() => null));
+    if (!mine) { out.set(id, []); continue; }
+    const peers = Array.from(peersById.entries()).filter(([k]) => k !== id).map(([, v]) => v);
+    out.set(id, cohortLines(mine, peers, lang));
+  }
+  return out;
+}
+
+/**
  * Write the questions this organisation should be asked — and then follow up.
  *
  * ⚠️ Fire-and-forget, and once per round per session. Everything it needs is

@@ -8,9 +8,9 @@
 // starting points — a line is a title and a set of organisations, which is
 // exactly what a project is made of.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Archive, ArchiveRestore, ExternalLink, FileText, Link as LinkIcon, MessageCircle, Plus, Sparkles, Trash2, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, ExternalLink, FileText, Link as LinkIcon, MessageCircle, Plus, Trash2, Users } from 'lucide-react';
 import type { CohortMember, CohortProject } from '@shared/cohort-schema';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent } from '@/core/components/ui/card';
@@ -20,7 +20,6 @@ export function projectLinkUrl(p: { capabilityToken: string }): string {
   return `${window.location.origin}/cbo-profile?p=${p.capabilityToken}`;
 }
 
-type SynergyLine = { namePt?: string; nameEn?: string; orgNames?: string[]; rationalePt?: string; rationaleEn?: string };
 
 export function ProjectsView({
   projects, members, cohortId, cohortSlug, onCreate, onShare, onArchive, onDelete, onRefresh,
@@ -40,46 +39,32 @@ export function ProjectsView({
   const { t, i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
   const byId = new Map(members.map(m => [m.id, m]));
-  const byName = new Map(members.map(m => [m.orgName.trim().toLowerCase(), m]));
   const [showArchived, setShowArchived] = useState(false);
-
-  // The synergy report's programme lines, as suggestions. A missing report is
-  // a normal state — the panel simply has no suggestions.
-  const [lines, setLines] = useState<SynergyLine[]>([]);
-  const load = useCallback(async () => {
-    if (!cohortId) return;
-    try {
-      const r = await fetch(`/api/cohort/${cohortId}/synergies`, { credentials: 'include' });
-      if (!r.ok) return;
-      const data = await r.json();
-      setLines(Array.isArray(data?.report?.narrative?.lines) ? data.report.narrative.lines : []);
-    } catch { /* no report yet */ }
-  }, [cohortId]);
-  useEffect(() => { void load(); }, [load]);
 
   const live = projects.filter(p => !p.archivedAt);
   const archived = projects.filter(p => !!p.archivedAt);
   const shown = showArchived ? projects : live;
 
-  // A suggestion whose organisations are already a project is not repeated.
-  const taken = new Set(live.map(p => [...p.memberIds].sort().join('|')));
-  const suggestions = lines
-    .map(l => {
-      const ids = (l.orgNames ?? []).map(n => byName.get(n.trim().toLowerCase())?.id).filter((x): x is string => !!x);
-      return { title: (isPt ? l.namePt : l.nameEn ?? l.namePt) ?? '', ids, why: isPt ? l.rationalePt : (l.rationaleEn ?? l.rationalePt), orgNames: l.orgNames ?? [] };
-    })
-    .filter(sg => sg.title && sg.ids.length >= 1 && !taken.has([...sg.ids].sort().join('|')));
-
   return (
     <div data-testid="projects-view">
       {cohortSlug && <PreportfolioBoard cohortSlug={cohortSlug} onConfirmed={onRefresh} />}
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      {/* Below the board: the projects it CREATED (and any made by hand). The
+          board is where projects are formed — the suggestion, the synergy
+          report's lines and the hand moves all live there now. */}
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="max-w-[64ch] text-[13px] text-muted-foreground">
-            {t('orchestrator.projects.lede', {
-              defaultValue: 'From Encontro 3 on, the work is by project: a group of organisations, one shared conversation, one link. The conversation opens on everything each organisation already told us.',
-            })}
-          </p>
+          {shown.length > 0 && (
+            <h3 className="text-[15px] font-semibold" data-testid="projects-created-title">
+              {t('orchestrator.projects.createdTitle', { defaultValue: 'Created projects' })}
+            </h3>
+          )}
+          {shown.length > 0 && (
+            <p className="max-w-[64ch] text-[12.5px] text-muted-foreground">
+              {t('orchestrator.projects.lede', {
+                defaultValue: 'Each project is a group of organisations with one shared conversation and one link. The conversation opens on everything each organisation already told us.',
+              })}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {archived.length > 0 && (
@@ -89,14 +74,14 @@ export function ProjectsView({
                 : t('orchestrator.projects.showArchived', { defaultValue: 'Show archived ({{n}})', n: archived.length })}
             </Button>
           )}
-          <Button size="sm" onClick={() => onCreate(null)} data-testid="button-create-project" disabled={members.length === 0}>
-            <Plus className="w-3.5 h-3.5 mr-1.5" />
-            {t('orchestrator.projects.create', { defaultValue: 'Create project' })}
+          <Button size="sm" variant="ghost" className="text-[12px] text-muted-foreground" onClick={() => onCreate(null)} data-testid="button-create-project" disabled={members.length === 0}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            {t('orchestrator.projects.createByHand', { defaultValue: 'Project by hand' })}
           </Button>
         </div>
       </div>
 
-      {shown.length === 0 && (
+      {shown.length === 0 && !cohortSlug && (
         <Card className="mb-6 border-dashed" data-testid="projects-empty">
           <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/30 dark:text-emerald-300">
@@ -222,40 +207,6 @@ export function ProjectsView({
         </div>
       )}
 
-      {suggestions.length > 0 && (
-        <div className="mb-8" data-testid="project-suggestions">
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
-            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('orchestrator.projects.suggestionsTitle', { defaultValue: 'From the synergy report' })}
-            </h3>
-          </div>
-          <p className="mb-3 max-w-[64ch] text-[12.5px] text-muted-foreground">
-            {t('orchestrator.projects.suggestionsLede', {
-              defaultValue: 'Programme lines the synergy report proposed. Each one is a name and a set of organisations — the shape of a project. They are hypotheses; creating one does not commit anybody.',
-            })}
-          </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {suggestions.map((sg, i) => (
-              <div key={i} className="flex items-start justify-between gap-3 rounded-lg border bg-card px-3.5 py-3" data-testid="project-suggestion">
-                <div className="min-w-0">
-                  <div className="text-[13.5px] font-semibold leading-tight">{sg.title}</div>
-                  <div className="mt-0.5 text-[12px] text-muted-foreground">{sg.orgNames.join(' · ')}</div>
-                  {sg.why && <p className="mt-1 text-[12px] leading-snug text-muted-foreground line-clamp-2">{sg.why}</p>}
-                </div>
-                <Button
-                  size="sm" variant="outline" className="h-7 shrink-0 px-2.5 text-[12px]"
-                  onClick={() => onCreate({ title: sg.title, memberIds: sg.ids })}
-                  data-testid="button-suggestion-create"
-                >
-                  <Plus className="mr-1 h-3 w-3" />
-                  {t('orchestrator.projects.createFromLine', { defaultValue: 'Create project' })}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

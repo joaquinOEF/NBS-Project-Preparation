@@ -122,22 +122,38 @@ test.describe('the pre-portfolio — the board', () => {
     const c = await mk('Morro Vivo', 'Morro da Cruz', seedOrg('Morro Vivo', 'Morro da Cruz', '-30.0700', '-51.1700', 'landslide', 'grade-viva'));
     const d = await mk('Encosta Verde', 'Morro da Cruz', seedOrg('Encosta Verde', 'Morro da Cruz', '-30.0710', '-51.1710', 'landslide', 'grade-viva'));
 
-    const api0 = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
-    expect(api0.orgs.length).toBe(4);
-    expect(api0.saved).toBe(false);
-    const sets = api0.groups.map((g: any) => [...g.memberIds].sort().join('|')).sort();
-    expect(sets).toEqual([[a.id, b.id].sort().join('|'), [c.id, d.id].sort().join('|')].sort());
+    // Not created yet: nothing is arranged, nothing is written.
+    const empty = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    expect(empty.state).toBe('empty');
+    expect(empty.saved).toBe(false);
+    expect(empty.groups).toEqual([]);
+    expect(empty.readyCount).toBe(4);
 
     await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
     await page.getByTestId('view-projects').click();
+    const create = page.getByTestId('preportfolio-create');
+    await expect(create).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('preportfolio-ready-count')).toContainText('4 organizações');
+    // The page below the board no longer offers its own empty state.
+    await expect(page.getByTestId('projects-empty')).toHaveCount(0);
+    if (process.env.DRAWER_SHOTS) await create.screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-create.png` });
+    await page.getByTestId('preportfolio-generate').click();
     const board = page.getByTestId('preportfolio-board');
     await expect(board).toBeVisible({ timeout: 30_000 });
+    const api0 = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    expect(api0.state).toBe('ready');
+    const sets = api0.groups.map((g: any) => [...g.memberIds].sort().join('|')).sort();
+    expect(sets).toEqual([[a.id, b.id].sort().join('|'), [c.id, d.id].sort().join('|')].sort());
     await expect(board).toContainText('Mesmo bairro (Floresta)');
     await expect(page.getByTestId('preportfolio-totals')).toContainText('2 projetos');
     // The map: every place, numbered by its project.
     await expect(page.getByTestId('pf-map-pin')).toHaveCount(4);
     const mapBox = await page.getByTestId('preportfolio-map').boundingBox();
     expect(mapBox?.height, 'the map has room to be seen').toBeGreaterThan(200);
+    // The narratives come from "Gerar", not from the visit.
+    await expect(page.getByTestId('preportfolio-narrative-0')).toBeVisible({ timeout: 20_000 });
+    // No permanent drop column: it appears only while a card is dragged.
+    await expect(page.getByTestId('preportfolio-new-drop')).toHaveCount(0);
     if (process.env.DRAWER_SHOTS) await page.getByTestId('preportfolio-map').screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-map.png` });
 
     // Move COOP20 to the Morro da Cruz project: both cards recompute at once.
@@ -147,13 +163,19 @@ test.describe('the pre-portfolio — the board', () => {
     await expect(moved.getByTestId(`preportfolio-org-${b.id}`)).toBeVisible();
     await expect(moved).toContainText('água · encosta');
     await expect(page.getByTestId('preportfolio-saving')).toHaveText('rascunho salvo', { timeout: 10_000 });
-    // Layer 3 lands once the board is still — keyed by the new member set.
+    // A group made by hand gets its narrative once the board is still.
     await expect(moved.getByTestId(`preportfolio-narrative-${target}`)).toBeVisible({ timeout: 15_000 });
     await expect(moved.getByTestId(`preportfolio-narrative-${target}`)).toContainText('Sem visita técnica registrada');
     if (process.env.DRAWER_SHOTS) await board.screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-board.png` });
 
+    // Back to the tab: the board is there at once, from the cache — no create panel, no spinner.
+    await page.getByTestId('view-orgs').click();
+    await page.getByTestId('view-projects').click();
+    await expect(board).toBeVisible({ timeout: 2_000 });
+
     await page.reload();
     await page.getByTestId('view-projects').click();
+    await expect(board).toBeVisible({ timeout: 30_000 });
     const after = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
     expect(after.saved).toBe(true);
     expect(after.groups.find((g: any) => g.memberIds.includes(b.id)).memberIds).toContain(c.id);
@@ -165,27 +187,23 @@ test.describe('the pre-portfolio — the board', () => {
     await page.getByTestId(`preportfolio-story-${gi}`).locator('textarea').first().fill('As três organizações se conheceram no Encontro 2 e decidiram juntar as obras.');
     await page.getByTestId('preportfolio-confirm').click();
     await expect(page.getByTestId('preportfolio-confirm-msg')).toContainText('2 projetos criados, 0 atualizados');
-    // A new suggestion after hand moves asks first — and what was written follows the members.
-    page.once('dialog', d => d.accept());
-    await page.getByTestId('pref-geo-0').click();
-    await expect.poll(async () => page.locator('input[data-testid^="preportfolio-title-"]').evaluateAll(els => els.map(e => (e as HTMLInputElement).value)))
+    await expect(page.getByTestId('projects-created-title')).toBeVisible();
+
+    // "Gerar de novo" asks first — and what was written follows the members.
+    await page.getByTestId('preportfolio-regenerate-open').click();
+    await page.getByTestId('pref-geo-0').last().click();
+    page.once('dialog', dlg => dlg.accept());
+    await page.getByTestId('preportfolio-generate').last().click();
+    await expect.poll(async () => page.locator('input[data-testid^="preportfolio-title-"]').evaluateAll(els => els.map(e => (e as HTMLInputElement).value)), { timeout: 10_000 })
       .toContain('Encostas e quintais que seguram a chuva');
-    const after2 = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
     await expect.poll(async () => (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json()).groups.some((g: any) => g.story?.startsWith('As três organizações') && g.projectId), { timeout: 5000 }).toBe(true);
-    void after2;
-    for (let i = 0; i < 2; i++) await expect(page.locator(`[data-testid="preportfolio-card-${i}"]`)).toHaveCount(1);
-    await page.getByTestId('pref-geo-0.5').click();
     const projects = (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/projects`)).json()).projects;
     expect(projects.map((p: any) => p.title)).toContain('Encostas e quintais que seguram a chuva');
-    // Confirming again updates, never duplicates.
-    await page.getByTestId('preportfolio-confirm').click();
-    await expect(page.getByTestId('preportfolio-confirm-msg')).toContainText('0 projetos criados, 2 atualizados');
-    expect((await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/projects`)).json()).projects.length).toBe(2);
 
-    // The plan readings ran in the background since the first load.
+    // The plan readings ran once, on "Gerar".
     await expect.poll(async () => {
-      const b = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
-      return b.orgs.filter((o: any) => o.planLinks?.length).length;
+      const bb = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+      return bb.orgs.filter((o: any) => o.planLinks?.length).length;
     }, { timeout: 20_000 }).toBe(4);
     const html = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text();
     expect(html).toContain('Conexões com os planos da cidade');
@@ -200,19 +218,54 @@ test.describe('the pre-portfolio — the board', () => {
     expect(html).toContain('Encostas e quintais que seguram a chuva');
     expect(html, 'a map with numbered pins, on the cover and per project').toMatch(/class="ppin"/);
     expect(html).toContain('As três organizações se conheceram');
-    expect(html).toMatch(/2<\/strong><span>projetos coletivos/);
-    // The narratives for the arrangement now on screen land once the board settles.
     await expect.poll(async () => (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text()).includes('Por que juntas'), { timeout: 15_000 }).toBe(true);
+
+    // A pre-note changes after "Gerar": a banner, nothing rewritten until "Atualizar".
+    await api.seedState(a.cboStateId, { phase: 4, language: 'pt', sections: [{ sectionId: 'intervention_site', field: 'beneficiaries_note', value: 'agora são 60 famílias' }] });
+    const changed = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    expect(changed.changed).toContain(a.id);
+    await page.reload();
+    await page.getByTestId('view-projects').click();
+    await expect(page.getByTestId('preportfolio-changed')).toContainText('Ksa Rosa');
+    await page.getByTestId('preportfolio-refresh').click();
+    await expect.poll(async () => (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json()).changed.length, { timeout: 20_000 }).toBe(0);
     if (process.env.DRAWER_SHOTS) {
       await page.goto(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`);
       await page.setViewportSize({ width: 820, height: 1160 });
       await page.screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-print.png`, fullPage: true });
     }
   });
+
+  test('an organisation without a pre-note waits in the tray, and costs no model call', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Tray ${tag}`)).cohort;
+    await api.createCoordinator({ email: `pf-t-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const ok = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true })).member;
+    await api.seedState(ok.cboStateId, { phase: 4, language: 'pt', sections: seedOrg('Ksa Rosa', 'Floresta', '-30.0198', '-51.2032', 'alagamento', 'jardins-de-chuva') });
+    const ok2 = (await api.inviteMember(cohort.id, { orgName: 'COOP20', neighborhood: 'Floresta', withSession: true })).member;
+    await api.seedState(ok2.cboStateId, { phase: 4, language: 'pt', sections: seedOrg('COOP20', 'Floresta', '-30.0201', '-51.2040', 'alagamento', 'jardins-de-chuva') });
+    const none = (await api.inviteMember(cohort.id, { orgName: 'Comunidade sem solução', neighborhood: 'Floresta', withSession: true })).member;
+    await api.seedState(none.cboStateId, { phase: 2, language: 'pt', sections: [{ sectionId: 'org_profile', field: 'org_name', value: 'Comunidade sem solução' }] });
+
+    const empty = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    expect(empty.readyCount).toBe(2);
+    expect(empty.tray).toContain(none.id);
+    await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/generate`, { data: { prefs: { geoWeight: 0.5, theme: null, allowSingle: false } } });
+    const board = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
+    expect(board.groups.flatMap((g: any) => g.memberIds)).not.toContain(none.id);
+    expect(board.tray).toEqual([none.id]);
+    // Asked directly for a group with no pre-note: an empty answer, at once.
+    const t0 = Date.now();
+    const n = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/narrative`, { data: { memberIds: [none.id] } })).json();
+    expect(n).toMatchObject({ narrative: null, empty: true });
+    expect(Date.now() - t0).toBeLessThan(3000);
+  });
 });
 
-test.describe('the pre-portfolio — narratives on an untouched board', () => {
-  test('a narrative written before anyone saved the board still reaches the page', async ({ page }) => {
+test.describe('the pre-portfolio — narratives from "Gerar"', () => {
+  test('the narratives written on "Gerar" reach the page and are found by member set', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
     const tag = randomUUID().slice(0, 6);
@@ -222,12 +275,11 @@ test.describe('the pre-portfolio — narratives on an untouched board', () => {
       const m = (await api.inviteMember(cohort.id, { orgName: name, neighborhood: 'Floresta', withSession: true })).member;
       await api.seedState(m.cboStateId, { phase: 4, language: 'pt', sections: seedOrg(name, 'Floresta', lat, '-51.2032', 'alagamento', 'jardins-de-chuva') });
     }
+    await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/generate`, { data: { prefs: { geoWeight: 0.5, theme: null, allowSingle: false } } });
+    await expect.poll(async () => !!(await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json()).groups[0]?.narrative, { timeout: 15_000 }).toBe(true);
     const board = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio`)).json();
-    expect(board.saved).toBe(false);
-    const n = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/narrative`, { data: { memberIds: board.groups[0].memberIds } })).json();
-    expect(n.narrative).toBeTruthy();
     const again = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/narrative`, { data: { memberIds: [...board.groups[0].memberIds].reverse() } })).json();
-    expect(again.cached, 'same members, any order: the cache').toBe(true);
+    expect(again.narrative, 'same members, any order: the cache').toMatchObject({ why: board.groups[0].narrative.why });
     expect(await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/preportfolio/print`)).text()).toContain('Por que juntas');
   });
 });
