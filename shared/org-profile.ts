@@ -256,3 +256,30 @@ export function staticMapTiles(lat: number, lng: number, zoom = 17): { tiles: Ar
   for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) tiles.push({ x: tx - 1 + col, y: ty - 1 + row, z: zoom, col, row });
   return { tiles, pin: { left: (fx - (tx - 1)) / 3, top: (fy - (ty - 1)) / 3 } };
 }
+
+/**
+ * The same static map for several points: the deepest zoom (≤ 16) at which
+ * all of them fit the middle of a 3×3 tile block, and where each pin sits
+ * (0–1 on each axis). For a project's places on the printed pre-portfolio.
+ */
+export function staticMapForPoints(points: Array<{ lat: number; lng: number }>): { tiles: Array<{ x: number; y: number; z: number; col: number; row: number }>; pins: Array<{ left: number; top: number }> } | null {
+  if (!points.length) return null;
+  const proj = (lat: number, lng: number, z: number) => {
+    const n = 2 ** z, rad = (lat * Math.PI) / 180;
+    return { fx: ((lng + 180) / 360) * n, fy: ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n };
+  };
+  for (let z = 16; z >= 8; z--) {
+    const ps = points.map(p => proj(p.lat, p.lng, z));
+    const minX = Math.min(...ps.map(p => p.fx)), maxX = Math.max(...ps.map(p => p.fx));
+    const minY = Math.min(...ps.map(p => p.fy)), maxY = Math.max(...ps.map(p => p.fy));
+    // Fits with half a tile of margin on every side.
+    if (maxX - minX > 2 || maxY - minY > 2) continue;
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const ox = Math.floor(cx) - 1, oy = Math.floor(cy) - 1;
+    if (minX - ox < 0.25 || ox + 3 - maxX < 0.25 || minY - oy < 0.25 || oy + 3 - maxY < 0.25) continue;
+    const tiles = [];
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) tiles.push({ x: ox + col, y: oy + row, z, col, row });
+    return { tiles, pins: ps.map(p => ({ left: (p.fx - ox) / 3, top: (p.fy - oy) / 3 })) };
+  }
+  return null;
+}

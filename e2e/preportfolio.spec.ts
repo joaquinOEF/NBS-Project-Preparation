@@ -134,6 +134,11 @@ test.describe('the pre-portfolio — the board', () => {
     await expect(board).toBeVisible({ timeout: 30_000 });
     await expect(board).toContainText('Mesmo bairro (Floresta)');
     await expect(page.getByTestId('preportfolio-totals')).toContainText('2 projetos');
+    // The map: every place, numbered by its project.
+    await expect(page.getByTestId('pf-map-pin')).toHaveCount(4);
+    const mapBox = await page.getByTestId('preportfolio-map').boundingBox();
+    expect(mapBox?.height, 'the map has room to be seen').toBeGreaterThan(200);
+    if (process.env.DRAWER_SHOTS) await page.getByTestId('preportfolio-map').screenshot({ path: `${process.env.DRAWER_SHOTS}/preportfolio-map.png` });
 
     // Move COOP20 to the Morro da Cruz project: both cards recompute at once.
     const target = api0.groups.findIndex((g: any) => g.memberIds.includes(c.id));
@@ -188,6 +193,7 @@ test.describe('the pre-portfolio — the board', () => {
     await expect(page.getByTestId('preportfolio-plans-0')).toBeVisible({ timeout: 25_000 });
     expect(html).toContain('Pré-portfólio de projetos');
     expect(html).toContain('Encostas e quintais que seguram a chuva');
+    expect(html, 'a map with numbered pins, on the cover and per project').toMatch(/class="ppin"/);
     expect(html).toContain('As três organizações se conheceram');
     expect(html).toMatch(/2<\/strong><span>projetos coletivos/);
     // The narratives for the arrangement now on screen land once the board settles.

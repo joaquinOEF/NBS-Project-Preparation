@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { projectCard, HORIZON_LABEL, type PortfolioOrg, type PortfolioPrefs } from '@shared/preportfolio';
+import { PreportfolioMap, PROJECT_COLORS } from './PreportfolioMap';
 
 type Group = { id: string; title: string; memberIds: string[]; story?: string; learnings?: string; quote?: string; projectId?: string };
 
@@ -238,6 +239,8 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
         })}
       </p>
 
+      <PreportfolioMap orgs={orgs} groups={groups} />
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {groups.map((g, gi) => {
           const card = projectCard(g.memberIds, orgs, lang);
@@ -249,6 +252,8 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
               onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) move(id, g.id); setDragging(null); }}
               data-testid={`preportfolio-group-${gi}`}
             >
+              <div className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: PROJECT_COLORS[gi % PROJECT_COLORS.length] }}>{gi + 1}</span>
               <input
                 value={g.title}
                 onChange={e => rename(g.id, e.target.value)}
@@ -256,6 +261,7 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                 className="w-full bg-transparent text-[13.5px] font-semibold outline-none placeholder:text-muted-foreground"
                 data-testid={`preportfolio-title-${gi}`}
               />
+              </div>
               <p className="text-[11.5px] text-muted-foreground" data-testid={`preportfolio-reason-${gi}`}>{card.reason}</p>
               {(() => {
                 const n = narratives[setKey(g.memberIds)];

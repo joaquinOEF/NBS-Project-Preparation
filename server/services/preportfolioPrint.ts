@@ -16,6 +16,25 @@
 import { projectCard, HORIZON_LABEL, HORIZON_ORDER, type PortfolioOrg } from '@shared/preportfolio';
 import type { Prenote } from '@shared/e4-prenote';
 import { esc, md, printShell } from './printShell';
+import { staticMapForPoints } from '@shared/org-profile';
+
+// The light basemap the coordinator's map uses: ground, then place names —
+// pins read better on it than on imagery.
+const BASE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile';
+const LABELS = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile';
+
+/** A static map with one numbered pin per place. Prints in any browser, no script. */
+function placesMap(places: Array<{ lat: number; lng: number; label: string; n: number }>, caption: string): string {
+  const m = staticMapForPoints(places);
+  if (!m) return '';
+  return `<figure class="pmap">
+    <div class="ptiles">${m.tiles.map(t => `<img alt="" src="${BASE}/${t.z}/${t.y}/${t.x}">`).join('')}
+      <div class="plabels">${m.tiles.map(t => `<img alt="" src="${LABELS}/${t.z}/${t.y}/${t.x}">`).join('')}</div>
+      ${m.pins.map((p, i) => `<span class="ppin" style="left:${(p.left * 100).toFixed(2)}%;top:${(p.top * 100).toFixed(2)}%" title="${esc(places[i].label)}">${places[i].n}</span>`).join('')}
+    </div>
+    <figcaption>${esc(caption)}</figcaption>
+  </figure>`;
+}
 
 export interface PrintGroup {
   id: string; title: string; memberIds: string[]; story?: string; learnings?: string; quote?: string;
@@ -49,6 +68,7 @@ export function renderPreportfolioHtml(input: {
     </div>
     <p><strong>Quando podem começar:</strong> ${byHorizon.map(([h, n]) => `${esc(HORIZON_LABEL[h].pt)}: ${n} ${n === 1 ? 'projeto' : 'projetos'}`).join(' · ') || '—'}.</p>
     ${risks.length ? `<p><strong>Riscos que respondem:</strong> ${esc(risks.join(', '))}.</p>` : ''}
+    ${placesMap(cards.flatMap(({ c }, i) => c.places.map(p => ({ ...p, n: i + 1 }))), 'Os lugares, numerados pelo projeto a que pertencem.')}
     <table class="index"><thead><tr><th>Projeto</th><th>Organizações</th><th>Estimativa</th><th>Quando</th></tr></thead><tbody>
       ${cards.map(({ g, c }, i) => `<tr><td>${i + 1}. ${esc(g.title || g.narrative?.title || c.reason)}</td><td>${esc(c.orgNames.join(', '))}</td><td>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : '—'}</td><td>${esc(c.horizonLabel)}</td></tr>`).join('')}
     </tbody></table>
@@ -79,6 +99,7 @@ export function renderPreportfolioHtml(input: {
     <p class="chips">${c.riskLabels.length ? `<span>${esc(c.riskLabels.join(' · '))}</span>` : ''}<span>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : 'sem estimativa'}</span><span>${esc(c.horizonLabel)}</span></p>
     ${g.story ? `<h3>A história</h3><p>${md(g.story)}</p>` : ''}
     ${g.quote ? `<blockquote>${esc(g.quote)}</blockquote>` : ''}
+    ${c.places.length ? placesMap(c.places.map((p, k) => ({ ...p, n: k + 1 })), c.places.map((p, k) => `${k + 1}. ${p.label}`).join(' · ')) : ''}
     <h3>O que cada organização traz</h3>
     <table><thead><tr><th>Organização</th><th>Solução</th><th>Estimativa</th><th>Quando</th><th>Situação</th></tr></thead><tbody>${rows}</tbody></table>
     ${c.unpriced.length ? `<p class="src">Sem valor ainda, fora da soma: ${esc(c.unpriced.join(', '))}.</p>` : ''}
@@ -119,6 +140,12 @@ export function renderPreportfolioHtml(input: {
   .why { color: #4c574f; margin: 0 0 6px; }
   .chips span { display: inline-block; border: 1px solid #cfd8d1; border-radius: 999px; padding: 1px 8px; margin-right: 4px; font-size: 11.5px; }
   blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid #9fb3a6; font-style: italic; }
-  .src { color: #6d776f; font-size: 10.5px; }`,
+  .src { color: #6d776f; font-size: 10.5px; }
+  .pmap { margin: 10px 0; break-inside: avoid; }
+  .ptiles { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 120mm; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 6px; background: #e6e9e7; }
+  .ptiles > img, .plabels img { display: block; width: 100%; height: 100%; }
+  .plabels { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); pointer-events: none; }
+  .ppin { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: #24493a; color: #fff; font: 700 11px/20px -apple-system, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0,0,0,.45); }
+  figcaption { font-size: 10.5px; color: #6d776f; margin-top: 3px; }`,
   });
 }
