@@ -41,44 +41,89 @@ const HORIZON_CLS = {
   '1-ano': 'border-orange-200 bg-orange-50 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300',
 } as const;
 
+type BoardMeta = {
+  state: 'empty' | 'ready';
+  tray: string[];
+  changed: string[];
+  generation: { running: boolean; done: number; total: number } | null;
+  readyCount: number;
+  synergyLines: number;
+  generatedAt?: string;
+};
+const DEFAULT_PREFS_UI: PortfolioPrefs = { geoWeight: 0.5, theme: null, allowSingle: false };
+/** The last board per cohort, for this tab session — see the component. */
+const boardCache = new Map<string, any>();
+
 export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: string; onConfirmed?: () => void }) {
   const { t, i18n } = useTranslation();
   const lang: 'pt' | 'en' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const base = `/api/cohort/${cohortSlug}/preportfolio`;
-  const [orgs, setOrgs] = useState<PortfolioOrg[]>([]);
-  const [prefs, setPrefs] = useState<PortfolioPrefs>({ geoWeight: 0.5, theme: null, allowSingle: false });
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The last board seen, per cohort, for this tab session: switching tabs
+  // re-mounts this component, and the coordinator should see the board at once
+  // — the fetch below only refreshes it.
+  const cached = boardCache.get(base);
+  const [orgs, setOrgs] = useState<PortfolioOrg[]>(cached?.orgs ?? []);
+  const [prefs, setPrefs] = useState<PortfolioPrefs>(cached?.prefs ?? { geoWeight: 0.5, theme: null, allowSingle: false });
+  const [groups, setGroups] = useState<Group[]>(cached?.groups ?? []);
+  const [board, setBoard] = useState<BoardMeta>(cached?.meta ?? { state: 'empty', tray: [], changed: [], generation: null, readyCount: 0, synergyLines: 0 });
+  const [loading, setLoading] = useState(!cached);
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const [dragging, setDragging] = useState<string | null>(null);
+  // Which project's plan links are open — the passages, not just their count.
+  const [plansOpen, setPlansOpen] = useState<Record<string, boolean>>({});
   const first = useRef(true);
+
+  type Narrative = { title: string; why: string; synergies: string[]; cautions: string[] };
+  const [narratives, setNarratives] = useState<Record<string, Narrative | null | 'loading' | 'empty'>>(cached?.narratives ?? {});
+  const setKey = (ids: string[]) => [...ids].sort().join('|');
+
+  const apply = useCallback((d: any, opts: { keepGroups?: boolean } = {}) => {
+    const meta: BoardMeta = { state: d.state ?? 'ready', tray: d.tray ?? [], changed: d.changed ?? [], generation: d.generation ?? null, readyCount: d.readyCount ?? 0, synergyLines: d.synergyLines ?? 0, generatedAt: d.generatedAt };
+    const fromServer: Record<string, Narrative | 'empty'> = {};
+    for (const g of d.groups ?? []) {
+      if (g.narrative) fromServer[setKey(g.memberIds)] = g.narrative;
+      else if (g.narrativeEmpty) fromServer[setKey(g.memberIds)] = 'empty';
+    }
+    setOrgs(d.orgs ?? []);
+    setBoard(meta);
+    setNarratives(prev => {
+      const next = { ...prev, ...fromServer };
+      boardCache.set(base, { ...(boardCache.get(base) ?? {}), narratives: next });
+      return next;
+    });
+    if (!opts.keepGroups) {
+      first.current = true; // loaded, not moved: no autosave
+      setPrefs(d.prefs ?? DEFAULT_PREFS_UI);
+      setGroups((d.groups ?? []).map(({ narrative, narrativeEmpty, ...g }: any) => g));
+    }
+    boardCache.set(base, { ...(boardCache.get(base) ?? {}), orgs: d.orgs ?? [], prefs: d.prefs ?? DEFAULT_PREFS_UI, meta, ...(opts.keepGroups ? {} : { groups: (d.groups ?? []).map(({ narrative, narrativeEmpty, ...g }: any) => g) }) });
+  }, [base]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const load = useCallback(async (opts: { keepGroups?: boolean } = {}) => {
+    const r = await fetch(`${base}?lang=${lang}`, { credentials: 'include' }).catch(() => null);
+    if (r?.ok) apply(await r.json(), opts);
+  }, [base, lang, apply]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${base}?lang=${lang}`, { credentials: 'include' })
-      .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then(d => { if (cancelled) return; setOrgs(d.orgs ?? []); setPrefs(d.prefs); setGroups(d.groups ?? []); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
+    void load({ keepGroups: false }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [base, lang]);
+  }, [load]);
 
-  // Plan readings run in the background (~12 s each); while any is pending,
-  // look again now and then and take the links as they land. Never the groups.
-  const pending = orgs.some(o => o.planLinksPending);
+  // While "Gerar"/"Atualizar" is running, or a plan reading is in flight, look
+  // again now and then. Never re-arranges the groups the coordinator is moving.
+  const busy = !!board.generation?.running || orgs.some(o => o.planLinksPending);
   useEffect(() => {
-    if (!pending) return;
-    const h = setTimeout(async () => {
-      const r = await fetch(`${base}?lang=${lang}`, { credentials: 'include' }).catch(() => null);
-      if (r?.ok) setOrgs((await r.json()).orgs ?? []);
-    }, 15_000);
+    if (!busy) return;
+    const h = setTimeout(() => { void load({ keepGroups: true }); }, 4000);
     return () => clearTimeout(h);
-  }, [pending, orgs, base, lang]);
+  }, [busy, board, orgs, load]);
 
   // The draft saves itself, a beat after the last move.
   useEffect(() => {
-    if (loading) return;
+    if (loading || board.state !== 'ready') return;
     if (first.current) { first.current = false; return; }
+    boardCache.set(base, { ...(boardCache.get(base) ?? {}), groups });
     setSaving('saving');
     const h = setTimeout(async () => {
       const r = await fetch(base, {
@@ -88,51 +133,48 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
       setSaving(r?.ok ? 'saved' : 'failed');
     }, 700);
     return () => clearTimeout(h);
-  }, [groups, prefs, base, loading]);
+  }, [groups, prefs, base, loading, board.state]);
 
-  // Layer 3: once the board has been still for a moment, each column's
-  // narrative — from the server's cache by member set, or written then (Opus,
-  // ~17 s). Keyed client-side by member set too, so a card moved back shows its
-  // text at once. A drag never waits on this.
-  type Narrative = { title: string; why: string; synergies: string[]; cautions: string[] };
-  const [narratives, setNarratives] = useState<Record<string, Narrative | null | 'loading'>>({});
-  const setKey = (ids: string[]) => [...ids].sort().join('|');
+  // A group the coordinator MADE by moving cards has no narrative yet: ask for
+  // it once the board settles (cached on the server by member set). Groups
+  // from "Gerar" already have theirs, or an empty answer that is not retried.
   useEffect(() => {
-    if (loading) return;
+    if (loading || board.state !== 'ready' || board.generation?.running) return;
     const h = setTimeout(() => {
       for (const g of groups) {
         const k = setKey(g.memberIds);
         if (narratives[k] !== undefined) continue;
+        if (!g.memberIds.some(id => orgs.find(o => o.memberId === id)?.solutionId)) { setNarratives(prev => ({ ...prev, [k]: 'empty' })); continue; }
         setNarratives(prev => ({ ...prev, [k]: 'loading' }));
         fetch(`${base}/narrative`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberIds: g.memberIds }) })
           .then(r => (r.ok ? r.json() : null))
-          .then(d => setNarratives(prev => ({ ...prev, [k]: d?.narrative ?? null })))
+          .then(d => setNarratives(prev => ({ ...prev, [k]: d?.narrative ?? 'empty' })))
           .catch(() => setNarratives(prev => ({ ...prev, [k]: null })));
       }
     }, 2500);
     return () => clearTimeout(h);
-  }, [groups, loading, base]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groups, loading, base, board.state, board.generation?.running]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⚠️ A new suggestion replaces the arrangement. What people WROTE on it — a
-  // name, Vila Flores's story, the project a group became — is carried to the
-  // new group that shares the most organisations with the old one, never
-  // dropped; and if cards were moved by hand, it asks first.
-  const handEdited = useRef(false);
-  const suggest = useCallback(async (next: PortfolioPrefs) => {
-    if (handEdited.current && !window.confirm(t('orchestrator.preportfolio.confirmResuggest', { defaultValue: 'Isso refaz a sugestão e desfaz o que foi movido à mão. Nomes e histórias passam para o grupo mais parecido. Continuar?' }) as string)) return;
-    setPrefs(next);
-    const r = await fetch(`${base}/suggest`, {
-      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefs: next, lang }),
-    }).catch(() => null);
-    if (!r?.ok) return;
-    const fresh: Group[] = (await r.json()).groups ?? [];
-    setGroups(prev => carryOver(prev, fresh));
-    handEdited.current = false;
-  }, [base, lang, t]);
+  // "Gerar" (and "Gerar de novo"): arrange under these options and run the
+  // passes once on the server. Names and stories carry over on the server.
+  const [genPrefs, setGenPrefs] = useState<PortfolioPrefs>(cached?.prefs ?? DEFAULT_PREFS_UI);
+  const [genStart, setGenStart] = useState<'sugestao' | 'sinergias'>('sugestao');
+  const [regenOpen, setRegenOpen] = useState(false);
+  const generate = async () => {
+    if (board.state === 'ready' && !window.confirm(t('orchestrator.preportfolio.confirmRegenerate', { defaultValue: 'Gerar de novo refaz o arranjo e os textos. Nomes e histórias passam para o grupo mais parecido. Continuar?' }) as string)) return;
+    setRegenOpen(false);
+    setBoard(b => ({ ...b, generation: { running: true, done: 0, total: 0 } }));
+    const r = await fetch(`${base}/generate`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefs: genPrefs, start: genStart, lang }) }).catch(() => null);
+    if (r?.ok) { setNarratives({}); await load({ keepGroups: false }); }
+  };
+  const refresh = async () => {
+    setBoard(b => ({ ...b, generation: { running: true, done: 0, total: 0 }, changed: [] }));
+    await fetch(`${base}/refresh`, { method: 'POST', credentials: 'include' }).catch(() => null);
+    setNarratives({});
+    await load({ keepGroups: true });
+  };
 
   const move = (memberId: string, toId: string) => {
-    handEdited.current = true;
     setGroups(prev => {
       let next = prev.map(g => ({ ...g, memberIds: g.memberIds.filter(id => id !== memberId) }));
       if (toId === '__new') next = [...next, { id: `g${Date.now()}`, title: '', memberIds: [memberId] }];
@@ -185,13 +227,82 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
   ];
   const chip = (on: boolean) => `rounded-full border px-2.5 py-1 text-[12px] ${on ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-border hover:bg-muted/50'}`;
 
+  const nameOf = (id: string) => byId.get(id)?.orgName ?? id;
+  // The options "Gerar" runs with — the same panel on the first creation and on "Gerar de novo".
+  const options = (
+    <div className="space-y-2.5" data-testid="preportfolio-prefs">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-32 text-[12px] font-medium">{t('orchestrator.preportfolio.groupBy', { defaultValue: 'Agrupar por' })}</span>
+        {GEO.map(g => (
+          <button key={g.w} type="button" className={chip(genPrefs.geoWeight === g.w)} onClick={() => setGenPrefs(p => ({ ...p, geoWeight: g.w }))} data-testid={`pref-geo-${g.w}`}>{g.label}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-32 text-[12px] font-medium">{t('orchestrator.preportfolio.frame', { defaultValue: 'Tema que organiza' })}</span>
+        {THEMES.map(th => (
+          <button key={String(th.id)} type="button" className={chip(genPrefs.theme === th.id)} onClick={() => setGenPrefs(p => ({ ...p, theme: th.id }))} data-testid={`pref-theme-${th.id ?? 'none'}`}>{th.label}</button>
+        ))}
+      </div>
+      {board.synergyLines > 0 || board.state === 'ready' ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="w-32 text-[12px] font-medium">{t('orchestrator.preportfolio.startFrom', { defaultValue: 'Começar por' })}</span>
+          <button type="button" className={chip(genStart === 'sugestao')} onClick={() => setGenStart('sugestao')} data-testid="pref-start-sugestao">{t('orchestrator.preportfolio.startSuggestion', { defaultValue: 'Sugestão da plataforma' })}</button>
+          <button type="button" className={chip(genStart === 'sinergias')} onClick={() => setGenStart('sinergias')} data-testid="pref-start-sinergias">{t('orchestrator.preportfolio.startSynergy', { defaultValue: 'Linhas do relatório de sinergias' })}</button>
+        </div>
+      ) : null}
+      <label className="flex items-center gap-1.5 text-[12px]">
+        <input type="checkbox" checked={genPrefs.allowSingle} onChange={e => setGenPrefs(p => ({ ...p, allowSingle: e.target.checked }))} data-testid="pref-single" />
+        {t('orchestrator.preportfolio.single', { defaultValue: 'Permitir projeto de uma organização só' })}
+      </label>
+    </div>
+  );
+  const progress = board.generation?.running ? (
+    <p className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground" data-testid="preportfolio-progress">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      {board.generation.total
+        ? t('orchestrator.preportfolio.progress', { defaultValue: 'Escrevendo os projetos: {{done}} de {{total}} — leva cerca de 1 minuto. Pode sair desta tela.', done: board.generation.done, total: board.generation.total })
+        : t('orchestrator.preportfolio.starting', { defaultValue: 'Montando o arranjo…' })}
+    </p>
+  ) : null;
+  const tray = board.tray.length > 0 ? (
+    <div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-[12px]" data-testid="preportfolio-tray">
+      <span className="font-medium">{t('orchestrator.preportfolio.trayTitle', { defaultValue: 'Ainda sem pré-nota ({{n}})', n: board.tray.length })}</span>
+      <span className="text-muted-foreground"> — {t('orchestrator.preportfolio.trayHint', { defaultValue: 'entram no pré-portfólio quando fecharem o Encontro 4' })}: </span>
+      {board.tray.map(nameOf).join(', ')}
+    </div>
+  ) : null;
+
+  // Not created yet: the options, and one button. Nothing is computed until then.
+  if (board.state === 'empty') {
+    return (
+      <section className="mb-6 space-y-3 rounded-xl border border-border/70 bg-card p-4" data-testid="preportfolio-create">
+        <div>
+          <h3 className="text-[15px] font-semibold">{t('orchestrator.preportfolio.createTitle', { defaultValue: 'Criar o pré-portfólio' })}</h3>
+          <p className="max-w-[72ch] text-[12.5px] text-muted-foreground">
+            {t('orchestrator.preportfolio.createLede', { defaultValue: 'A plataforma agrupa as organizações com pré-nota em projetos coletivos, escreve por que cada grupo faz sentido e liga cada projeto aos planos da cidade. Roda uma vez e fica salvo; depois vocês movem, nomeiam e confirmam.' })}
+          </p>
+          <p className="mt-1 text-[12.5px]" data-testid="preportfolio-ready-count">
+            {t('orchestrator.preportfolio.readyCount', { defaultValue: '{{n}} organizações com pré-nota prontas para agrupar.', n: board.readyCount })}
+          </p>
+        </div>
+        {options}
+        <button type="button" onClick={generate} disabled={!board.readyCount || !!board.generation?.running}
+          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40" data-testid="preportfolio-generate">
+          <Sparkles className="h-3.5 w-3.5" />{t('orchestrator.preportfolio.generate', { defaultValue: 'Gerar pré-portfólio' })}
+        </button>
+        {progress}
+        {tray}
+      </section>
+    );
+  }
+
   return (
     <section className="mb-6 space-y-3" data-testid="preportfolio-board">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 className="text-[15px] font-semibold">{t('orchestrator.preportfolio.title', { defaultValue: 'Pré-portfólio' })}</h3>
           <p className="max-w-[70ch] text-[12.5px] text-muted-foreground">
-            {t('orchestrator.preportfolio.lede', { defaultValue: 'Uma sugestão de projetos coletivos a partir das pré-notas. Mova as organizações entre os projetos; cada cartão se refaz na hora. O rascunho se salva sozinho.' })}
+            {t('orchestrator.preportfolio.lede', { defaultValue: 'Projetos coletivos a partir das pré-notas. Mova as organizações entre os projetos; cada cartão se refaz na hora. O rascunho se salva sozinho.' })}
           </p>
         </div>
         <span className="text-[11.5px] text-muted-foreground" data-testid="preportfolio-saving">
@@ -201,35 +312,37 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
         </span>
       </div>
 
-      {/* The preference questions. Any change re-suggests the arrangement. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/70 bg-card px-3 py-2" data-testid="preportfolio-prefs">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[12px] font-medium">{t('orchestrator.preportfolio.groupBy', { defaultValue: 'Agrupar por' })}</span>
-          {GEO.map(g => (
-            <button key={g.w} type="button" className={chip(prefs.geoWeight === g.w)} onClick={() => suggest({ ...prefs, geoWeight: g.w })} data-testid={`pref-geo-${g.w}`}>{g.label}</button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[12px] font-medium">{t('orchestrator.preportfolio.frame', { defaultValue: 'Tema que organiza' })}</span>
-          {THEMES.map(th => (
-            <button key={String(th.id)} type="button" className={chip(prefs.theme === th.id)} onClick={() => suggest({ ...prefs, theme: th.id })} data-testid={`pref-theme-${th.id ?? 'none'}`}>{th.label}</button>
-          ))}
-        </div>
-        <label className="flex items-center gap-1.5 text-[12px]">
-          <input type="checkbox" checked={prefs.allowSingle} onChange={e => suggest({ ...prefs, allowSingle: e.target.checked })} data-testid="pref-single" />
-          {t('orchestrator.preportfolio.single', { defaultValue: 'Permitir projeto de uma organização só' })}
-        </label>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2" data-testid="preportfolio-toolbar">
+        <span className="text-[12px] text-muted-foreground" data-testid="preportfolio-generated-at">
+          {board.generatedAt ? t('orchestrator.preportfolio.generatedAt', { defaultValue: 'Gerado em {{when}}', when: new Date(board.generatedAt).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' }) }) : null}
+        </span>
+        <button type="button" onClick={() => setRegenOpen(o => !o)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-muted/50" data-testid="preportfolio-regenerate-open">
+          <Sparkles className="h-3 w-3" />{t('orchestrator.preportfolio.regenerate', { defaultValue: 'Gerar de novo' })}
+        </button>
         <a href={`${base}/print`} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-muted/50" data-testid="preportfolio-print">
           {t('orchestrator.preportfolio.print', { defaultValue: 'Pré-portfólio (PDF)' })}
         </a>
         <button type="button" onClick={confirm} className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2 py-1 text-[12px] font-semibold text-white" data-testid="preportfolio-confirm">
           {t('orchestrator.preportfolio.confirm', { defaultValue: 'Confirmar arranjo' })}
         </button>
-        <button type="button" onClick={() => suggest(prefs)} className="ml-0 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-muted/50" data-testid="preportfolio-resuggest">
-          <Sparkles className="h-3 w-3" />{t('orchestrator.preportfolio.resuggest', { defaultValue: 'Sugerir de novo' })}
-        </button>
       </div>
-
+      {regenOpen && (
+        <div className="space-y-2 rounded-lg border border-border/70 bg-card px-3 py-2.5" data-testid="preportfolio-regenerate">
+          {options}
+          <button type="button" onClick={generate} className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2.5 py-1 text-[12px] font-semibold text-white" data-testid="preportfolio-generate">
+            <Sparkles className="h-3 w-3" />{t('orchestrator.preportfolio.regenerateRun', { defaultValue: 'Gerar de novo com estas opções' })}
+          </button>
+        </div>
+      )}
+      {board.changed.length > 0 && !board.generation?.running && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 dark:bg-amber-950/30 dark:text-amber-200" data-testid="preportfolio-changed">
+          {t('orchestrator.preportfolio.changed', { defaultValue: '{{n}} pré-nota(s) mudaram desde a geração: {{names}}.', n: board.changed.length, names: board.changed.map(nameOf).join(', ') })}
+          <button type="button" onClick={refresh} className="rounded-md bg-amber-700 px-2 py-0.5 text-[12px] font-semibold text-white" data-testid="preportfolio-refresh">
+            {t('orchestrator.preportfolio.refresh', { defaultValue: 'Atualizar' })}
+          </button>
+        </div>
+      )}
+      {progress}
       {confirmMsg && <p className="text-[12.5px] text-emerald-800 dark:text-emerald-300" data-testid="preportfolio-confirm-msg">{confirmMsg}</p>}
       <p className="text-[12.5px]" data-testid="preportfolio-totals">
         {t('orchestrator.preportfolio.totals', {
@@ -266,7 +379,7 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
               {(() => {
                 const n = narratives[setKey(g.memberIds)];
                 if (n === 'loading') return <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />{t('orchestrator.preportfolio.writing', { defaultValue: 'escrevendo por que juntas…' })}</p>;
-                if (!n) return null;
+                if (!n || n === 'empty') return null;
                 return (
                   <div className="space-y-1 rounded-lg bg-muted/40 px-2 py-1.5 text-[11.5px] leading-snug" data-testid={`preportfolio-narrative-${gi}`}>
                     {!g.title && n.title && (
@@ -354,15 +467,19 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
             </div>
           );
         })}
+        {/* Only while a card is being dragged: "Mover para → um projeto novo" does the same on any screen. */}
+        {dragging && (
         <div
-          className="flex min-h-[90px] items-center justify-center rounded-xl border border-dashed border-border/70 text-[12px] text-muted-foreground"
+          className="flex min-h-[64px] items-center justify-center rounded-xl border border-dashed border-border/70 text-[12px] text-muted-foreground"
           onDragOver={e => e.preventDefault()}
           onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) move(id, '__new'); setDragging(null); }}
           data-testid="preportfolio-new-drop"
         >
           <Plus className="mr-1 h-3.5 w-3.5" />{t('orchestrator.preportfolio.dropNew', { defaultValue: 'Solte aqui para um projeto novo' })}
         </div>
+        )}
       </div>
+      {tray}
     </section>
   );
 }

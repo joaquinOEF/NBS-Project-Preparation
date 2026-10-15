@@ -1,4 +1,5 @@
 import { isPhotoCaption } from '@shared/photo-caption';
+import { createHash } from 'node:crypto';
 import { cityMapFor, siteGroupsFor } from '../services/siteContext';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
@@ -69,7 +70,7 @@ import { parsePlanLinks } from '@shared/plan-links';
 import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
-import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor } from '../services/cboAgent';
+import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor, cohortLinesForMany } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
 import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
@@ -590,38 +591,79 @@ export function registerCohortRoutes(app: Express): void {
     pumpPlanLinks();
   };
 
-  const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en', prenotes?: Map<string, ReturnType<typeof buildPrenote>>): Promise<PortfolioOrg[]> => {
+  /**
+   * Everything the board shows about each organisation, built from their
+   * records: the pre-note, the card's arithmetic, the plan links last read.
+   *
+   * ⚠️ Memoised by a signature of every member's record (and the plan corpus):
+   * one visit used to rebuild all the pre-notes on the GET and again on each of
+   * the six narrative requests that followed — and each rebuild re-read every
+   * peer once per organisation for the cohort counts. Same records → same
+   * answer, from memory.
+   *
+   * ⚠️ Never starts a model pass. A plan reading that no longer matches the
+   * pre-note is SHOWN as it stands (the banner says the pre-note changed);
+   * readings run on "Gerar" and "Atualizar" only — JVP, 15 Oct: nothing on the
+   * board moves on its own.
+   */
+  type BoardData = {
+    orgs: PortfolioOrg[];
+    prenotes: Map<string, ReturnType<typeof buildPrenote>>;
+    /** member id → hash of the pre-note's facts (what "mudou" compares). */
+    fingerprints: Map<string, string>;
+    /** member id → what queuePlanLinks needs, for "Gerar"/"Atualizar". */
+    reading: Map<string, { cboStateId: string; orgName: string; key: string; current: boolean }>;
+  };
+  const boardMemo = new Map<string, { sig: string; data: BoardData }>();
+  const boardData = async (cohortId: string, lang: 'pt' | 'en'): Promise<BoardData> => {
     const version = corpusVersion(loadPlanCorpus());
     const members = (await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)))
       .filter(m => !m.excludeFromPortfolio && m.cboStateId);
     const ids = members.map(m => m.cboStateId!);
     const rows = ids.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, ids)) : [];
     const stored = new Map(rows.map(r => [r.id, r.sections]));
+    const sectionsOf = (id: string) => getCboState(id)?.sections ?? stored.get(id) ?? {};
+    const sig = createHash('sha1').update(version).update(lang)
+      .update(JSON.stringify(members.map(m => [m.id, m.orgName, m.neighborhood, sectionsOf(m.cboStateId!)])))
+      .digest('hex');
+    const memoKey = `${cohortId}|${lang}`;
+    const hit = boardMemo.get(memoKey);
+    if (hit?.sig === sig) return hit.data;
+
     // The cohort counts belong on each pre-note here too — the narrative and
-    // the plan links read the pre-note, and a page without them is thinner
-    // than the one the organisation itself sees (prenoteContext.ts).
-    const cohortByState = new Map(await Promise.all(members.map(async m => [m.cboStateId!, await cohortLinesFor(m.cboStateId!, lang).catch(() => [] as string[])] as const)));
-    return members.map(m => {
-      const live = getCboState(m.cboStateId!);
-      const sections = live?.sections ?? stored.get(m.cboStateId!) ?? {};
+    // the plan links read the pre-note (prenoteContext.ts). One read per peer.
+    const cohortByState = await cohortLinesForMany(ids, lang).catch(() => new Map<string, string[]>());
+    const data: BoardData = { orgs: [], prenotes: new Map(), fingerprints: new Map(), reading: new Map() };
+    for (const m of members) {
+      const sections = sectionsOf(m.cboStateId!);
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
       const base = prenoteInputFromSections(sections);
-      // The map lines too, as every other path that builds a pre-note: the
-      // narrative and the plan links read this one (prenoteContext.ts).
+      // The map lines too, as every other path that builds a pre-note.
       const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site) }, lang);
-      prenotes?.set(m.id, prenote);
+      data.prenotes.set(m.id, prenote);
       const org = portfolioOrg(m.id, orgName, sections, lang);
       const places = siteGroupsFor(base.site);
       if (Object.keys(places).length) org.places = places;
-      // The plan cross-reading: shown only when it was made for this pre-note
-      // and this corpus; otherwise redone in the background.
+      const facts = prenoteFacts(orgName, prenote);
+      data.fingerprints.set(m.id, createHash('sha1').update(facts).update(prenote.solution?.id ?? '-').digest('hex').slice(0, 12));
       if (prenote.solution) {
-        const key = planLinksKey(prenoteFacts(orgName, prenote), version);
-        const stored = parsePlanLinks(String((sections as any)?.intervention_type?.fields?._plan_links_json?.value ?? ''));
-        if (stored?.key === key) org.planLinks = stored.links;
-        else { org.planLinksPending = true; queuePlanLinks(m.cboStateId!, orgName, prenote, key); }
+        const key = planLinksKey(facts, version);
+        const storedLinks = parsePlanLinks(String((sections as any)?.intervention_type?.fields?._plan_links_json?.value ?? ''));
+        if (storedLinks) org.planLinks = storedLinks.links;
+        data.reading.set(m.id, { cboStateId: m.cboStateId!, orgName, key, current: storedLinks?.key === key });
       }
-      return org;
+      data.orgs.push(org);
+    }
+    boardMemo.set(memoKey, { sig, data });
+    return data;
+  };
+  const portfolioOrgsOf = async (cohortId: string, lang: 'pt' | 'en', prenotes?: Map<string, ReturnType<typeof buildPrenote>>): Promise<PortfolioOrg[]> => {
+    const d = await boardData(cohortId, lang);
+    if (prenotes) for (const [k, v] of Array.from(d.prenotes.entries())) prenotes.set(k, v);
+    // In flight right now — the only "pending" the board shows.
+    return d.orgs.map(o => {
+      const r = d.reading.get(o.memberId);
+      return r && planLinksInFlight.has(r.cboStateId) ? { ...o, planLinksPending: true } : o;
     });
   };
   const prefsFrom = (raw: any): PortfolioPrefs => ({
@@ -631,22 +673,176 @@ export function registerCohortRoutes(app: Express): void {
   });
 
   /** The board: every organisation's layer-1 facts, the preferences, the saved arrangement (or a suggestion). */
+  // ── The pre-portfolio is CREATED, then cached (JVP, 15 Oct) ──────────────
+  // "Gerar" runs the passes once — the narratives, the plan readings — and the
+  // board is read from what they left. A visit computes nothing that costs a
+  // model call; a changed pre-note shows up as a banner, and "Atualizar" redoes
+  // only what changed.
+  const genProgress = new Map<string, { running: boolean; done: number; total: number; startedAt: string }>();
+  const narrativeInFlight = new Map<string, Promise<any>>();
+  type NarrativeEntry = NonNullable<CohortSettings['preportfolioNarratives']>[string];
+  /** The newest narrative written for exactly these members — even if their facts have moved on since. */
+  const narrativeFor = (settings: CohortSettings | null, ids: string[]): NarrativeEntry | null => {
+    const set = [...ids].sort().join('|');
+    const all = Object.values(settings?.preportfolioNarratives ?? {}).filter(n => n.members === set);
+    return all.sort((x, y) => y.at.localeCompare(x.at))[0] ?? null;
+  };
+  /** Whether a group has anything a narrative could be written from. */
+  const writable = (ids: string[], prenotes: Map<string, ReturnType<typeof buildPrenote>>) => ids.some(id => prenotes.get(id)?.solution);
+
+  /** Write (or find) one group's narrative; an empty answer is cached too, so it is never asked again for the same facts. */
+  const writeNarrative = async (cohortId: string, ids: string[], d: BoardData): Promise<NarrativeEntry | null> => {
+    const sorted = [...ids].sort();
+    if (!writable(sorted, d.prenotes)) return null;
+    const card = projectCard(sorted, d.orgs, 'pt');
+    const members = sorted.map(id => ({ orgName: d.orgs.find(o => o.memberId === id)!.orgName, prenote: d.prenotes.get(id)! }));
+    const key = narrativeKey(sorted, narrativeFacts(members, card));
+    const [row] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohortId)).limit(1);
+    const cached = (row?.settings as CohortSettings | null)?.preportfolioNarratives?.[key];
+    if (cached) return cached;
+    if (!narrativeInFlight.has(key)) {
+      narrativeInFlight.set(key, (async () => {
+        const n = await buildProjectNarrative(members, card);
+        const entry: NarrativeEntry = n
+          ? (({ dropped, ...kept }) => ({ ...kept, members: sorted.join('|') }))(n)
+          : { title: '', why: '', synergies: [], cautions: [], model: 'none', at: new Date().toISOString(), members: sorted.join('|'), empty: true };
+        const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohortId)).limit(1);
+        const cur = (fresh?.settings ?? {}) as CohortSettings;
+        const all = { ...(cur.preportfolioNarratives ?? {}), [key]: entry };
+        // Keep the newest 80 — a board rearranged all afternoon must not grow the row without bound.
+        const trimmed = Object.fromEntries(Object.entries(all).sort((x, y) => y[1].at.localeCompare(x[1].at)).slice(0, 80));
+        await db.update(cohorts).set({ settings: { ...cur, preportfolioNarratives: trimmed } }).where(eq(cohorts.id, cohortId));
+        return entry;
+      })().finally(() => narrativeInFlight.delete(key)));
+    }
+    return narrativeInFlight.get(key)!;
+  };
+
+  /** Run the passes for these groups and these organisations' plan readings, two narratives at a time, with progress. */
+  const runPasses = (cohortId: string, groupIds: string[][], readFor: string[], d: BoardData) => {
+    const todo = groupIds.filter(ids => writable(ids, d.prenotes));
+    const prog = { running: true, done: 0, total: todo.length, startedAt: new Date().toISOString() };
+    genProgress.set(cohortId, prog);
+    for (const id of readFor) {
+      const r = d.reading.get(id);
+      const prenote = d.prenotes.get(id);
+      if (r && prenote && !r.current) queuePlanLinks(r.cboStateId, r.orgName, prenote, r.key);
+    }
+    let next = 0;
+    const worker = async () => {
+      while (next < todo.length) {
+        const ids = todo[next++];
+        await writeNarrative(cohortId, ids, d).catch(err => console.warn('[preportfolio] narrative failed:', err?.message));
+        prog.done++;
+      }
+    };
+    void Promise.all([worker(), worker()]).finally(() => { prog.running = false; });
+  };
+
   app.get('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
     const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
     const lang = req.query.lang === 'en' ? 'en' : 'pt';
     const orgs = await portfolioOrgsOf(cohort.id, lang);
-    const saved = (cohort.settings as CohortSettings | null)?.preportfolio ?? null;
-    const prefs = saved ? prefsFrom(saved.prefs) : DEFAULT_PREFS;
+    const d = await boardData(cohort.id, 'pt');
+    const settings = cohort.settings as CohortSettings | null;
+    const saved = settings?.preportfolio ?? null;
+    const prog = genProgress.get(cohort.id);
+    const generation = prog ? { running: prog.running, done: prog.done, total: prog.total } : null;
+    const noSolution = new Set(orgs.filter(o => !d.prenotes.get(o.memberId)?.solution).map(o => o.memberId));
+    if (!saved) {
+      // Not created yet: no suggestion is computed and no model is called.
+      const [rep] = await db.select({ payload: synergyReports.payload }).from(synergyReports)
+        .where(and(eq(synergyReports.cohortId, cohort.id), eq(synergyReports.status, 'done')))
+        .orderBy(desc(synergyReports.startedAt)).limit(1);
+      const synergyLines = ((rep?.payload as any)?.narrative?.lines ?? []).length;
+      res.json({ state: 'empty', saved: false, orgs, prefs: DEFAULT_PREFS, groups: [], tray: Array.from(noSolution), generation, readyCount: orgs.length - noSolution.size, synergyLines });
+      return;
+    }
+    const prefs = prefsFrom(saved.prefs);
     const known = new Set(orgs.map(o => o.memberId));
-    // A saved arrangement keeps only organisations still on the board; anyone
-    // new goes to a column of their own, so nobody is silently missing.
-    const groups = saved
-      ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
-      : suggestGroups(orgs, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    const groups: any[] = saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length);
     const placed = new Set(groups.flatMap(g => g.memberIds));
-    const loose = orgs.filter(o => !placed.has(o.memberId)).map(o => o.memberId);
+    // Anyone new with a pre-note goes to a column of their own, so nobody is
+    // silently missing; anyone without one waits in the tray, outside the projects.
+    const loose = orgs.filter(o => !placed.has(o.memberId) && !noSolution.has(o.memberId)).map(o => o.memberId);
     if (loose.length) groups.push({ id: `novas-${loose.length}`, title: lang === 'pt' ? 'Ainda sem projeto' : 'Not in a project yet', memberIds: loose });
-    res.json({ orgs, prefs, groups, saved: !!saved, updatedAt: saved?.updatedAt ?? null });
+    const tray = orgs.filter(o => !placed.has(o.memberId) && noSolution.has(o.memberId)).map(o => o.memberId);
+    const withText = groups.map(g => {
+      const n = narrativeFor(settings, g.memberIds);
+      return { ...g, narrative: n && !n.empty ? n : null, narrativeEmpty: !!n?.empty || !writable(g.memberIds, d.prenotes) };
+    });
+    // What changed since "Gerar": the pre-note's facts, or a reading that no longer matches it.
+    const fp = saved.fingerprints ?? {};
+    const changed = orgs.filter(o => {
+      if (noSolution.has(o.memberId)) return false;
+      const was = fp[o.memberId];
+      const r = d.reading.get(o.memberId);
+      return (saved.generatedAt && was !== d.fingerprints.get(o.memberId)) || (r && !r.current && !o.planLinksPending);
+    }).map(o => o.memberId);
+    res.json({ state: 'ready', orgs, prefs, groups: withText, tray, changed, generation, generatedAt: saved.generatedAt ?? saved.updatedAt, start: saved.start ?? 'sugestao', saved: true, updatedAt: saved.updatedAt });
+  }));
+
+  /**
+   * "Gerar": arrange (from the suggestion under these preferences, or from the
+   * synergy report's lines), save, and run the passes once in the background.
+   * Only organisations with a pre-note are arranged; the rest wait in the tray.
+   */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/generate', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const lang = req.body?.lang === 'en' ? 'en' : 'pt';
+    const prefs = prefsFrom(req.body?.prefs);
+    const start: 'sugestao' | 'sinergias' = req.body?.start === 'sinergias' ? 'sinergias' : 'sugestao';
+    const d = await boardData(cohort.id, 'pt');
+    const orgs = await portfolioOrgsOf(cohort.id, lang);
+    const ready = orgs.filter(o => d.prenotes.get(o.memberId)?.solution);
+    let groups: Array<{ id: string; title: string; memberIds: string[] }> = [];
+    if (start === 'sinergias') {
+      const [rep] = await db.select().from(synergyReports)
+        .where(and(eq(synergyReports.cohortId, cohort.id), eq(synergyReports.status, 'done')))
+        .orderBy(desc(synergyReports.startedAt)).limit(1);
+      const lines: any[] = (rep?.payload as any)?.narrative?.lines ?? [];
+      const byName = new Map(ready.map(o => [o.orgName.trim().toLowerCase(), o.memberId]));
+      const used = new Set<string>();
+      lines.forEach((l, i) => {
+        const ids = (l.orgNames ?? []).map((n: string) => byName.get(String(n).trim().toLowerCase())).filter((x: string | undefined): x is string => !!x && !used.has(x));
+        ids.forEach((x: string) => used.add(x));
+        if (ids.length) groups.push({ id: `l${i + 1}`, title: String(l.namePt ?? '').slice(0, 140), memberIds: ids });
+      });
+      const rest = ready.filter(o => !used.has(o.memberId));
+      if (rest.length) suggestGroups(rest, prefs, lang).forEach((g, i) => groups.push({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    } else {
+      groups = suggestGroups(ready, prefs, lang).map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
+    }
+    const now = new Date().toISOString();
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
+    // A regeneration keeps what people WROTE: names and Vila Flores's story
+    // travel to the new group that shares the most organisations.
+    const prev = cur.preportfolio?.groups ?? [];
+    const carried = groups.map(g => {
+      const best = prev.map(p => ({ p, n: p.memberIds.filter(id => g.memberIds.includes(id)).length })).sort((x, y) => y.n - x.n)[0];
+      return best?.n ? { ...g, title: g.title || best.p.title, story: best.p.story, learnings: best.p.learnings, quote: best.p.quote, ...(best.p.projectId ? { projectId: best.p.projectId } : {}) } : g;
+    });
+    const fingerprints = Object.fromEntries(Array.from(d.fingerprints.entries()));
+    await db.update(cohorts).set({ settings: { ...cur, preportfolio: { prefs, groups: carried, updatedAt: now, generatedAt: now, start, fingerprints } } }).where(eq(cohorts.id, cohort.id));
+    runPasses(cohort.id, carried.map(g => g.memberIds), ready.map(o => o.memberId), d);
+    res.json({ ok: true, groups: carried.length });
+  }));
+
+  /** "Atualizar": redo only what changed since "Gerar" — those plan readings, and the narratives of the groups they are in. */
+  app.post('/api/cohort/:coordinatorSlug/preportfolio/refresh', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const d = await boardData(cohort.id, 'pt');
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
+    const saved = cur.preportfolio;
+    if (!saved) { res.status(409).json({ error: 'generate first' }); return; }
+    const fp = saved.fingerprints ?? {};
+    const changed = new Set(Array.from(d.fingerprints.entries()).filter(([id, h]) => fp[id] !== h || (d.reading.get(id) && !d.reading.get(id)!.current)).map(([id]) => id));
+    const groups = saved.groups.filter(g => g.memberIds.some(id => changed.has(id))).map(g => g.memberIds);
+    await db.update(cohorts).set({ settings: { ...cur, preportfolio: { ...saved, fingerprints: Object.fromEntries(Array.from(d.fingerprints.entries())), updatedAt: new Date().toISOString() } } }).where(eq(cohorts.id, cohort.id));
+    runPasses(cohort.id, groups, Array.from(changed), d);
+    res.json({ ok: true, changed: changed.size, groups: groups.length });
   }));
 
   /** The pre-portfolio, printed: the board's saved arrangement (or the suggestion), one page per project. */
@@ -659,12 +855,10 @@ export function registerCohortRoutes(app: Express): void {
     const groups = saved
       ? saved.groups.map(g => ({ ...g, memberIds: g.memberIds.filter(id => known.has(id)) })).filter(g => g.memberIds.length)
       : suggestGroups(orgs, DEFAULT_PREFS, 'pt').map((g, i) => ({ id: `s${i + 1}`, title: '', memberIds: g.memberIds }));
-    const narratives = (cohort.settings as CohortSettings | null)?.preportfolioNarratives ?? {};
+    const settings = cohort.settings as CohortSettings | null;
     const withText = groups.map(g => {
-      const ids = [...g.memberIds].sort();
-      const card = projectCard(ids, orgs, 'pt');
-      const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
-      return { ...g, narrative: narratives[narrativeKey(ids, narrativeFacts(members, card))] ?? null };
+      const n = narrativeFor(settings, g.memberIds);
+      return { ...g, narrative: n && !n.empty ? n : null };
     });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderPreportfolioHtml({ cohortName: (cohort as any).name ?? 'Rede', groups: withText, orgs, prenotes }));
@@ -679,27 +873,13 @@ export function registerCohortRoutes(app: Express): void {
     const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
     const memberIds: string[] = Array.isArray(req.body?.memberIds) ? req.body.memberIds.map(String).slice(0, 12) : [];
     if (!memberIds.length) { res.status(400).json({ error: 'memberIds required' }); return; }
-    const prenotes = new Map<string, ReturnType<typeof buildPrenote>>();
-    const orgs = await portfolioOrgsOf(cohort.id, 'pt', prenotes);
-    // Sorted: the same members in any order are the same project, and the same cache entry.
-    const ids = memberIds.filter(id => orgs.some(o => o.memberId === id)).sort();
+    const d = await boardData(cohort.id, 'pt');
+    const ids = memberIds.filter(id => d.orgs.some(o => o.memberId === id));
     if (!ids.length) { res.status(400).json({ error: 'no member belongs to this board' }); return; }
-    const card = projectCard(ids, orgs, 'pt');
-    const members = ids.map(id => ({ orgName: orgs.find(o => o.memberId === id)!.orgName, prenote: prenotes.get(id)! }));
-    const key = narrativeKey(ids, narrativeFacts(members, card));
-    const cached = (cohort.settings as CohortSettings | null)?.preportfolioNarratives?.[key];
-    if (cached) { res.json({ key, narrative: cached, cached: true }); return; }
-    const narrative = await buildProjectNarrative(members, card);
-    if (!narrative) { res.json({ key, narrative: null }); return; }
-    const { dropped, ...kept } = narrative;
-    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
-    const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
-    const narratives = { ...(cur.preportfolioNarratives ?? {}), [key]: kept };
-    // Keep the newest 60 — a board that has been rearranged all afternoon
-    // should not grow the cohort row without bound.
-    const trimmed = Object.fromEntries(Object.entries(narratives).sort((a, b) => b[1].at.localeCompare(a[1].at)).slice(0, 60));
-    await db.update(cohorts).set({ settings: { ...cur, preportfolioNarratives: trimmed } }).where(eq(cohorts.id, cohort.id));
-    res.json({ key, narrative: kept, cached: false });
+    // No pre-note in the group: nothing to write from, and no model call.
+    if (!writable(ids, d.prenotes)) { res.json({ narrative: null, empty: true }); return; }
+    const n = await writeNarrative(cohort.id, ids, d);
+    res.json({ narrative: n && !n.empty ? n : null, empty: !!n?.empty });
   }));
 
   /** A suggestion under these preferences — not saved until the board saves it. */
@@ -770,7 +950,8 @@ export function registerCohortRoutes(app: Express): void {
     const cur = (fresh?.settings ?? cohort.settings) as CohortSettings;
     const settings: CohortSettings = {
       ...cur,
-      preportfolio: { prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
+      // Keep what "Gerar" recorded (when, from where, the fingerprints): a move is an edit, not a regeneration.
+      preportfolio: { ...(cur.preportfolio ?? {}), prefs: prefsFrom(req.body?.prefs), groups, updatedAt: new Date().toISOString() },
     };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true, groups });

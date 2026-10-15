@@ -184,10 +184,11 @@ test.describe('projects — the board', () => {
     await expect(page.getByTestId('view-orgs')).toHaveAttribute('aria-pressed', 'true');
     await page.getByTestId('view-projects').click();
     await expect(page).toHaveURL(/view=projects/);
-    await expect(page.getByTestId('projects-empty')).toBeVisible();
-    await expect(page.getByTestId('projects-empty')).toContainText('organizações');
+    // It opens on creating the pre-portfolio; a project made by hand is still one tap away.
+    await expect(page.getByTestId('preportfolio-create')).toBeVisible();
+    await expect(page.getByTestId('projects-empty')).toHaveCount(0);
 
-    await page.getByTestId('button-create-project-empty').click();
+    await page.getByTestId('button-create-project').click();
     const dialog = page.getByTestId('create-project-dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByTestId('input-project-title').fill('Água e enchentes — Floresta');

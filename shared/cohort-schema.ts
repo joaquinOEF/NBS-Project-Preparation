@@ -43,6 +43,15 @@ export type CohortSettings = {
       projectId?: string;
     }>;
     updatedAt: string;
+    /**
+     * Set by "Gerar": the board was CREATED on purpose and is now cached —
+     * a visit reads it, nothing is recomputed or rewritten on its own.
+     */
+    generatedAt?: string;
+    /** Where the arrangement started: the suggestion, or the synergy report's lines. */
+    start?: 'sugestao' | 'sinergias';
+    /** Per member, a hash of its pre-note's facts at generation — what "N pré-notas mudaram" compares. */
+    fingerprints?: Record<string, string>;
   };
   /**
    * Layer 3 — the pre-portfolio narrative per project, keyed by member set + a
@@ -51,7 +60,13 @@ export type CohortSettings = {
    * key: a board nobody has touched yet has no draft, and its narratives must
    * not wait for one.
    */
-  preportfolioNarratives?: Record<string, { title: string; why: string; synergies: string[]; cautions: string[]; model: string; at: string }>;
+  preportfolioNarratives?: Record<string, {
+    title: string; why: string; synergies: string[]; cautions: string[]; model: string; at: string;
+    /** The sorted member ids it was written for — found again by set even when the facts moved on. */
+    members?: string;
+    /** The pass ran and had nothing to say: cached so it is not asked again on every visit. */
+    empty?: boolean;
+  }>;
 };
 
 // RequestSupport — async escalation queue. CBO submits via chat-header button;
