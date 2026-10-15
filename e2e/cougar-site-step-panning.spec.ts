@@ -55,11 +55,11 @@ test.describe('COUGAR — site step: pan by default, arm to drop', () => {
     await expect(page.getByText('Custom point', { exact: false }).first()).toBeVisible({ timeout: 10_000 });
 
     // 4) Point mode auto-disarms after the drop (back to pan).
-    await expect(help).toContainText(/arraste|escolha uma opção/i);
+    await expect(help).toContainText(/arraste|escolha uma opção|drag to move|pick an option/i);
 
     // 5) Arm then re-tap the same button → disarms without dropping anything.
     await page.getByTestId('map-draw-area').click();
     await page.getByTestId('map-draw-area').click();
-    await expect(help).toContainText(/arraste|escolha uma opção/i);
+    await expect(help).toContainText(/arraste|escolha uma opção|drag to move|pick an option/i);
   });
 });

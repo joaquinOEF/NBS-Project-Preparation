@@ -172,7 +172,11 @@
       "closeWorkshop": "Fechar encontro",
       "closeWorkshopConfirm": "Clica de novo pra fechar pro grupo",
       "workshopClosed": "{{workshop}} fechado — {{n}} organização(ões) bloqueada(s) de novo",
-      "workshopCloseFailed": "Não foi possível fechar o encontro"
+      "workshopCloseFailed": "Não foi possível fechar o encontro",
+      "workshopOpenFailed": "Não foi possível abrir ${workshop.name} — nada foi alterado. Tente novamente.",
+      "namePlaceholder": "Grupo Vila Flores",
+      "openPlaceholder": "https://…/orchestrator?coord=… ou só o código",
+      "passwordPlaceholder": "mín. 6 caracteres"
     },
     "demo": {
       "headerEyebrow": "Visão da articuladora",
@@ -245,7 +249,8 @@
         "emerging": "Emergente",
         "developing": "Em desenvolvimento",
         "advanced": "Avançada"
-      }
+      },
+      "updatedAgo": "Atualizado há {{count}} dia(s)"
     },
     "map": {
       "flood": "Risco de enchente",
@@ -260,7 +265,9 @@
       "recruitFrom": "Recrutar em {{name}}",
       "riskByBairro": "Risco por bairro",
       "riskView": "Visão de risco",
-      "zonePriority": "Prioridade da zona"
+      "zonePriority": "Prioridade da zona",
+      "landslideProne": "Terreno propenso a deslizamentos",
+      "hazardIntensity": "Intensidade do risco"
     },
     "support": {
       "inboxLabel": "Apoio",
@@ -376,7 +383,9 @@
       "suggestionsLede": "Linhas de programa que o relatório de sinergias propôs. Cada uma é um nome e um conjunto de organizações — o formato de um projeto. São hipóteses; criar uma não compromete ninguém.",
       "linkTitle": "Link do projeto",
       "linkDesc": "Mande este único link para todas as organizações de {{title}}. Todas caem na mesma conversa, que abre com o que cada uma já contou.",
-      "note": "Resumo do projeto (PDF)"
+      "note": "Resumo do projeto (PDF)",
+      "createdTitle": "Projetos criados",
+      "createByHand": "Projeto à mão"
     },
     "importOrg": {
       "title": "Importar uma organização",
@@ -394,6 +403,102 @@
     "profiles": {
       "all": "Todos os perfis (PDF)",
       "allHint": "Uma página pronta para imprimir por organização, com tudo o que cada uma compartilhou até agora"
+    },
+    "synergy": {
+      "title": "Mapear sinergias",
+      "lede": "Mapear sinergias"
+    },
+    "preportfolio": {
+      "confirmResuggest": "Isso refaz a sugestão e desfaz o que foi movido à mão. Nomes e histórias passam para o grupo mais parecido. Continuar?",
+      "confirmFailed": "Não confirmou — tenta de novo.",
+      "confirmed": "{{c}} projetos criados, {{u}} atualizados. Cada um tem a sua conversa e o seu link na lista abaixo.",
+      "empty": "Nenhuma organização com registro ainda — o pré-portfólio aparece quando houver.",
+      "geo": "Mais território",
+      "balanced": "Equilíbrio",
+      "theme": "Mais tema",
+      "noTheme": "Sem tema",
+      "flood": "Água",
+      "heat": "Calor",
+      "landslide": "Encosta",
+      "title": "Pré-portfólio",
+      "lede": "Projetos coletivos a partir das pré-notas. Mova as organizações entre os projetos; cada cartão se refaz na hora. O rascunho se salva sozinho.",
+      "saving": "salvando…",
+      "saved": "rascunho salvo",
+      "failed": "não salvou — tenta mover de novo",
+      "groupBy": "Agrupar por",
+      "frame": "Tema que organiza",
+      "single": "Permitir projeto de uma organização só",
+      "print": "Pré-portfólio (PDF)",
+      "confirm": "Confirmar arranjo",
+      "resuggest": "Sugerir de novo",
+      "totals": "{{n}} projetos · estimativa somada {{range}}",
+      "namePlaceholder": "Nome do projeto",
+      "writing": "escrevendo por que juntas…",
+      "useTitle": "Usar este nome",
+      "suggestedName": "Nome sugerido",
+      "noBudget": "sem estimativa",
+      "unpriced": "sem valor: {{names}}",
+      "plans": "{{n}} conexões com planos",
+      "unvisited": "sem visita: {{n}}",
+      "noSolution": "sem solução",
+      "moveTo": "Mover para",
+      "project": "Projeto",
+      "newProject": "Mover para: um projeto novo",
+      "storyTitle": "História do projeto (Vila Flores)",
+      "story": "A história: como essas organizações chegaram até aqui",
+      "learnings": "O que a Rede aprendeu nesse caminho",
+      "quote": "Uma frase de alguém da comunidade (com o nome)",
+      "isProject": "✓ confirmado como projeto",
+      "dropNew": "Solte aqui para um projeto novo",
+      "confirmRegenerate": "Gerar de novo refaz o arranjo e os textos. Nomes e histórias passam para o grupo mais parecido. Continuar?",
+      "startFrom": "Começar por",
+      "startSuggestion": "Sugestão da plataforma",
+      "startSynergy": "Linhas do relatório de sinergias",
+      "progress": "Escrevendo os projetos: {{done}} de {{total}} — leva cerca de 1 minuto. Pode sair desta tela.",
+      "starting": "Montando o arranjo…",
+      "trayTitle": "Ainda sem pré-nota ({{n}})",
+      "trayHint": "entram no pré-portfólio quando fecharem o Encontro 4",
+      "createTitle": "Criar o pré-portfólio",
+      "createLede": "A plataforma agrupa as organizações com pré-nota em projetos coletivos, escreve por que cada grupo faz sentido e liga cada projeto aos planos da cidade. Roda uma vez e fica salvo; depois vocês movem, nomeiam e confirmam.",
+      "readyCount": "{{n}} organizações com pré-nota prontas para agrupar.",
+      "generate": "Gerar pré-portfólio",
+      "generatedAt": "Gerado em {{when}}",
+      "regenerate": "Gerar de novo",
+      "regenerateRun": "Gerar de novo com estas opções",
+      "changed": "{{n}} pré-nota(s) mudaram desde a geração: {{names}}.",
+      "refresh": "Atualizar"
+    },
+    "w2": {
+      "worryTitle": "O que disseram que os preocupa neste lugar",
+      "depthTitle": "O quanto realmente sabemos sobre o local deles",
+      "teiaTitle": "Candidatura do Teia Sprint enviada",
+      "collabTitle": "Já trabalhou com outras organizações da Rede",
+      "collab": "já colaborou"
+    },
+    "w3": {
+      "unblockTitle": "Destrava com: {{what}}",
+      "verdictTitle": "O que está bloqueando este projeto",
+      "testedHint": "Soluções testadas no Encontro 3 — gostadas ou não",
+      "tested": "{{n}} testadas",
+      "visitTitle": "Indicada na visita técnica: {{what}}",
+      "visit": "visita ✓",
+      "gapsTitle": "Perguntas em aberto que o W3 nomeou em vez de deixar em branco",
+      "gaps": "{{n}} em aberto",
+      "portfolioTitle": "Projetos do Encontro 3",
+      "portfolioSubtitle": "{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação"
+    },
+    "portfolioExclude": {
+      "tooltip": "Deixar esta organização fora do relatório de sinergias (ela continua no quadro)",
+      "on": "Fora do portfólio",
+      "off": "No portfólio",
+      "failed": "Não foi possível atualizar isso",
+      "doneOut": "{{org}} fica fora do relatório de sinergias",
+      "doneIn": "{{org}} volta para o relatório de sinergias"
+    },
+    "regionTabs": {
+      "map": "Mapa",
+      "solutions": "Soluções",
+      "cases": "Casos"
     }
   },
   "citySelection": {
@@ -476,7 +581,8 @@
     "removeProject": "Remover projeto",
     "moduleComingSoon": "Módulo Em Breve",
     "mitigation": "Mitigação",
-    "adaptation": "Adaptação"
+    "adaptation": "Adaptação",
+    "sampleDataBadge": "Dados de exemplo"
   },
   "project": {
     "primaryCta": {
@@ -868,6 +974,12 @@
       "updateQuestionnaire": "Atualizar Questionário",
       "updateWithAgent": "Atualizar com Agente",
       "agentMessage": "Quero atualizar algumas informações sobre a minha preparação para financiamento"
+    },
+    "warnings": {
+      "sectorMismatch": "Os setores prioritários deste fundo não coincidem com o setor do projeto",
+      "borrowingRequired": "Este fundo é um empréstimo, e a organização não pode assumir dívida.",
+      "feasibilityRequired": "Este fundo exige estudo de viabilidade, e o projeto ainda está em fase inicial.",
+      "sovereignRequired": "Este fundo exige garantia soberana, e ainda não há aprovação nacional."
     }
   },
   "riskBands": {
@@ -955,7 +1067,8 @@
       "poverty": "Taxa de Pobreza",
       "priority": "Pontuação de Prioridade",
       "population": "População",
-      "vulnerability": "Vulnerabilidade"
+      "vulnerability": "Vulnerabilidade",
+      "alsoRecommended": "Também recomendado"
     }
   },
   "user": {
@@ -991,7 +1104,10 @@
     "refresh": "Atualizar",
     "copied": "Copiado!",
     "done": "Concluído",
-    "working": "Trabalhando…"
+    "working": "Trabalhando…",
+    "saved": "Salvo",
+    "warning": "Aviso",
+    "continue": "Continuar"
   },
   "errors": {
     "notFound": "Página não encontrada",
@@ -1330,7 +1446,13 @@
     "operatingModelLabel": "Modelo Operacional",
     "operatorLabel": "Operador",
     "verifierLabel": "Verificador",
-    "communityRoleLabel": "Função da Comunidade"
+    "communityRoleLabel": "Função da Comunidade",
+    "governanceTitle": "Governança",
+    "riskLevels": {
+      "LOW": "Baixo",
+      "MEDIUM": "Médio",
+      "HIGH": "Alto"
+    }
   },
   "bm": {
     "pageTitle": "Modelo de Negócio",
@@ -1772,7 +1894,8 @@
     "generateMiroPromptDesc": "Copiar prompt de diagrama de fluxo de valor",
     "exported": "Exportado",
     "playbookExported": "Dados do manual exportados com sucesso",
-    "miroPromptCopied": "Prompt Miro copiado para área de transferência"
+    "miroPromptCopied": "Prompt Miro copiado para área de transferência",
+    "enablingActions": "Ações habilitadoras"
   },
   "impactModel": {
     "title": "Modelo de Impacto",
@@ -1797,7 +1920,9 @@
       "impactGroupsGenerated": "grupos de impacto gerados",
       "failed": "Falha ao quantificar impactos",
       "coBenefitsTitle": "Co-Benefícios Quantificados",
-      "mrvTitle": "Indicadores MRV"
+      "mrvTitle": "Indicadores MRV",
+      "noResultsMessage": "A quantificação foi concluída, mas não encontrou dados de impacto. Isso pode acontecer se a base de conhecimento estiver vazia ou se as evidências não corresponderem às intervenções de vocês.",
+      "retryQuantify": "Tentar novamente"
     },
     "narrate": {
       "title": "Gerar Narrativa",
@@ -1810,7 +1935,8 @@
       "generate": "Gerar Narrativa em Prosa",
       "regenerate": "Regenerar Narrativa",
       "blocksGenerated": "blocos narrativos gerados",
-      "noQuantifiedData": "Complete a etapa de Quantificação antes de gerar uma narrativa"
+      "noQuantifiedData": "Complete a etapa de Quantificação antes de gerar uma narrativa",
+      "generatedNarrative": "Narrativa gerada"
     },
     "interventionBundles": "Pacotes de Intervenção",
     "bundlesDescription": "Selecione quais zonas de intervenção incluir na narrativa de impacto",
@@ -1949,7 +2075,13 @@
       "institutional": "Building"
     },
     "selectLensToExport": "Selecione qual versão da lente exportar",
-    "lensToExport": "Lente para Exportar"
+    "lensToExport": "Lente para Exportar",
+    "targetFunder": "Financiador-alvo",
+    "regenerateNarrative": "Gerar narrativa novamente",
+    "savedToDatabase": "O modelo de impacto foi salvo no banco de dados.",
+    "saveFailed": "Não foi possível salvar o modelo de impacto. Tente novamente.",
+    "autoSaveFailed": "O salvamento automático falhou. Salve manualmente para não perder o trabalho.",
+    "quantifyImpact": "Quantificar impacto"
   },
   "cbo": {
     "title": "Perfil de Intervenção Comunitária",
@@ -2155,7 +2287,49 @@
       "youWillUse": "Vocês vão usar",
       "eyebrow": "Encontro {{n}}"
     },
-    "seeRealCases": "Ver casos reais"
+    "seeRealCases": "Ver casos reais",
+    "anchoring": {
+      "leadLabel": "Lideranças",
+      "leadPlaceholder": "Quem puxa o trabalho? Ex: \"Sandra, D. Maria, eu mesma\"",
+      "volunteersLabel": "Voluntários",
+      "volunteersPlaceholder": "Quantas pessoas, com que frequência? Ex: \"~8 voluntárias, mutirão mensal\"",
+      "beneficiariesLabel": "Moradores diretamente atendidos",
+      "beneficiariesPlaceholder": "Quem é beneficiado? Ex: \"12 famílias na Rua Flores, ~40 crianças\"",
+      "methodsLabel": "Como vocês se organizam",
+      "confirm": "Confirmar"
+    },
+    "done": "Pronto",
+    "showcase": {
+      "unsave": "Remover dos favoritos",
+      "save": "Salvar",
+      "less": "Menos",
+      "more": "Saber mais"
+    },
+    "support": {
+      "submittedTitle": "Pedido enviado",
+      "submittedBody": "A coordenadora vai entrar em contato em até 2 dias úteis. Você pode continuar trabalhando aqui — quando ela responder, você vai ver no chat.",
+      "close": "Fechar",
+      "title": "Pedir apoio",
+      "lead": "Sem pressa. Conta o que você precisa — a coordenadora responde em até 2 dias úteis.",
+      "typeLabel": "Tipo de apoio",
+      "messageLabel": "Mensagem (opcional)",
+      "messagePlaceholder": "Conta um pouco mais se quiser…",
+      "cancel": "Cancelar",
+      "submit": "Enviar pedido",
+      "tooltipPending": "{{n}} pedido(s) aguardando resposta",
+      "tooltip": "Pedir apoio à coordenadora"
+    },
+    "priority": {
+      "hint": "Toque na ordem do que mais te preocupa.",
+      "reset": "Recomeçar",
+      "confirm": "Confirmar"
+    },
+    "mobileTab": {
+      "perfil": "Perfil",
+      "map": "Mapa",
+      "chat": "Chat",
+      "interventions": "Intervenções"
+    }
   },
   "mapMicroapp": {
     "tourNext": "Próximo risco",
@@ -2247,7 +2421,8 @@
     "helpNoLegend": "A escala de cores deste mapa ainda está carregando.",
     "helpUnderstood": "Entendi",
     "helpAskAgent": "Tenho outra dúvida",
-    "tourHint": "Veja como cada risco se espalha pela cidade."
+    "tourHint": "Veja como cada risco se espalha pela cidade.",
+    "backToChat": "Voltar ao chat"
   },
   "files": {
     "title": "Arquivos",
@@ -2290,7 +2465,42 @@
     "profileHint": "Uma página pronta para imprimir com tudo o que esta organização compartilhou até agora",
     "encontroN": "Encontro {{n}}",
     "testBadge": "Cópia de teste — fora do portfólio",
-    "actions": "Ações"
+    "actions": "Ações",
+    "health": "Ocorrências da sessão",
+    "docComparison": "Comparação das soluções testadas",
+    "docComparisonHint": "O que cada solução testada pede, faz e custa — base para a conversa de portfólio",
+    "docScenario": "Cenário: {{name}}",
+    "docScenarioHint": "Uma página só — pra levar à mesa do portfólio",
+    "visit": "Visita técnica",
+    "visitRecorded": "Registrada: {{what}}",
+    "visitNone": "Sem visita registrada",
+    "visitHint": "A solução indicada abre o Encontro 4 (\"É essa?\"). Sem ela, a organização escolhe sozinha entre as que testou, e o card marca \"sem visita\". Pode ser preenchida ou mudada a qualquer momento.",
+    "visitSolution": "Solução indicada",
+    "visitSolutionNone": "— ainda não indicada —",
+    "visitTested": "Testadas no Encontro 3",
+    "visitOthers": "Outras soluções",
+    "visitUnits": "Quantidade",
+    "visitArea": "Área (m²)",
+    "visitSizeHint": "opcional",
+    "visitDate": "Data da visita",
+    "technicalNote": "Leitura técnica da coordenação",
+    "technicalNoteHint": "O que a visita técnica viu no lugar. Aparece na comparação da organização e no relatório de sinergias, com esta atribuição. Opcional.",
+    "technicalNoteSave": "Salvar",
+    "technicalNoteSaved": "Salvo",
+    "technicalNoteFailed": "Não salvou — tenta de novo",
+    "prenote": "Pré-nota de projeto",
+    "prenoteGaps": "faltam {{n}} respostas do Encontro 4",
+    "prenoteComplete": "completa",
+    "prenoteNoSolution": "Ainda sem solução: registre a visita técnica ou espere o Encontro 3",
+    "open": "Abrir",
+    "prenoteReview": "Revisão técnica (opcional)",
+    "prenoteBy": "quem revisou",
+    "prenoteMarkReviewed": "Marcar como revisada",
+    "prenoteWaive": "Não precisa revisar",
+    "prenoteUndo": "Desfazer",
+    "prenoteEdited": "ajustado pela coordenação",
+    "prenoteEdit": "Editar o texto",
+    "prenoteRestore": "Voltar ao texto calculado"
   },
   "notFound": {
     "title": "Página não encontrada",

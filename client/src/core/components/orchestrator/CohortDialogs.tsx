@@ -77,7 +77,7 @@ export function CreateCohortDialog({
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Vila Flores cohort"
+            placeholder={t('orchestrator.cohort.namePlaceholder', { defaultValue: 'Vila Flores cohort' }) as string}
             autoFocus
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             data-testid="input-cohort-name"
@@ -145,7 +145,7 @@ export function LoadCohortDialog({
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="https://…/orchestrator?coord=… or just the slug"
+            placeholder={t('orchestrator.cohort.openPlaceholder', { defaultValue: 'https://…/orchestrator?coord=… or just the slug' }) as string}
             autoFocus
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             data-testid="input-coord-slug"
@@ -282,7 +282,7 @@ export function ProvisionCohortDialog({
                 type="text"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="min. 6 chars"
+                placeholder={t('orchestrator.cohort.passwordPlaceholder', { defaultValue: 'min. 6 chars' }) as string}
                 data-testid="input-provision-password"
               />
             </div>

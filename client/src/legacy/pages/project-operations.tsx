@@ -783,7 +783,7 @@ export default function ProjectOperationsPage() {
     
     text += `## ${t('om.risksTitle')}\n`;
     omData.opsRisks.forEach(risk => {
-      text += `- ${t(`om.riskTypes.${risk.riskType}`)} (${t(`om.riskLevel.${risk.riskLevel}`)}): ${risk.mitigation || t('om.noMitigation')}\n`;
+      text += `- ${t(`om.riskTypes.${risk.riskType}`)} (${t(`om.riskLevels.${risk.riskLevel}`)}): ${risk.mitigation || t('om.noMitigation')}\n`;
     });
     
     return text;
@@ -1680,7 +1680,7 @@ export default function ProjectOperationsPage() {
                       <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/50">
                         <div className="flex items-center gap-3">
                           <Badge variant={risk.riskLevel === 'HIGH' ? 'destructive' : risk.riskLevel === 'MEDIUM' ? 'default' : 'secondary'}>
-                            {t(`om.riskLevel.${risk.riskLevel}`)}
+                            {t(`om.riskLevels.${risk.riskLevel}`)}
                           </Badge>
                           <span className="font-medium">{t(`om.riskTypes.${risk.riskType}`) || t(`om.newRiskTypes.${risk.riskType}`) || risk.riskType}</span>
                           {risk.linkedSignals && risk.linkedSignals.length > 0 && (
@@ -1786,9 +1786,9 @@ export default function ProjectOperationsPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="LOW">{t('om.riskLevel.LOW')}</SelectItem>
-                              <SelectItem value="MEDIUM">{t('om.riskLevel.MEDIUM')}</SelectItem>
-                              <SelectItem value="HIGH">{t('om.riskLevel.HIGH')}</SelectItem>
+                              <SelectItem value="LOW">{t('om.riskLevels.LOW')}</SelectItem>
+                              <SelectItem value="MEDIUM">{t('om.riskLevels.MEDIUM')}</SelectItem>
+                              <SelectItem value="HIGH">{t('om.riskLevels.HIGH')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1966,7 +1966,7 @@ export default function ProjectOperationsPage() {
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{t(`om.riskTypes.${risk.riskType}`) || t(`om.newRiskTypes.${risk.riskType}`) || risk.riskType}</span>
                               <Badge variant={risk.riskLevel === 'HIGH' ? 'destructive' : risk.riskLevel === 'MEDIUM' ? 'default' : 'secondary'}>
-                                {t(`om.riskLevel.${risk.riskLevel}`)}
+                                {t(`om.riskLevels.${risk.riskLevel}`)}
                               </Badge>
                             </div>
                             {risk.mitigationActions && risk.mitigationActions.length > 0 && (
