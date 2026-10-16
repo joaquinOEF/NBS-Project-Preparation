@@ -526,6 +526,16 @@
     },
     "advanced": {
       "toggle": "Ferramentas avançadas"
+    },
+    "hero": {
+      "kicker": "O grupo hoje",
+      "live": "Encontro {{n}} ao vivo",
+      "orgs": "organizações",
+      "sites": "com local mapeado",
+      "inProgress": "em andamento",
+      "tested": "testaram soluções",
+      "collapse": "Recolher mapa",
+      "expand": "Mapa, soluções e casos"
     }
   },
   "citySelection": {

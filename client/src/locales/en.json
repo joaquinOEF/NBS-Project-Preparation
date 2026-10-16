@@ -493,6 +493,16 @@
     },
     "advanced": {
       "toggle": "Advanced tools"
+    },
+    "hero": {
+      "kicker": "The cohort today",
+      "live": "Encontro {{n}} live",
+      "orgs": "organisations",
+      "sites": "with a mapped site",
+      "inProgress": "in progress",
+      "tested": "tested solutions",
+      "collapse": "Collapse map",
+      "expand": "Map, solutions and cases"
     }
   },
   "citySelection": {

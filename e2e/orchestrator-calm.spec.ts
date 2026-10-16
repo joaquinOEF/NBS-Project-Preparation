@@ -26,7 +26,11 @@ test('nothing destructive on the surface; the panel and the map remember being o
     await expect(page.getByTestId(id), id).toHaveCount(0);
   }
   await expect(page.getByTestId('button-invite-cbo')).toBeVisible();
-  await expect(page.locator('.leaflet-container')).toHaveCount(0);
+  // The overview: the numbers, and the map as a thumbnail (no tabs until expanded).
+  await expect(page.getByTestId('overview-hero')).toBeVisible();
+  await expect(page.getByTestId('cohort-counts')).toContainText('organizações');
+  await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('region-tab-solutions')).toHaveCount(0);
 
   // Before any encontro is open, the first is the one expanded.
   await expect(page.getByTestId('workshop-toggle-0')).toHaveAttribute('aria-expanded', 'true');
@@ -36,10 +40,10 @@ test('nothing destructive on the surface; the panel and the map remember being o
   await page.getByTestId('button-advanced-tools').click();
   await expect(page.getByTestId('button-reset-cohort')).toBeVisible();
   await page.getByTestId('button-toggle-map').click();
-  await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('region-tab-solutions')).toBeVisible();
   await page.reload();
   await expect(page.getByTestId('advanced-tools')).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('region-tab-solutions')).toBeVisible({ timeout: 20_000 });
 
   // The organisation's own rare actions are in its drawer.
   await page.getByTestId(`card-orchestrator-project-${m.id}`).click({ position: { x: 24, y: 24 } });
