@@ -466,6 +466,28 @@
       "map": "Map",
       "solutions": "Solutions",
       "cases": "Cases"
+    },
+    "simulation": {
+      "title": "Simulated Encontro 3 (test environment only)",
+      "counts": "{{ready}} ready to simulate · {{done}} simulated · {{waiting}} still in Encontro 1–2",
+      "startHint": "A model plays each organisation from its own record, through the real Encontro 3, up to the comparison. The session is marked as simulated.",
+      "start": "Simulate Encontro 3 ({{n}})",
+      "queued": "waiting",
+      "turn": "turn {{n}}",
+      "badgeHint": "Encontro 3 was played by a model from this organisation’s record — these are not its own words",
+      "badge": "E3 simulated",
+      "running": "Simulating…"
+    },
+    "importCohort": {
+      "done": "Cohort created: {{name}}",
+      "failedSome": "Not copied: {{names}}",
+      "adminOnly": "Only an admin can import a whole cohort.",
+      "preview": "Cohort “{{name}}” · {{members}} organisations · {{messages}} messages · {{docs}} documents. A NEW cohort is created with all of them, as they are, in the analysis.",
+      "submit": "Create the cohort"
+    },
+    "exportCohort": {
+      "tooltip": "Download every organisation as it stands (no contact details) — to import as a test cohort in another environment",
+      "button": "Export cohort"
     }
   },
   "citySelection": {
@@ -2462,7 +2484,8 @@
     "prenoteUndo": "Undo",
     "prenoteEdited": "adjusted by the coordination team",
     "prenoteEdit": "Edit the text",
-    "prenoteRestore": "Restore the calculated text"
+    "prenoteRestore": "Restore the calculated text",
+    "simulateE3": "Simulate Encontro 3"
   },
   "files": {
     "loadError": "Could not load files.",

@@ -32,6 +32,8 @@ import { findProjectByToken, findProjectById, projectBrief, projectNote, project
 import { renderProjectBriefHtml } from '../services/projectBriefPrint';
 import { renderProjectNoteHtml } from '../services/projectNotePrint';
 import { buildSnapshot, parseSnapshot, trimToEndOfE2, stripContacts, describeSnapshot, type StateSnapshot, type AsOf } from '@shared/state-snapshot';
+import { buildBundle, parseBundle, describeBundle, type BundleMember } from '@shared/cohort-bundle';
+import { simulationEnabled, e3Eligibility, wasSimulated, simulationRuns, enqueueSimulation } from '../services/e3Simulator';
 import { createDocument } from '../services/documentPersistence';
 import { buildOrgProfile } from '@shared/org-profile';
 import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
@@ -1762,11 +1764,15 @@ export function registerCohortRoutes(app: Express): void {
   async function createMemberFromSnapshot(
     cohort: { id: string; settings: unknown },
     raw: StateSnapshot,
-    opts: { orgName?: string; asOf: AsOf; keepContacts?: boolean; includeInPortfolio?: boolean },
+    opts: {
+      orgName?: string; asOf: AsOf; keepContacts?: boolean; includeInPortfolio?: boolean;
+      /** A whole-cohort import (shared/cohort-bundle.ts) carries the member row too, and keeps the name as it was. */
+      member?: Pick<BundleMember, 'role' | 'path' | 'inspirationPicks' | 'unlockedPhases' | 'site'>;
+    },
   ) {
     let snap = opts.asOf === 'end-of-e2' ? trimToEndOfE2(raw) : raw;
     if (!opts.keepContacts) snap = stripContacts(snap);
-    const orgName = (opts.orgName || '').trim() || `${snap.orgName} (teste)`;
+    const orgName = (opts.orgName || '').trim() || (opts.member ? snap.orgName : `${snap.orgName} (teste)`);
 
     const state = createEmptyCboState('porto-alegre');
     state.orgName = orgName;
@@ -1815,7 +1821,7 @@ export function registerCohortRoutes(app: Express): void {
     const workshops = (cohort.settings as CohortSettings | null)?.workshops ?? [];
     const opened = workshops.filter(w => !!w.openedAt).map(w => Number(w.unlocksPhase)).filter(n => Number.isFinite(n) && n >= 1);
     const upTo = opts.asOf === 'end-of-e2' ? 3 : state.phase;
-    const unlockedPhases = Array.from(new Set([...Array.from({ length: upTo }, (_, i) => i + 1), ...opened])).sort((a, b) => a - b);
+    const unlockedPhases = Array.from(new Set([...Array.from({ length: upTo }, (_, i) => i + 1), ...opened, ...(opts.member?.unlockedPhases ?? [])])).sort((a, b) => a - b);
 
     const [member] = await db.insert(cohortMembers).values({
       cohortId: cohort.id,
@@ -1824,10 +1830,12 @@ export function registerCohortRoutes(app: Express): void {
       capabilityToken: slug(),
       orgName,
       neighborhood: snap.neighborhood,
-      role: 'priority',
+      role: opts.member?.role ?? 'priority',
       origin: 'cohort',
       unlockedPhases,
       cboStateId: state.id,
+      snapshotPhase: state.phase,
+      ...(opts.member ? { path: opts.member.path, inspirationPicks: opts.member.inspirationPicks, site: opts.member.site } : {}),
       // A copy is for testing a flow. It stays on the roster and out of the
       // synergy analysis unless the coordinator says otherwise.
       excludeFromPortfolio: !opts.includeInPortfolio,
@@ -1858,6 +1866,97 @@ export function registerCohortRoutes(app: Express): void {
       orgName: req.body?.orgName, asOf, keepContacts: req.body?.keepContacts === true, includeInPortfolio: req.body?.includeInPortfolio === true,
     });
     res.json(out);
+  }));
+
+  // ── A whole cohort, portable (shared/cohort-bundle.ts) ─────────────────────
+  // Export every member as it stands, contacts stripped; import it elsewhere as
+  // a NEW cohort. Production → staging, so the pre-portfolio and the projects
+  // can be tried on what the real organisations said.
+  app.get('/api/cohort/:coordinatorSlug/export', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const rows = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members: Parameters<typeof buildBundle>[0]['members'] = [];
+    for (const m of rows) {
+      const snapshot = await snapshotOf(m, cohort.name);
+      if (!snapshot) continue; // invited, never opened — nothing to carry
+      members.push({
+        snapshot,
+        role: (m.role as any) ?? 'priority',
+        path: (m.path as any) ?? null,
+        inspirationPicks: (m.inspirationPicks as string[] | null) ?? [],
+        unlockedPhases: (m.unlockedPhases as number[] | null) ?? [1],
+        excludeFromPortfolio: !!m.excludeFromPortfolio,
+        site: (m.site as any) ?? null,
+      });
+    }
+    const bundle = buildBundle({ cohortName: cohort.name, settings: cohort.settings as CohortSettings, members });
+    const file = `${slugify(cohort.name)}-${new Date().toISOString().slice(0, 10)}.coorte.json`;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
+    res.send(JSON.stringify(bundle));
+  }));
+
+  // Admin only: a cohort is created. Every organisation keeps its name and lands
+  // AS IT IS, in the analysis unless it was kept out of it at the source.
+  app.post('/api/cohort/import', wrap(async (req, res) => {
+    if (reqCoordinator(req)?.cohortId) { res.status(403).json({ error: 'Só um admin pode importar uma coorte inteira — only an admin can import a whole cohort.' }); return; }
+    let bundle: ReturnType<typeof parseBundle>;
+    try { bundle = parseBundle(req.body?.bundle); }
+    catch (e: any) { res.status(400).json({ error: e?.message || 'not a cohort file' }); return; }
+    const day = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' });
+    const name = String(req.body?.name ?? '').trim() || `${bundle.cohortName} · cópia ${day}`;
+    const workshops = bundle.workshops.length ? bundle.workshops : DEFAULT_WORKSHOPS;
+    const [cohort] = await db.insert(cohorts).values({
+      coordinatorSlug: slug(),
+      name,
+      settings: { workshops, ...(bundle.language ? { language: bundle.language } : {}) },
+    }).returning();
+    const failed: string[] = [];
+    for (const m of bundle.members) {
+      try {
+        await createMemberFromSnapshot(cohort, m.snapshot, { asOf: 'as-is', includeInPortfolio: !m.excludeFromPortfolio, member: m });
+      } catch (e: any) {
+        console.error(`[cohort-import] ${m.snapshot.orgName} failed (continuing):`, e?.message || e);
+        failed.push(m.snapshot.orgName);
+      }
+    }
+    console.log(`[cohort-import] "${name}": ${bundle.members.length - failed.length}/${bundle.members.length} organisations`);
+    res.status(201).json({ cohort, summary: describeBundle(bundle), failed });
+  }));
+
+  // ── Simulated Encontro 3 — staging only (server/services/e3Simulator.ts) ──
+  // Which organisations could be walked through Encontro 3, which were, and
+  // how the runs in flight are going. `enabled: false` on a deployment, and
+  // the roster shows nothing.
+  app.get('/api/cohort/:coordinatorSlug/simulations', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    if (!simulationEnabled()) { res.json({ enabled: false, members: [], runs: [] }); return; }
+    const rows = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = [];
+    for (const m of rows) {
+      const state = m.cboStateId ? (getCboState(m.cboStateId) ?? (await loadCboFromDb(m.cboStateId))?.state ?? null) : null;
+      const gate = e3Eligibility(state);
+      members.push({ memberId: m.id, eligible: gate.ok, reason: gate.ok ? null : gate.reason, simulated: wasSimulated(state) });
+    }
+    res.json({ enabled: true, members, runs: simulationRuns(rows.map(r => r.id)) });
+  }));
+
+  /** Queue the listed organisations (or every eligible one) — they run three at a time, in the background. */
+  app.post('/api/cohort/:coordinatorSlug/simulate-e3', wrap(async (req, res) => {
+    if (!simulationEnabled()) { res.status(403).json({ error: 'simulation is off in this environment' }); return; }
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const wanted: string[] | null = Array.isArray(req.body?.memberIds) ? req.body.memberIds.map(String) : null;
+    const rows = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const baseUrl = `http://127.0.0.1:${process.env.PORT || '5000'}`;
+    let queued = 0;
+    for (const m of rows) {
+      if (wanted && !wanted.includes(m.id)) continue;
+      if (!m.cboStateId) continue;
+      const state = getCboState(m.cboStateId) ?? (await loadCboFromDb(m.cboStateId))?.state ?? null;
+      if (!e3Eligibility(state).ok) continue;
+      if (enqueueSimulation({ id: m.id, orgName: m.orgName, cboStateId: m.cboStateId }, baseUrl)) queued++;
+    }
+    res.json({ queued });
   }));
 
   app.post('/api/cohort/:coordinatorSlug/member/:memberId/clone', wrap(async (req, res) => {

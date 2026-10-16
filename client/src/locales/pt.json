@@ -499,6 +499,28 @@
       "map": "Mapa",
       "solutions": "Soluções",
       "cases": "Casos"
+    },
+    "simulation": {
+      "title": "Encontro 3 simulado (só no ambiente de teste)",
+      "counts": "{{ready}} prontas para simular · {{done}} simuladas · {{waiting}} ainda no Encontro 1–2",
+      "startHint": "Um modelo faz o papel de cada organização, a partir do registro dela, pelo Encontro 3 real, até a comparação. A sessão fica marcada como simulada.",
+      "start": "Simular Encontro 3 ({{n}})",
+      "queued": "na fila",
+      "turn": "turno {{n}}",
+      "badgeHint": "O Encontro 3 foi feito por um modelo a partir do registro desta organização — não são as palavras dela",
+      "badge": "E3 simulado",
+      "running": "Simulando…"
+    },
+    "importCohort": {
+      "done": "Coorte criada: {{name}}",
+      "failedSome": "Não copiadas: {{names}}",
+      "adminOnly": "Só um admin pode importar uma coorte inteira.",
+      "preview": "Coorte “{{name}}” · {{members}} organizações · {{messages}} mensagens · {{docs}} documentos. Uma NOVA coorte é criada com todas elas, como estão, na análise.",
+      "submit": "Criar a coorte"
+    },
+    "exportCohort": {
+      "tooltip": "Baixa todas as organizações como estão (sem contatos) — para importar como coorte de teste em outro ambiente",
+      "button": "Exportar coorte"
     }
   },
   "citySelection": {
@@ -2500,7 +2522,8 @@
     "prenoteUndo": "Desfazer",
     "prenoteEdited": "ajustado pela coordenação",
     "prenoteEdit": "Editar o texto",
-    "prenoteRestore": "Voltar ao texto calculado"
+    "prenoteRestore": "Voltar ao texto calculado",
+    "simulateE3": "Simular Encontro 3"
   },
   "notFound": {
     "title": "Página não encontrada",

@@ -1029,11 +1029,13 @@ export function CreateProjectDialog({
 // record. Contact details never travel.
 // ---------------------------------------------------------------------------
 export function ImportOrgDialog({
-  open, onOpenChange, onSubmit,
+  open, onOpenChange, onSubmit, onSubmitCohort,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (input: { snapshot: unknown; orgName?: string; asOf: 'end-of-e2' | 'as-is' }) => Promise<string | null>;
+  /** A whole cohort file ("Export cohort") becomes a NEW cohort. Admin only — absent, the dialog says so. */
+  onSubmitCohort?: (bundle: unknown) => Promise<string | null>;
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
@@ -1049,10 +1051,22 @@ export function ImportOrgDialog({
     if (!text.trim()) return null;
     try {
       const o = JSON.parse(text);
+      // A whole cohort ("Export cohort", shared/cohort-bundle.ts).
+      if (o?.kind === 'cougar-cohort') {
+        const ms: any[] = Array.isArray(o.members) ? o.members : [];
+        return {
+          ok: true as const, bundle: true as const,
+          name: String(o.cohortName ?? ''),
+          members: ms.length,
+          fields: 0,
+          messages: ms.reduce((n, m) => n + (Array.isArray(m?.snapshot?.messages) ? m.snapshot.messages.length : 0), 0),
+          docs: ms.reduce((n, m) => n + (Array.isArray(m?.snapshot?.docs) ? m.snapshot.docs.length : 0), 0),
+        };
+      }
       const sections = o?.sections ?? {};
       const count = (sec: any) => Object.keys(sec?.fields ?? sec ?? {}).filter(k => !k.startsWith('_')).length;
       return {
-        ok: true as const,
+        ok: true as const, bundle: false as const, members: 1,
         name: String(o?.orgName ?? o?.from?.orgName ?? ''),
         fields: Object.values(sections).reduce((n: number, sec: any) => n + count(sec), 0),
         messages: Array.isArray(o?.messages) ? o.messages.length : 0,
@@ -1068,7 +1082,13 @@ export function ImportOrgDialog({
     if (busy || !preview?.ok) return;
     setBusy(true); setError(null);
     try {
-      const err = await onSubmit({ snapshot: JSON.parse(text), orgName: orgName.trim() || undefined, asOf });
+      // Who may create a cohort is the server's call (403 for a scoped
+      // coordinator) — its answer is shown, never guessed here.
+      const err = preview.bundle
+        ? (onSubmitCohort
+          ? await onSubmitCohort(JSON.parse(text))
+          : t('orchestrator.importCohort.adminOnly', { defaultValue: 'Only an admin can import a whole cohort.' }))
+        : await onSubmit({ snapshot: JSON.parse(text), orgName: orgName.trim() || undefined, asOf });
       if (err) setError(err); else onOpenChange(false);
     } finally { setBusy(false); }
   };
@@ -1100,7 +1120,10 @@ export function ImportOrgDialog({
           />
           {preview && (preview.ok ? (
             <p className="text-[12px] text-emerald-700 dark:text-emerald-300" data-testid="snapshot-preview">
-              {t('orchestrator.importOrg.preview', {
+              {preview.bundle ? t('orchestrator.importCohort.preview', {
+                defaultValue: 'Cohort “{{name}}” · {{members}} organisations · {{messages}} messages · {{docs}} documents. A NEW cohort is created with all of them, as they are, in the analysis.',
+                name: preview.name || '—', members: preview.members, messages: preview.messages, docs: preview.docs,
+              }) : t('orchestrator.importOrg.preview', {
                 defaultValue: '{{name}} · {{fields}} answers · {{messages}} messages · {{docs}} documents',
                 name: preview.name || '—', fields: preview.fields, messages: preview.messages, docs: preview.docs,
               })}
@@ -1108,7 +1131,7 @@ export function ImportOrgDialog({
           ) : (
             <p className="text-[12px] text-destructive" data-testid="snapshot-preview-error">{preview.error}</p>
           ))}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {!(preview?.ok && preview.bundle) && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground" htmlFor="import-org-name">
                 {t('orchestrator.importOrg.name', { defaultValue: 'Name for the copy (optional)' })}
@@ -1126,14 +1149,16 @@ export function ImportOrgDialog({
                 ))}
               </div>
             </div>
-          </div>
+          </div>}
           {error && <p className="text-[12px] text-destructive" data-testid="import-org-error">{error}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t('common.cancel', { defaultValue: 'Cancel' })}</Button>
           <Button onClick={submit} disabled={busy || !preview?.ok} data-testid="button-import-org-submit">
             <Plus className="w-3.5 h-3.5 mr-1.5" />
-            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.importOrg.submit', { defaultValue: 'Create the copy' })}
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : preview?.ok && preview.bundle
+              ? t('orchestrator.importCohort.submit', { defaultValue: 'Create the cohort' })
+              : t('orchestrator.importOrg.submit', { defaultValue: 'Create the copy' })}
           </Button>
         </DialogFooter>
       </DialogContent>
