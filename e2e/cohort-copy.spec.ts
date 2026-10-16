@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced, showMap } from './helpers/orchestrator';
 import { buildBundle, parseBundle, isBundle } from '../shared/cohort-bundle';
 import type { StateSnapshot } from '../shared/state-snapshot';
 
@@ -100,6 +101,7 @@ test.describe('production → staging: a whole cohort, then Encontro 3 for those
 
     // ── Import, through the dialog an admin already uses ──────────────────
     await page.goto(`/orchestrator?cohort=${prod.coordinatorSlug}`);
+    await openAdvanced(page);
     await page.getByTestId('button-import-org').click();
     await page.getByTestId('input-snapshot-json').fill(JSON.stringify(bundle));
     await expect(page.getByTestId('snapshot-preview')).toContainText('2 organizações');
@@ -117,6 +119,7 @@ test.describe('production → staging: a whole cohort, then Encontro 3 for those
     expect(copy.cboStateId).not.toBe(ready.cboStateId);
 
     // ── Simulate Encontro 3 ──────────────────────────────────────────────
+    await openAdvanced(page);
     const strip = page.getByTestId('simulation-strip');
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('simulation-counts')).toContainText('1 prontas para simular');

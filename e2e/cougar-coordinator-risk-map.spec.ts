@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced, showMap } from './helpers/orchestrator';
 
 // Coordinator risk map (v2). Full-width map on top with the participant list
 // below; always-on neighborhoods; four exclusive views — Flood/Heat/Landslide
@@ -17,6 +18,7 @@ test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
     const member = (await new TestApi(request).inviteMember(mine.cohort.id, { orgName: 'Org Mapa', withSession: true })).member;
 
     await page.goto('/orchestrator');
+    await showMap(page);
     const mapBox = page.locator('.leaflet-container').first();
     await expect(mapBox).toBeVisible({ timeout: 20_000 });
 

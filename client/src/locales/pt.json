@@ -406,7 +406,7 @@
     },
     "synergy": {
       "title": "Mapear sinergias",
-      "lede": "Mapear sinergias"
+      "lede": "Cruza territórios, riscos, soluções e capacidades de todas as organizações — e mostra onde uma contratação conjunta economiza de verdade. São hipóteses para validar no encontro, não decisões."
     },
     "preportfolio": {
       "confirmResuggest": "Isso refaz a sugestão e desfaz o que foi movido à mão. Nomes e histórias passam para o grupo mais parecido. Continuar?",
@@ -498,7 +498,9 @@
     "regionTabs": {
       "map": "Mapa",
       "solutions": "Soluções",
-      "cases": "Casos"
+      "cases": "Casos",
+      "hide": "Ocultar mapa, soluções e casos",
+      "show": "Mostrar mapa, soluções e casos"
     },
     "simulation": {
       "title": "Encontro 3 simulado (só no ambiente de teste)",
@@ -521,6 +523,9 @@
     "exportCohort": {
       "tooltip": "Baixa todas as organizações como estão (sem contatos) — para importar como coorte de teste em outro ambiente",
       "button": "Exportar coorte"
+    },
+    "advanced": {
+      "toggle": "Ferramentas avançadas"
     }
   },
   "citySelection": {

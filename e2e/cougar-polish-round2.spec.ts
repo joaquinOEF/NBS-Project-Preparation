@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced } from './helpers/orchestrator';
 
 // Round-2 polish, verified end-to-end (admin coordinator on the default cohort):
 //  • cohort language toggle — solid-emerald active state + a toast (was invisible)
@@ -38,7 +39,7 @@ test.describe('COUGAR polish round 2', () => {
 
     // ── Invite greeting has no emoji (and no replacement char) ──
     const card = page.getByTestId(`card-orchestrator-project-${member.id}`);
-    await card.click();
+    await card.click({ position: { x: 24, y: 24 } }); // the card itself, not a pill on it
     const waLink = page.locator('a[href*="wa.me"]').first();
     await expect(waLink).toBeVisible();
     const decoded = decodeURIComponent(((await waLink.getAttribute('href')) || '').split('text=')[1] || '');
@@ -49,6 +50,7 @@ test.describe('COUGAR polish round 2', () => {
     await page.keyboard.press('Escape');
 
     // ── Delete cohort actually removes the member (admin-only) ──
+    await openAdvanced(page);
     const del = page.getByTestId('button-delete-cohort');
     await expect(del).toBeVisible();
     await del.click();

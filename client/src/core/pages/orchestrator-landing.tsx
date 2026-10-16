@@ -23,7 +23,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
   Map as MapIcon, Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
-  FileText, Loader2, Share2, Sparkles, EyeOff, FlaskConical, Download,
+  FileText, Loader2, Share2, Sparkles, EyeOff, FlaskConical, Download, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -73,6 +73,7 @@ import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialo
 import type { ProvenanceKey } from '@shared/data-provenance';
 import { CboFilesDrawer, type FilesDrawerMember, type CboDrawerTab } from '@/core/components/orchestrator/CboFilesDrawer';
 import { SimulationStrip, useSimulations } from '@/core/components/orchestrator/SimulationStrip';
+import { usePersistedFlag } from '@/core/hooks/usePersistedFlag';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -108,7 +109,8 @@ type CboDemoProject = {
   maturityScore: number;
   /** 0..6 — priority flags met (per shared/cbo-schema.PRIORITY_FLAG_DEFINITIONS). */
   priorityFlagsMet: number;
-  updatedDaysAgo: number;
+  /** Null when the record never reported a time (an imported copy) — said as nothing, not as "agora". */
+  updatedDaysAgo: number | null;
   /** i18n key for the 'next action' line on the card. */
   nextActionKey: string;
   /** Project-readiness triage from E1 — drives a chip on the card so the
@@ -218,7 +220,28 @@ const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
  * deployment is actually using (which is why it is an endpoint and not a
  * script: `npm run cohort:doctor` can only reach the workspace DB).
  */
-function CohortDoctorPanel({ coordinatorSlug }: { coordinatorSlug: string | null }) {
+/**
+ * One heading pattern for every section of the dashboard — title, one muted
+ * line, actions on the right — so the page reads as one surface rather than
+ * features added one at a time, each with its own idea of a header.
+ */
+function SectionHeader({ title, meta, actions, testId }: { title: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode; testId?: string }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2" data-testid={testId}>
+      <div className="min-w-0">
+        <TitleLarge className="!text-xl tracking-tight mb-0">{title}</TitleLarge>
+        {meta && <BodySmall className="text-muted-foreground">{meta}</BodySmall>}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+function CohortDoctorPanel({ coordinatorSlug, stats }: {
+  coordinatorSlug: string | null;
+  /** The three counts that used to be tiles, said in one line beside the diagnosis. */
+  stats?: { sitesMapped: number; profilesInProgress: number; total: number };
+}) {
   const { i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
   const [data, setData] = useState<any>(null);
@@ -235,30 +258,34 @@ function CohortDoctorPanel({ coordinatorSlug }: { coordinatorSlug: string | null
     return () => { alive = false; };
   }, [coordinatorSlug]);
 
-  if (!data) return null;
-  const waiting = (data.orgs ?? []).filter((o: any) => o.verdict === 'ready-waiting');
+  if (!data && !stats) return null;
+  const waiting = (data?.orgs ?? []).filter((o: any) => o.verdict === 'ready-waiting');
+  const counts = stats
+    ? (isPt
+      ? `${stats.sitesMapped} de ${stats.total} com local mapeado · ${stats.profilesInProgress} em andamento`
+      : `${stats.sitesMapped} of ${stats.total} with a mapped site · ${stats.profilesInProgress} in progress`)
+    : '';
   const stuckLabel = isPt ? 'terminou e está esperando' : 'finished, waiting on you';
 
   return (
-    <div className="mb-6 rounded-xl border border-foreground/10 p-4" data-testid="cohort-doctor">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {isPt ? 'Diagnóstico do grupo' : 'Cohort check'}
+    <div className="mt-3 border-t border-foreground/10 pt-3" data-testid="cohort-doctor">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-[12.5px] text-foreground/80 tabular-nums" data-testid="cohort-counts">
+          <span className="mr-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {isPt ? 'O grupo' : 'The cohort'}
+          </span>
+          {counts}
         </span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          {isPt
-            ? `${data.total} organizações · encontros abertos: ${data.openPhases?.length ? data.openPhases.map((p: number) => `Fase ${p}`).join(', ') : 'nenhum'}`
-            : `${data.total} orgs · open: ${data.openPhases?.length ? data.openPhases.map((p: number) => `Phase ${p}`).join(', ') : 'none'}`}
-        </span>
-      </div>
-
-      {waiting.length === 0 ? (
-        <p className="mt-2 text-[12.5px] text-muted-foreground" data-testid="doctor-all-clear">
+        {data && waiting.length === 0 && (
+        <span className="text-[12.5px] text-muted-foreground" data-testid="doctor-all-clear">
           {isPt
             ? 'Ninguém está travado: toda organização que terminou tem para onde ir.'
             : 'Nobody is stuck: every org that finished has somewhere to go.'}
-        </p>
-      ) : (
+        </span>
+        )}
+      </div>
+
+      {waiting.length > 0 && (
         <div className="mt-2" data-testid="doctor-waiting">
           <p className="text-[12.5px] font-medium text-amber-800 dark:text-amber-300">
             {isPt
@@ -325,64 +352,28 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
 
   const stat = (value: number, labelPt: string, labelEn: string, emphasis = false) => (
     <div className="flex items-baseline gap-1.5">
-      <span className={`text-lg font-semibold tabular-nums ${emphasis ? 'text-emerald-200' : 'text-white'}`}>
+      <span className={`text-lg font-semibold tabular-nums ${emphasis ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground'}`}>
         {value}
       </span>
-      <span className="text-[11px] leading-tight text-white/70">{isPt ? labelPt : labelEn}</span>
+      <span className="text-[11px] leading-tight text-muted-foreground">{isPt ? labelPt : labelEn}</span>
     </div>
   );
 
   return (
-    <div
-      className="relative mb-8 overflow-hidden rounded-2xl border border-[#1a3da6]/40 shadow-sm"
-      data-testid="synergy-panel"
-    >
-      {/* Aurora. Two soft radial blooms over the CityCatalyst blue, drifting
-          toward the NBS green — the two colours the product already means
-          something with (blue = the platform, green = nature-based solutions),
-          rather than a decorative palette borrowed from nowhere.
-          aria-hidden and pointer-events-none: it is atmosphere, not content. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(125% 150% at 4% 0%, #2f66e8 0%, #1a3da6 38%, #001444 100%)',
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            // Three blooms rather than one: a single radial reads as a corner
-            // vignette, and the whole banner came out flat blue. Overlapping
-            // greens and cyans at different sizes is what makes it move.
-            'radial-gradient(70% 150% at 72% 0%, rgba(22,163,74,.85) 0%, rgba(22,163,74,0) 62%),' +
-            'radial-gradient(48% 110% at 92% 88%, rgba(103,232,249,.55) 0%, rgba(103,232,249,0) 70%),' +
-            'radial-gradient(38% 95% at 55% 110%, rgba(35,81,220,.75) 0%, rgba(35,81,220,0) 70%)',
-        }}
-      />
-      {/* A hairline of light along the top edge, which is what stops a
-          saturated panel reading as a flat block of colour. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
-      />
-
-      <div className="relative flex flex-wrap items-start justify-between gap-x-8 gap-y-5 p-6">
+    <div className="rounded-xl border border-foreground/10 bg-card" data-testid="synergy-panel">
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 p-5">
         <div className="flex min-w-0 flex-1 items-start gap-4">
-          <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/20 backdrop-blur-sm">
-            <Share2 className="h-5 w-5 text-white" />
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <Share2 className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200/90">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {isPt ? 'Portfólio da Rede' : 'Network portfolio'}
             </div>
-            <h3 className="text-xl font-semibold leading-tight tracking-tight text-white">
+            <h3 className="text-base font-semibold leading-tight tracking-tight">
               {t('orchestrator.synergy.title', { defaultValue: isPt ? 'Mapear sinergias' : 'Map synergies' })}
             </h3>
-            <p className="mt-1 max-w-[62ch] text-[13px] leading-snug text-white/75">
+            <p className="mt-1 max-w-[62ch] text-[13px] leading-snug text-muted-foreground">
               {t('orchestrator.synergy.lede', {
                 defaultValue: isPt
                   ? 'Cruza territórios, riscos, soluções e capacidades de todas as organizações — e mostra onde uma contratação conjunta economiza de verdade. São hipóteses para validar no encontro, não decisões.'
@@ -391,7 +382,7 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
             </p>
 
             {running && (
-              <p className="mt-3 flex items-center gap-2 text-[12.5px] text-white/85" data-testid="synergy-running">
+              <p className="mt-3 flex items-center gap-2 text-[12.5px] text-foreground/80" data-testid="synergy-running">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {isPt
                   ? `Lendo o registro de cada organização. Pode fechar esta página — o relatório fica salvo.${report ? ' O relatório anterior segue aberto ao lado.' : ''}`
@@ -406,7 +397,7 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
                 {/* The one number that is money rather than description. */}
                 {pooled > 0 && stat(pooled, 'necessidades técnicas em comum', 'shared technical needs', true)}
                 {state?.finishedAt && (
-                  <span className="text-[11px] text-white/55">
+                  <span className="text-[11px] text-muted-foreground">
                     {isPt ? 'gerado em ' : 'generated '}
                     {new Date(state.finishedAt).toLocaleDateString(isPt ? 'pt-BR' : 'en-GB')}
                   </span>
@@ -418,15 +409,15 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
                 built on nine of ten organisations, with nothing saying so, is
                 the kind of thing someone discovers in the room. */}
             {excluded > 0 && (
-              <p className="mt-2 text-[11.5px] text-white/60" data-testid="synergy-excluded">
+              <p className="mt-2 text-[11.5px] text-muted-foreground" data-testid="synergy-excluded">
                 {isPt
-                  ? `${excluded === 1 ? '1 organização está' : `${excluded} organizações estão`} fora desta análise (marcadas no quadro abaixo).`
-                  : `${excluded === 1 ? '1 organisation is' : `${excluded} organisations are`} kept out of this analysis (marked on the board below).`}
+                  ? `${excluded === 1 ? '1 organização está' : `${excluded} organizações estão`} fora desta análise (marcadas na lista de organizações).`
+                  : `${excluded === 1 ? '1 organisation is' : `${excluded} organisations are`} kept out of this analysis (marked in the organisations list).`}
               </p>
             )}
 
             {state?.status === 'failed' && (
-              <p className="mt-3 text-[12.5px] text-rose-200" data-testid="synergy-failed">
+              <p className="mt-3 text-[12.5px] text-destructive" data-testid="synergy-failed">
                 {isPt ? 'A análise falhou. Dá pra rodar de novo.' : 'The analysis failed. You can run it again.'}
               </p>
             )}
@@ -440,7 +431,7 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
               target="_blank"
               rel="noreferrer"
               data-testid="synergy-print"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3.5 py-2 text-[13px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-[13px] font-medium transition-colors hover:bg-muted"
             >
               <FileText className="h-3.5 w-3.5" />
               {state?.stale
@@ -452,7 +443,7 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
             onClick={run}
             disabled={running || busy}
             data-testid="synergy-run"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-[13px] font-semibold text-[#001EA7] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-[13px] font-semibold transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
             {running ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -532,7 +523,7 @@ function memberToView(m: CohortMember): CboDemoProject {
   const updatedAt = m.snapshotUpdatedAt ? new Date(m.snapshotUpdatedAt) : null;
   const daysAgo = updatedAt
     ? Math.max(0, Math.floor((Date.now() - updatedAt.getTime()) / 86400000))
-    : 0;
+    : null;
   const phaseNum = m.snapshotPhase ?? 1;
   // Coords come from the structured E2 site commit (member.site.coordinates,
   // [lat,lng] centroid) — the previous read (`sm.coords`) was a field nothing
@@ -1268,42 +1259,16 @@ function ProjectCard({
               <Eye className="w-3 h-3" strokeWidth={2} />
               {t('orchestrator.cboView.open', { defaultValue: 'View' })}
             </button>
-            {/* Per-org reset (field report 2026-07-08): before this, the only
-                way to erase ONE org was resetting the entire cohort. Opens a
-                confirm dialog — the action itself is irreversible. */}
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onResetProfile(project); }}
-              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
-              title={t('orchestrator.memberReset.chipTooltip', { defaultValue: 'Reset this organization’s profile from scratch' })}
-              data-testid={`button-cbo-reset-${project.id}`}
-            >
-              <RotateCcw className="w-3 h-3" strokeWidth={2} />
-              {t('orchestrator.memberReset.chip', { defaultValue: 'Reset' })}
-            </button>
-            {/* Keep this org out of the portfolio synergy analysis.
-                Reversible, and NOT destructive — it changes what the report
-                reads, never what the roster shows. A test organisation left in
-                produces a grouping built partly on an org that does not exist,
-                shown to the room that would be validating it. */}
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onTogglePortfolio(project); }}
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                project.excludeFromPortfolio
-                  ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300'
-                  : 'border-foreground/15 text-foreground/70 hover:bg-muted/60'
-              }`}
-              title={t('orchestrator.portfolioExclude.tooltip', {
-                defaultValue: 'Keep this organization out of the synergy report (it stays on the board)',
-              })}
-              data-testid={`button-portfolio-exclude-${project.id}`}
-            >
-              {project.excludeFromPortfolio ? <EyeOff className="w-3 h-3" strokeWidth={2} /> : <Share2 className="w-3 h-3" strokeWidth={2} />}
-              {project.excludeFromPortfolio
-                ? t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })
-                : t('orchestrator.portfolioExclude.off', { defaultValue: 'No portfólio' })}
-            </button>
+            {project.excludeFromPortfolio && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                title={t('orchestrator.portfolioExclude.tooltip', { defaultValue: 'Keep this organization out of the synergy report (it stays on the board)' })}
+                data-testid={`badge-portfolio-excluded-${project.id}`}
+              >
+                <EyeOff className="w-3 h-3" strokeWidth={2} />
+                {t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })}
+              </span>
+            )}
             {simulated && (
               <span
                 className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300"
@@ -1314,18 +1279,6 @@ function ProjectCard({
                 {t('orchestrator.simulation.badge', { defaultValue: 'E3 simulated' })}
               </span>
             )}
-            {/* Remove the org from the cohort entirely (invite link dies).
-                Opens a confirm dialog — unlike Reset, the member is gone. */}
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onRemove(project); }}
-              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
-              title={t('orchestrator.memberRemove.chipTooltip', { defaultValue: 'Remove this organization from the cohort' })}
-              data-testid={`button-cbo-remove-${project.id}`}
-            >
-              <Trash2 className="w-3 h-3" strokeWidth={2} />
-              {t('orchestrator.memberRemove.chip', { defaultValue: 'Remove' })}
-            </button>
             {hasIntervention ? (
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
@@ -1340,49 +1293,22 @@ function ProjectCard({
             )}
           </div>
 
-          {/* Sections progress */}
-          <div>
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-muted-foreground">{t('orchestrator.demo.sectionsLabel')}</span>
-              <span className="font-medium text-foreground/80">
-                {t('orchestrator.demo.sectionsCount', {
-                  done: project.sectionsComplete,
-                  total: TOTAL_SECTIONS,
-                })}
-              </span>
-            </div>
-            <div className="h-1.5 rounded-full bg-foreground/5 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  hasIntervention ? 'bg-emerald-500' : 'bg-foreground/30'
-                }`}
-                style={{ width: `${sectionsPct}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Maturity + flags row */}
-          <div className="flex items-center justify-between gap-2">
+          {/* The maturity score stays — COUGAR's own reading of the
+              organisation, explained in the drawer. The section count, the six
+              flags and the "next action" line came off: they were Encontro 1's
+              measures, and by Encontro 4 they read as nobody having done
+              anything. The verdict pills above say where it stands now. */}
+          <div className="flex items-center gap-2">
             <span
               className={`inline-flex items-center text-[11px] font-semibold px-2 py-1 rounded-md border ${BAND_CHIP[band]}`}
               title={t('orchestrator.demo.maturityTooltip')}
             >
               {project.maturityScore}/{TOTAL_MATURITY} · {t(`orchestrator.demo.maturityBand.${band}`)}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {t('orchestrator.demo.flagsCount', {
-                met: project.priorityFlagsMet,
-                total: TOTAL_FLAGS,
-              })}
-            </span>
           </div>
 
-          {/* Next action + updated */}
+          {(project.updatedDaysAgo !== null || project.docPreview.imageIds.length > 0 || project.docPreview.filenames.length > 0) && (
           <div className="pt-3 border-t border-foreground/5 space-y-1.5">
-            <div className="flex items-center gap-2 text-xs">
-              <Check className="w-3 h-3 text-foreground/50" />
-              <span className="text-foreground/80">{t(project.nextActionKey)}</span>
-            </div>
             {/* What they actually shared, on the face of the card — the point of
                 #25. Thumbnails only for images with a durable original; without
                 one the card shows the count instead of a broken frame. */}
@@ -1415,6 +1341,7 @@ function ProjectCard({
                 )}
               </div>
             )}
+            {project.updatedDaysAgo !== null && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
               <span>
@@ -1423,7 +1350,9 @@ function ProjectCard({
                   : t('orchestrator.demo.updatedAgo', { count: project.updatedDaysAgo })}
               </span>
             </div>
+            )}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -1493,6 +1422,10 @@ export default function OrchestratorLandingPage() {
   } = useCohort();
   const [importOrgOpen, setImportOrgOpen] = useState(false);
   const sim = useSimulations(cohort?.coordinatorSlug ?? null, () => { void refresh(); });
+  const [advancedOpen, setAdvancedOpen] = usePersistedFlag('cougar.orchestrator.advanced', false);
+  const [mapOpen, setMapOpen] = usePersistedFlag('cougar.orchestrator.map', false);
+  // A simulation in flight shows its progress where it was started.
+  useEffect(() => { if (sim.busy.size > 0) setAdvancedOpen(true); }, [sim.busy.size, setAdvancedOpen]);
 
   // Organizações | Projetos. The choice rides in the URL (?view=projects) for
   // the same reason the cohort does: a reload must land where the coordinator
@@ -1518,7 +1451,7 @@ export default function OrchestratorLandingPage() {
   // never disappears from its own coordinator's board.
   const projects = useMemo(() => {
     const stuck = (p: CboDemoProject) =>
-      p.updatedDaysAgo >= STUCK_AFTER_DAYS && p.sectionsComplete < CBO_SECTION_COUNT;
+      (p.updatedDaysAgo ?? 0) >= STUCK_AFTER_DAYS && p.sectionsComplete < CBO_SECTION_COUNT;
     return members
       .map(memberToView)
       .sort((a, b) => Number(stuck(b)) - Number(stuck(a)));
@@ -1569,6 +1502,7 @@ export default function OrchestratorLandingPage() {
   };
 
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
+  const projectById = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
 
   // ⚠️ How many organisations can actually enter each encontro. The rail reads
   // the cohort's `openedAt`; the gate an org hits reads its own
@@ -1838,6 +1772,7 @@ export default function OrchestratorLandingPage() {
   };
 
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
+  const cohortOpenMax = Math.max(1, ...workshops.filter(w => !!w.openedAt).map(w => Number(w.unlocksPhase) || 1));
 
   // ── Test copies (docs/test-orgs.md) ───────────────────────────────────────
   // A copy of a real record, landed at the end of Encontro 2, with its own
@@ -1977,6 +1912,14 @@ export default function OrchestratorLandingPage() {
         onClose={() => setFilesMember(null)}
         onCloneTest={handleCloneTest}
         onSimulateE3={filesMember && sim.eligible.has(filesMember.id) ? (m) => void sim.start([m.id]) : undefined}
+        // Taken off the card (ferramentas que se usam pouco): the confirm
+        // dialogs are the same ones, opened from here.
+        memberActions={filesMember && projectById.get(filesMember.id) ? {
+          inPortfolio: !projectById.get(filesMember.id)!.excludeFromPortfolio,
+          onTogglePortfolio: () => handleTogglePortfolio(projectById.get(filesMember.id)!),
+          onReset: () => { const p = projectById.get(filesMember.id)!; setFilesMember(null); setMemberResetTarget(p); },
+          onRemove: () => { const p = projectById.get(filesMember.id)!; setFilesMember(null); setMemberRemoveTarget(p); },
+        } : undefined}
         simulating={!!filesMember && sim.busy.has(filesMember.id)}
       />
 
@@ -1984,7 +1927,7 @@ export default function OrchestratorLandingPage() {
         {/* Cohort header — singleton model. One cohort for the pilot,
             no slug to manage. Reset (with confirmation) wipes members and
             restores the default workshop cadence. */}
-        <div className="mb-6 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3">
+        <div className="mb-10 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -2026,7 +1969,7 @@ export default function OrchestratorLandingPage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Forced cohort language — overrides each org's browser detection.
                   Auto = fall back to detection. */}
               <div
@@ -2067,57 +2010,13 @@ export default function OrchestratorLandingPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setResetConfirmOpen(true)}
+                onClick={() => setAdvancedOpen(o => !o)}
+                aria-expanded={advancedOpen}
                 className="text-muted-foreground hover:text-foreground/80"
-                data-testid="button-reset-cohort"
-                title={t('orchestrator.cohort.resetTooltip', { defaultValue: 'Wipe members and restart' })}
+                data-testid="button-advanced-tools"
               >
-                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                {t('orchestrator.cohort.reset', { defaultValue: 'Reset' })}
-              </Button>
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  className="text-muted-foreground hover:text-red-600"
-                  data-testid="button-delete-cohort"
-                  title={t('orchestrator.cohort.deleteTooltip', { defaultValue: 'Delete this cohort entirely' })}
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                  {t('orchestrator.cohort.delete', { defaultValue: 'Delete cohort' })}
-                </Button>
-              )}
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setProvisionOpen(true)}
-                  data-testid="button-new-cohort"
-                  title={t('orchestrator.cohort.newTooltip', { defaultValue: 'Create a new cohort and its coordinator' })}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  {t('orchestrator.cohort.new', { defaultValue: 'New cohort' })}
-                </Button>
-              )}
-              {cohort?.coordinatorSlug && (
-                <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground/80">
-                  <a
-                    href={`/api/cohort/${cohort.coordinatorSlug}/export`}
-                    data-testid="button-export-cohort"
-                    title={t('orchestrator.exportCohort.tooltip', { defaultValue: 'Download every organisation as it stands (no contact details) — to import as a test cohort in another environment' }) as string}
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1.5" />
-                    {t('orchestrator.exportCohort.button', { defaultValue: 'Export cohort' })}
-                  </a>
-                </Button>
-              )}
-              <Button
-                size="sm" variant="outline" onClick={() => setImportOrgOpen(true)} data-testid="button-import-org"
-                title={t('orchestrator.importOrg.tooltip', { defaultValue: 'Create a test organisation from a snapshot of a real one' })}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                {t('orchestrator.importOrg.button', { defaultValue: 'Import org' })}
+                <ChevronRight className={`w-3.5 h-3.5 mr-1 transition-transform ${advancedOpen ? 'rotate-90' : ''}`} />
+                {t('orchestrator.advanced.toggle', { defaultValue: 'Advanced tools' })}
               </Button>
               <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
@@ -2126,6 +2025,74 @@ export default function OrchestratorLandingPage() {
             </div>
           </div>
 
+          {/* Ferramentas avançadas — what a coordinator does rarely, or what
+              only an admin or a test needs: wiping or deleting the cohort,
+              another cohort, moving organisations between environments, the
+              simulated Encontro 3. Closed by default and remembered, so the
+              header is the cohort, its language and "Convidar CBO". */}
+          {advancedOpen && (
+            <div className="mb-3 rounded-lg border border-foreground/10 bg-muted/40 p-3" data-testid="advanced-tools">
+              <div className="flex flex-wrap items-center gap-2">
+              <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setResetConfirmOpen(true)}
+                  className="text-muted-foreground hover:text-foreground/80"
+                  data-testid="button-reset-cohort"
+                  title={t('orchestrator.cohort.resetTooltip', { defaultValue: 'Wipe members and restart' })}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  {t('orchestrator.cohort.reset', { defaultValue: 'Reset' })}
+                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="text-muted-foreground hover:text-red-600"
+                    data-testid="button-delete-cohort"
+                    title={t('orchestrator.cohort.deleteTooltip', { defaultValue: 'Delete this cohort entirely' })}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    {t('orchestrator.cohort.delete', { defaultValue: 'Delete cohort' })}
+                  </Button>
+                )}
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setProvisionOpen(true)}
+                    data-testid="button-new-cohort"
+                    title={t('orchestrator.cohort.newTooltip', { defaultValue: 'Create a new cohort and its coordinator' })}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    {t('orchestrator.cohort.new', { defaultValue: 'New cohort' })}
+                  </Button>
+                )}
+                {cohort?.coordinatorSlug && (
+                  <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground/80">
+                    <a
+                      href={`/api/cohort/${cohort.coordinatorSlug}/export`}
+                      data-testid="button-export-cohort"
+                      title={t('orchestrator.exportCohort.tooltip', { defaultValue: 'Download every organisation as it stands (no contact details) — to import as a test cohort in another environment' }) as string}
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      {t('orchestrator.exportCohort.button', { defaultValue: 'Export cohort' })}
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  size="sm" variant="outline" onClick={() => setImportOrgOpen(true)} data-testid="button-import-org"
+                  title={t('orchestrator.importOrg.tooltip', { defaultValue: 'Create a test organisation from a snapshot of a real one' })}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />
+                  {t('orchestrator.importOrg.button', { defaultValue: 'Import org' })}
+                </Button>
+              </div>
+              <div className="mt-3 empty:hidden"><SimulationStrip sim={sim} /></div>
+            </div>
+          )}
+
           <WorkshopCadence
             workshops={workshops}
             accessByPhase={accessByPhase}
@@ -2133,40 +2100,9 @@ export default function OrchestratorLandingPage() {
             onCloseWorkshop={handleCloseWorkshop}
             onUpdateWorkshops={handleUpdateWorkshops}
           />
+          <CohortDoctorPanel coordinatorSlug={cohort?.coordinatorSlug ?? null} stats={stats} />
         </div>
 
-        <SimulationStrip sim={sim} />
-
-        {/* Aggregate stats — diagnostic pipeline */}
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
-          initial="hidden"
-          animate="show"
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } } }}
-        >
-          {[
-            { label: t('orchestrator.demo.pipeline.sitesMapped'),       value: `${stats.sitesMapped} / ${stats.total}` },
-            { label: t('orchestrator.demo.pipeline.profilesInProgress'), value: `${stats.profilesInProgress} / ${stats.total}` },
-            { label: t('orchestrator.demo.pipeline.profilesComplete'),  value: `${stats.profilesComplete} / ${stats.total}` },
-          ].map((s, i) => (
-            <motion.div
-              key={i}
-              variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } }}
-            >
-              <Card>
-                <CardContent className="p-5">
-                  <BodySmall className="text-muted-foreground uppercase tracking-wide text-[11px] mb-1">
-                    {s.label}
-                  </BodySmall>
-                  <div className="text-2xl font-semibold tracking-tight">{s.value}</div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        <CohortDoctorPanel coordinatorSlug={cohort?.coordinatorSlug ?? null} />
-        <SynergyPanel cohortId={cohort?.id ?? null} excluded={projects.filter(p => p.excludeFromPortfolio).length} />
 
         {/* ── The W3 portfolio ─────────────────────────────────────────────
             Four piles, worst-first, because each routes to a different person:
@@ -2177,20 +2113,16 @@ export default function OrchestratorLandingPage() {
             Hidden until at least one org has been through W3 — an empty
             "0 pronto pra orçar" on a cohort still in W2 reads as failure. */}
         {w3Stats.scoped.length > 0 && (
-          <div className="mb-8" data-testid="w3-portfolio">
-            <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
-              <TitleLarge className="!text-xl tracking-tight mb-0">
-                {t('orchestrator.w3.portfolioTitle', { defaultValue: 'Projetos do Encontro 3' })}
-              </TitleLarge>
-              <BodySmall className="text-muted-foreground">
-                {t('orchestrator.w3.portfolioSubtitle', {
-                  defaultValue: '{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação',
-                  n: w3Stats.scoped.length,
-                  total: stats.total,
-                  items: w3Stats.coordinationItems,
-                })}
-              </BodySmall>
-            </div>
+          <div className="mb-10" data-testid="w3-portfolio">
+            <SectionHeader
+              title={t('orchestrator.w3.portfolioTitle', { defaultValue: 'Projetos do Encontro 3' })}
+              meta={t('orchestrator.w3.portfolioSubtitle', {
+                defaultValue: '{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação',
+                n: w3Stats.scoped.length,
+                total: stats.total,
+                items: w3Stats.coordinationItems,
+              })}
+            />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {W3_STATES.map(st => {
                 const rows = w3Stats.by[st];
@@ -2229,14 +2161,38 @@ export default function OrchestratorLandingPage() {
         )}
 
         {/* Section heading */}
-        <div className="mb-5">
-          <TitleLarge className="!text-xl tracking-tight mb-0.5">
-            {t('orchestrator.demo.portfolioTitle')}
-          </TitleLarge>
-          <BodySmall className="text-muted-foreground">
-            {t('orchestrator.demo.portfolioSubtitle')}
-          </BodySmall>
-        </div>
+        <SectionHeader
+          title={t('orchestrator.demo.portfolioTitle')}
+          meta={t('orchestrator.demo.portfolioSubtitle')}
+          actions={<>
+            {view === 'orgs' && members.length > 0 && cohort?.coordinatorSlug && (
+              <Button asChild size="sm" variant="outline">
+                <a
+                  href={`/api/cohort/${cohort.coordinatorSlug}/profiles`}
+                  target="_blank"
+                  rel="noreferrer"
+                  data-testid="link-all-profiles"
+                  title={t('orchestrator.profiles.allHint', { defaultValue: 'One print-ready page per organisation, with everything each has shared so far' }) as string}
+                >
+                  <FileText className="w-3.5 h-3.5 mr-1.5" />
+                  {t('orchestrator.profiles.all', { defaultValue: 'All profiles (PDF)' })}
+                </a>
+              </Button>
+            )}
+            {/* The map, the solutions and the cases fold away: they are
+                reference, and at full height they pushed the roster and the
+                board a screen and a half down. Remembered per browser. */}
+            <Button
+              size="sm" variant="outline" onClick={() => setMapOpen(o => !o)} aria-expanded={mapOpen}
+              data-testid="button-toggle-map"
+            >
+              <MapIcon className="w-3.5 h-3.5 mr-1.5" />
+              {mapOpen
+                ? t('orchestrator.regionTabs.hide', { defaultValue: 'Hide map, solutions and cases' })
+                : t('orchestrator.regionTabs.show', { defaultValue: 'Show map, solutions and cases' })}
+            </Button>
+          </>}
+        />
 
         {/* Tabs govern the map REGION only. The map stays mounted underneath —
             the two card panels render as overlays over it — so switching tabs
@@ -2244,6 +2200,7 @@ export default function OrchestratorLandingPage() {
             map's center/zoom (Leaflet greys out if init/resized while hidden).
             The participants list below the tabs stays visible on every tab. */}
         <div className="flex flex-col gap-5">
+          {mapOpen && (
           <Tabs
             value={regionTab}
             onValueChange={v => setRegionTab(v as typeof regionTab)}
@@ -2298,6 +2255,7 @@ export default function OrchestratorLandingPage() {
               </TabsContent>
             </div>
           </Tabs>
+          )}
 
           {/* Organizações | Projetos — below the map, where the roster lives.
               Everything above (stats, diagnosis, synergies, the Encontro 3
@@ -2330,22 +2288,6 @@ export default function OrchestratorLandingPage() {
             </div>
           </div>
 
-          {view === 'orgs' && members.length > 0 && cohort?.coordinatorSlug && (
-            <div className="-mt-1 mb-3 flex justify-end">
-              <a
-                href={`/api/cohort/${cohort.coordinatorSlug}/profiles`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-7 items-center rounded-md border px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                data-testid="link-all-profiles"
-                title={t('orchestrator.profiles.allHint', { defaultValue: 'One print-ready page per organisation, with everything each has shared so far' })}
-              >
-                <FileText className="mr-1 h-3 w-3" />
-                {t('orchestrator.profiles.all', { defaultValue: 'All profiles (PDF)' })}
-              </a>
-            </div>
-          )}
-
           {view === 'projects' && (
             <ProjectsView
               projects={cohortProjects}
@@ -2359,6 +2301,13 @@ export default function OrchestratorLandingPage() {
               onDelete={setProjectDeleteTarget}
             />
           )}
+          {/* The synergy reading feeds "Começar por" on the board — it lives
+              with the projects, not above the whole page. */}
+          {view === 'projects' && (
+            <div className="mt-6">
+              <SynergyPanel cohortId={cohort?.id ?? null} excluded={projects.filter(p => p.excludeFromPortfolio).length} />
+            </div>
+          )}
 
           {/* Participants — full-width list/grid below the tabs */}
           {view === 'orgs' && (
@@ -2367,6 +2316,9 @@ export default function OrchestratorLandingPage() {
               const member = memberById.get(p.id);
               const maxUnlocked = Math.max(0, ...(member?.unlockedPhases ?? [1]));
               const canUnlockNext = maxUnlocked < 5;
+              // The per-organisation unlock is the exception: said only when this
+              // organisation's access differs from what the cohort has open.
+              const unlockDiffers = maxUnlocked !== cohortOpenMax;
               return (
                 <motion.div
                   key={p.id}
@@ -2387,7 +2339,7 @@ export default function OrchestratorLandingPage() {
                     onTogglePortfolio={handleTogglePortfolio}
                     simulated={sim.simulated.has(p.id)}
                   />
-                  {member && (
+                  {member && unlockDiffers && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Unlock className="w-3 h-3" />

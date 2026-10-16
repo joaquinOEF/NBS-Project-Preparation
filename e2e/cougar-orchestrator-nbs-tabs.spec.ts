@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced, showMap } from './helpers/orchestrator';
 
 // Orchestrator region tabs (Mapa / Soluções / Casos). The tabs govern the map
 // region only; the participant list stays visible below on every tab. Guards the
@@ -32,6 +33,7 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     ).member;
 
     await page.goto('/orchestrator');
+    await showMap(page);
     const mapBox = page.locator('.leaflet-container').first();
     await expect(mapBox).toBeVisible({ timeout: 20_000 });
 

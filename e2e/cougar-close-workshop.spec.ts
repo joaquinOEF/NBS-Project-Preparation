@@ -47,7 +47,9 @@ test.describe('COUGAR — close workshop', () => {
     await new TestApi(request).seedState(member.cboStateId, { phase: 2 });
 
     // Close W2 — the button lives on the expanded Open row; two-step confirm.
-    await page.getByTestId('workshop-toggle-1').click();
+    // Opening it made it THE open encontro, so it is expanded already.
+    const t1 = page.getByTestId('workshop-toggle-1');
+    if ((await t1.getAttribute('aria-expanded')) !== 'true') await t1.click();
     const closeBtn = page.getByTestId('button-close-workshop-1');
     await expect(closeBtn).toBeVisible();
     await closeBtn.click(); // arm

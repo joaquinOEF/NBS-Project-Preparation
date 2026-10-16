@@ -81,7 +81,7 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
   if (!ready && !running.length && !failed.length && !sim.simulated.size) return null;
 
   return (
-    <div className="mb-6 rounded-xl border border-dashed border-violet-300 bg-violet-50/60 px-4 py-3 text-[12px] dark:border-violet-900 dark:bg-violet-950/30" data-testid="simulation-strip">
+    <div className="rounded-lg bg-violet-50/70 px-3 py-2.5 text-[12px] dark:bg-violet-950/30" data-testid="simulation-strip">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-violet-700 dark:text-violet-300" />

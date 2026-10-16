@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced, showMap } from './helpers/orchestrator';
 
 // Task #6 — cleanup. An admin coordinator can DELETE a cohort entirely (members
 // + the cohort row), beyond the existing Reset (which only wipes members). The
@@ -22,6 +23,7 @@ test.describe('COUGAR #6 — delete-cohort cleanup', () => {
     await page.waitForTimeout(1000);
 
     // Delete cohort (admin-only) → confirm.
+    await openAdvanced(page);
     await page.getByTestId('button-delete-cohort').click();
     await expect(page.getByTestId('button-confirm-delete-cohort')).toBeVisible();
     await page.waitForTimeout(700);
