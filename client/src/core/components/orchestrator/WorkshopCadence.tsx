@@ -156,9 +156,12 @@ function WorkshopRow({
   onOpenForCohort,
   onCloseForCohort,
   onUpdateDate,
+  startsExpanded,
 }: {
   workshop: WorkshopConfig;
   state: WorkshopState;
+  /** The one row worth reading now: the open encontro, or — before any is open — the first one. */
+  startsExpanded: boolean;
   index: number;
   disabled?: boolean;
   /** How many organisations can actually enter this encontro, out of how many. */
@@ -296,7 +299,15 @@ function WorkshopRow({
   // Collapsible: minimized by default to keep the cadence compact, with the
   // active (open) + next-up workshops expanded so their detail + CTA are
   // immediately visible. The whole header toggles; a chevron signals state.
-  const [collapsed, setCollapsed] = useState(state !== 'open' && state !== 'nextUp');
+  //
+  // Only the encontro that is OPEN now (or, before any opens, the first). The
+  // next one keeps its date and its "Abrir para o grupo" on the minimized row,
+  // so it needs no body to act on.
+  // ⚠️ Re-read when it changes: the row mounts before the cohort loads (every
+  // row 'locked', E1 'nextUp'), and a one-shot initial value left a finished
+  // Encontro 1 expanded across the whole first screen.
+  const [collapsed, setCollapsed] = useState(!startsExpanded);
+  useEffect(() => { setCollapsed(!startsExpanded); }, [startsExpanded]);
 
   return (
     <div
@@ -306,12 +317,14 @@ function WorkshopRow({
       {/* Header row. The toggle (icon + title) and the chevron expand/collapse;
           when minimized, the schedule date + "Open for cohort" stay reachable so
           the coordinator can act without expanding. */}
-      <div className="flex items-start gap-2">
+      {/* Wraps on a phone: the quick actions drop under the title instead of
+          sitting on top of it. */}
+      <div className="flex flex-wrap items-start gap-2">
         <button
           type="button"
           onClick={() => setCollapsed(c => !c)}
           aria-expanded={!collapsed}
-          className="min-w-0 flex-1 flex items-start gap-3 text-left"
+          className="min-w-[14rem] flex-1 flex items-start gap-3 text-left"
           data-testid={`workshop-toggle-${index}`}
         >
           {/* Topic icon tile — workshop-specific identity. State overlay
@@ -618,6 +631,7 @@ export function WorkshopCadence({
             key={i}
             workshop={w}
             state={states[i]}
+            startsExpanded={states[i] === 'open' || (states[i] === 'nextUp' && !states.includes('open'))}
             index={i}
             disabled={disabled}
             access={accessByPhase?.get(Number(w.unlocksPhase))}

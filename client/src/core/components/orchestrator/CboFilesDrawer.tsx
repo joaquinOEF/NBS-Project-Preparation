@@ -7,7 +7,7 @@
 import { PrenotePanel } from './PrenotePanel';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -45,6 +45,7 @@ export function CboFilesDrawer({
   onCloneTest,
   onSimulateE3,
   simulating = false,
+  memberActions,
 }: {
   cohortSlug: string | null;
   member: FilesDrawerMember | null;
@@ -56,6 +57,13 @@ export function CboFilesDrawer({
   /** Walk this organisation through a simulated Encontro 3 (staging only). Absent = not eligible here. */
   onSimulateE3?: (member: FilesDrawerMember) => void;
   simulating?: boolean;
+  /** The rarely-used per-organisation actions, moved here off the roster card. */
+  memberActions?: {
+    inPortfolio: boolean;
+    onTogglePortfolio: () => void;
+    onReset: () => void;
+    onRemove: () => void;
+  };
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<CboDrawerTab>(initialTab);
@@ -171,6 +179,41 @@ export function CboFilesDrawer({
             >
               <CopyPlus className="h-3.5 w-3.5" />{t('cboView.cloneTest', { defaultValue: 'Test copy' })}
             </Button>
+          )}
+          {memberActions && member && (
+            <>
+              {/* In or out of the synergy analysis — reversible, never destructive. */}
+              <Button
+                variant="outline" size="sm"
+                className={`h-8 gap-1.5 px-2.5 text-xs ${memberActions.inPortfolio ? '' : 'border-amber-300 text-amber-800 dark:border-amber-900 dark:text-amber-300'}`}
+                onClick={memberActions.onTogglePortfolio}
+                title={t('orchestrator.portfolioExclude.tooltip', { defaultValue: 'Keep this organization out of the synergy report (it stays on the board)' }) as string}
+                data-testid={`button-portfolio-exclude-${member.id}`}
+              >
+                {memberActions.inPortfolio ? <Share2 className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                {memberActions.inPortfolio
+                  ? t('orchestrator.portfolioExclude.off', { defaultValue: 'No portfólio' })
+                  : t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })}
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                className="h-8 gap-1.5 px-2.5 text-xs hover:bg-destructive/10 hover:text-destructive"
+                onClick={memberActions.onReset}
+                title={t('orchestrator.memberReset.chipTooltip', { defaultValue: 'Reset this organization’s profile from scratch' }) as string}
+                data-testid={`button-cbo-reset-${member.id}`}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />{t('orchestrator.memberReset.chip', { defaultValue: 'Reset' })}
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                className="h-8 gap-1.5 px-2.5 text-xs hover:bg-destructive/10 hover:text-destructive"
+                onClick={memberActions.onRemove}
+                title={t('orchestrator.memberRemove.chipTooltip', { defaultValue: 'Remove this organization from the cohort' }) as string}
+                data-testid={`button-cbo-remove-${member.id}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />{t('orchestrator.memberRemove.chip', { defaultValue: 'Remove' })}
+              </Button>
+            </>
           )}
           {/* Staging only: a model plays this organisation from its own record
               through the real Encontro 3 (server/services/e3Simulator.ts). */}

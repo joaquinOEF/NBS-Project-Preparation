@@ -215,7 +215,7 @@
     },
     "synergy": {
       "title": "Map synergies",
-      "lede": "Map synergies"
+      "lede": "Crosses territories, hazards, solutions and capacities across every organisation — and shows where commissioning together actually saves. These are hypotheses to validate in the meeting, not decisions."
     },
     "cohort": {
       "cboLinkDesc": "Share this link with {{org}}. They'll land on the chat with Phase 1 unlocked.",
@@ -465,7 +465,9 @@
     "regionTabs": {
       "map": "Map",
       "solutions": "Solutions",
-      "cases": "Cases"
+      "cases": "Cases",
+      "hide": "Hide map, solutions and cases",
+      "show": "Show map, solutions and cases"
     },
     "simulation": {
       "title": "Simulated Encontro 3 (test environment only)",
@@ -488,6 +490,9 @@
     "exportCohort": {
       "tooltip": "Download every organisation as it stands (no contact details) — to import as a test cohort in another environment",
       "button": "Export cohort"
+    },
+    "advanced": {
+      "toggle": "Advanced tools"
     }
   },
   "citySelection": {

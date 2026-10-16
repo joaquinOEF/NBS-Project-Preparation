@@ -20,7 +20,7 @@ test.describe('COUGAR — invite message follows cohort language', () => {
     await page.goto('/orchestrator');
     const card = page.getByTestId(`card-orchestrator-project-${member.id}`);
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await card.click(); // share dialog
+    await card.click({ position: { x: 24, y: 24 } }); // the card itself, not a pill on it // share dialog
 
     const decoded = decodeURIComponent(((await page.locator('a[href*="wa.me"]').first().getAttribute('href')) || '').split('text=')[1] || '');
     // Portuguese greeting despite the en-US browser, because the cohort is PT.

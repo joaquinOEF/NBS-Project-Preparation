@@ -237,6 +237,8 @@ test.describe('keeping a test organisation out of the analysis', () => {
     // their own test org on the board is worse off, not better.
     await page.goto('/orchestrator');
     await expect(page.getByTestId(`card-orchestrator-project-${test_.id}`)).toBeVisible({ timeout: 30_000 });
+    // The synergy reading lives with the projects.
+    await page.getByTestId('view-projects').click();
     await expect(page.getByTestId('synergy-excluded')).toContainText('fora desta análise');
   });
 });

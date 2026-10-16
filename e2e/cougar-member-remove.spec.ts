@@ -26,7 +26,9 @@ test.describe('COUGAR — remove an organization from the cohort', () => {
     await expect(card).toBeVisible({ timeout: 20_000 });
 
     // Remove chip → confirm dialog names the org → confirm.
-    await card.getByTestId(`button-cbo-remove-${invited.member.id}`).click();
+    // The per-organisation actions live in its drawer (one click on the card).
+    await card.click({ position: { x: 24, y: 24 } }); // the card itself, not a pill on it
+    await page.getByTestId(`button-cbo-remove-${invited.member.id}`).click();
     await expect(page.getByText('Remove Org RemoveMe from the cohort?')).toBeVisible();
     await page.getByTestId('button-confirm-member-remove').click();
 

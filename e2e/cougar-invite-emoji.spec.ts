@@ -19,7 +19,7 @@ test.describe('COUGAR #5 — invite greeting has no emoji', () => {
     await page.goto('/orchestrator');
     const card = page.getByTestId(`card-orchestrator-project-${member.id}`);
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await card.click(); // opens the share-link dialog
+    await card.click({ position: { x: 24, y: 24 } }); // the card itself, not a pill on it // opens the share-link dialog
 
     await page.getByText('Preview message', { exact: false }).click();
     await page.waitForTimeout(800);

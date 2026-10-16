@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced, showMap } from './helpers/orchestrator';
 
 // Admin cohort management — the simpler model (no shell, no UUID dance):
 //  • admin sees a cohort SWITCHER over every cohort
@@ -26,6 +27,7 @@ test.describe('COUGAR — admin cohort panel', () => {
     // ── Provision a new coordinator + cohort from the panel ──
     const coordEmail = `julia-${randomUUID()}@e2e.test`;
     const cohortName = `QA Cohort ${randomUUID().slice(0, 6)}`;
+    await openAdvanced(page);
     await page.getByTestId('button-new-cohort').click();
     await page.getByTestId('input-provision-cohort-name').fill(cohortName);
     await page.getByTestId('input-provision-coordinator-name').fill('Julia');

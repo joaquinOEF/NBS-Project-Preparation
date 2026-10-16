@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
+import { openAdvanced, showMap } from './helpers/orchestrator';
 import { parseSnapshot, trimToEndOfE2, stripContacts, type StateSnapshot } from '../shared/state-snapshot';
 
 // TEST ORGANISATIONS FROM REAL RECORDS (docs/test-orgs.md).
@@ -197,6 +198,7 @@ test.describe('a copy of a real record — clone, import, and the path it walks'
     await expect(page.locator('[data-testid^="card-orchestrator-project-"]')).toHaveCount(2, { timeout: 15_000 });
 
     // And the import door is on the same header.
+    await openAdvanced(page);
     await page.getByTestId('button-import-org').click();
     await page.getByTestId('input-snapshot-json').fill('{ nope');
     await expect(page.getByTestId('snapshot-preview-error')).toBeVisible();
