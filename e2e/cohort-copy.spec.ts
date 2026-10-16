@@ -58,6 +58,15 @@ test.describe('the cohort file', () => {
     expect(b.members[0].snapshot.sections.org_profile.contact_phone).toBeUndefined();
     expect(b.members[0].snapshot.sections.org_profile.org_name.value).toBe('Ksa Rosa');
     expect(b.members[0].site?.photos).toEqual([]);
+    // …nor the ones typed into the chat or printed in a file.
+    const said = buildBundle({ cohortName: 'POA', settings: null, members: [{
+      snapshot: snap('Ksa Rosa', {
+        messages: [{ role: 'user', content: 'Me chama no (51) 99876-5432 ou marlene@ksa.org — orçamento R$ 180.000, 820 m², desde 2019.' }],
+        docs: [{ filename: 'proposta.pdf', fullText: 'Contato: +55 51 3333 4444', summary: null }],
+      }), role: 'priority', path: null, inspirationPicks: [], unlockedPhases: [1], excludeFromPortfolio: false, site: null,
+    }] });
+    expect(said.members[0].snapshot.messages![0].content).toBe('Me chama no [telefone] ou [e-mail] — orçamento R$ 180.000, 820 m², desde 2019.');
+    expect(said.members[0].snapshot.docs![0].fullText).toBe('Contato: [telefone]');
     expect(parseBundle(JSON.parse(JSON.stringify(b))).members[0].path).toBe('has-idea');
     expect(() => parseBundle({ version: 1 })).toThrow(/not a cohort file/);
     expect(() => parseBundle({ kind: 'cougar-cohort', version: 1, members: [{ snapshot: { hello: 1 } }] })).toThrow(/member 1/);

@@ -58,9 +58,30 @@ export function buildBundle(input: {
     workshops: input.settings?.workshops ?? [],
     members: input.members.map(m => ({
       ...m,
-      snapshot: stripContacts(m.snapshot),
+      snapshot: redactFreeText(stripContacts(m.snapshot)),
       site: m.site ? { ...m.site, photos: [] } : null,
     })),
+  };
+}
+
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+// Brazilian phone shapes: (51) 99999-9999 · 51 9999 9999 · +55 51 999999999.
+// Needs the 4+4 digit tail with an optional 9 — so prices (R$ 180.000), areas
+// and years do not match.
+const PHONE = /(?:\+?55\s?)?\(?\b\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4}\b/g;
+
+/**
+ * Contacts also live in what people SAID and in their files — a WhatsApp number
+ * typed into the chat, an e-mail at the foot of a proposal. The fields are
+ * stripped by `stripContacts`; this blanks the same two shapes inside the
+ * transcript and the documents' text, so the file can travel.
+ */
+export function redactFreeText(s: StateSnapshot): StateSnapshot {
+  const clean = (t: string | null | undefined) => (t == null ? t : t.replace(EMAIL, '[e-mail]').replace(PHONE, '[telefone]'));
+  return {
+    ...s,
+    messages: s.messages?.map(m => ({ ...m, content: clean(m.content) ?? '' })),
+    docs: s.docs?.map(d => ({ ...d, summary: clean(d.summary), fullText: clean(d.fullText) })),
   };
 }
 

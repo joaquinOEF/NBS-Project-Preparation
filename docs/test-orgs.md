@@ -93,7 +93,7 @@ an Encontro 3 for the organisations that stopped at Encontro 2.
 **Exportar coorte** (roster toolbar, any coordinator) downloads one file
 (`shared/cohort-bundle.ts`): every member's snapshot **as it is**, plus what
 lives on the member row (role, path, inspiration picks, unlocked phases, the
-drawn site) and the workshop calendar. Contacts are stripped at export; site
+drawn site) and the workshop calendar. Contacts are stripped at export — the fields, and any e-mail or phone number inside the transcript or a document's text; site
 photographs and original documents do not travel (their text does). Members
 that were invited and never opened are left out.
 
