@@ -68,6 +68,8 @@ export interface UseCohortResult {
   cloneMember: (memberId: string, opts?: { orgName?: string; asOf?: 'end-of-e2' | 'as-is' }) => Promise<{ member: CohortMember } | { error: string }>;
   /** A new member from a snapshot exported here or in another environment. */
   importMember: (input: { snapshot: unknown; orgName?: string; asOf?: 'end-of-e2' | 'as-is' }) => Promise<{ member: CohortMember } | { error: string }>;
+  /** Admin: a NEW cohort from a cohort file (shared/cohort-bundle.ts), switched to on success. */
+  importCohort: (bundle: unknown) => Promise<{ name: string; failed: string[] } | { error: string }>;
 }
 
 export function useCohort(): UseCohortResult {
@@ -344,11 +346,22 @@ export function useCohort(): UseCohortResult {
     return { member: body.member };
   }, [refresh]);
 
+  const importCohort: UseCohortResult['importCohort'] = useCallback(async (bundle) => {
+    const r = await fetch('/api/cohort/import', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bundle }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: body?.error || `HTTP ${r.status}` };
+    await refreshAllCohorts();
+    if (body.cohort?.coordinatorSlug) await switchCohort(body.cohort.coordinatorSlug);
+    return { name: String(body.cohort?.name ?? ''), failed: body.failed ?? [] };
+  }, [refreshAllCohorts, switchCohort]);
+
   return {
     loading, cohort, members, isAdmin, allCohorts,
     refresh, refreshAllCohorts, switchCohort, provisionCohort, openWorkshopPhase,
     resetCohort, resetMember, removeMember, invite, unlockPhase, closeWorkshopPhase, saveWorkshops, saveLanguage, deleteCohort,
     projects, refreshProjects, createProject, updateProject, deleteProject,
-    cloneMember, importMember,
+    cloneMember, importMember, importCohort,
   };
 }

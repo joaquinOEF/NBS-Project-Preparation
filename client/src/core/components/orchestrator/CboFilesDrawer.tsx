@@ -43,6 +43,8 @@ export function CboFilesDrawer({
   initialTab = 'convite',
   onClose,
   onCloneTest,
+  onSimulateE3,
+  simulating = false,
 }: {
   cohortSlug: string | null;
   member: FilesDrawerMember | null;
@@ -51,6 +53,9 @@ export function CboFilesDrawer({
   onClose: () => void;
   /** Make a test copy of this organisation (end of Encontro 2). Absent = no button. */
   onCloneTest?: (member: FilesDrawerMember) => void;
+  /** Walk this organisation through a simulated Encontro 3 (staging only). Absent = not eligible here. */
+  onSimulateE3?: (member: FilesDrawerMember) => void;
+  simulating?: boolean;
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<CboDrawerTab>(initialTab);
@@ -165,6 +170,25 @@ export function CboFilesDrawer({
               data-testid="cbo-drawer-clone-test"
             >
               <CopyPlus className="h-3.5 w-3.5" />{t('cboView.cloneTest', { defaultValue: 'Test copy' })}
+            </Button>
+          )}
+          {/* Staging only: a model plays this organisation from its own record
+              through the real Encontro 3 (server/services/e3Simulator.ts). */}
+          {(onSimulateE3 || simulating) && member && (
+            <Button
+              variant="outline" size="sm"
+              className="h-8 gap-1.5 px-2.5 text-xs border-violet-300 text-violet-900 dark:border-violet-800 dark:text-violet-200"
+              disabled={simulating}
+              onClick={() => onSimulateE3?.(member)}
+              title={t('orchestrator.simulation.startHint', {
+                defaultValue: 'A model plays each organisation from its own record, through the real Encontro 3, up to the comparison. The session is marked as simulated.',
+              }) as string}
+              data-testid="cbo-drawer-simulate-e3"
+            >
+              <FlaskConical className="h-3.5 w-3.5" />
+              {simulating
+                ? t('orchestrator.simulation.running', { defaultValue: 'Simulating…' })
+                : t('cboView.simulateE3', { defaultValue: 'Simulate Encontro 3' })}
             </Button>
           )}
         </div>

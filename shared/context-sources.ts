@@ -351,6 +351,28 @@ export const MODEL_PASSES: ModelPass[] = [
     },
   },
   {
+    id: 'e3SimPlayer',
+    purpose: "staging only — plays a copied organisation through Encontro 3 so the pre-note and the pre-portfolio can be tried on real records (server/services/e3Simulator.ts)",
+    file: 'server/services/e3Simulator.ts',
+    sources: {
+      // It answers AS the organisation, so it reads what the organisation has
+      // said: every public field and the end of the transcript.
+      fields: uses,
+      ownWords: uses,
+      transcript: uses,
+      docSummary: no('the workshop itself reads their files (the advisor and the document reader run on every simulated turn); the player only answers the question on screen, the way a person speaking would, and a person does not quote their files'),
+      docFullText: no('same as the summaries — the files reach the card through the document reader, which runs in the simulated session exactly as in a real one'),
+      photos: no('the photographs are read by the dig and the advisor inside the session; the player answers in words or with a chip and has nothing to look at'),
+      geo: no('the place was marked in Encontro 2 and the workshop reads it; when the workshop opens the map, the simulator traces the footprint already on record rather than asking a model to draw'),
+      fichas: no('the solution cards are shown by the workshop; choosing among the options it offers is the whole of the player\'s part, and the cards would only invite it to second-guess the platform'),
+      evidence: no('the figures belong to the cards the workshop computes; the player never produces a number of its own beyond what the organisation would say'),
+      knowledge: no('approval routes and funding are the advisor\'s reading; an organisation in the room does not know them, and a player that did would answer better than the people it stands in for'),
+      cohort: no('each organisation answers for itself in its own encontro; what the others are doing reaches it only through the workshop'),
+      artefacts: no('it runs before the artefacts exist — producing them is what the simulation is for'),
+      city: no('the city plans are read by the plan links and the advisor; an organisation answering a workshop question does not cite the PLAC'),
+    },
+  },
+  {
     id: 'impactModelService',
     purpose: 'the legacy city-side impact model',
     file: 'server/services/impactModelService.ts',

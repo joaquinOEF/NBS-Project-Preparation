@@ -23,7 +23,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
   Map as MapIcon, Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
-  FileText, Loader2, Share2, Sparkles, EyeOff,
+  FileText, Loader2, Share2, Sparkles, EyeOff, FlaskConical, Download,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -72,6 +72,7 @@ import { LanguageSwitcher } from '@/core/components/i18n/language-switcher';
 import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
 import type { ProvenanceKey } from '@shared/data-provenance';
 import { CboFilesDrawer, type FilesDrawerMember, type CboDrawerTab } from '@/core/components/orchestrator/CboFilesDrawer';
+import { SimulationStrip, useSimulations } from '@/core/components/orchestrator/SimulationStrip';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -1005,6 +1006,7 @@ function ProjectCard({
   onResetProfile,
   onRemove,
   onTogglePortfolio,
+  simulated = false,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
@@ -1016,6 +1018,8 @@ function ProjectCard({
   onResetProfile: (p: CboDemoProject) => void;
   onRemove: (p: CboDemoProject) => void;
   onTogglePortfolio: (p: CboDemoProject) => void;
+  /** Encontro 3 was walked by the simulator (staging), not by the organisation. */
+  simulated?: boolean;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -1300,6 +1304,16 @@ function ProjectCard({
                 ? t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })
                 : t('orchestrator.portfolioExclude.off', { defaultValue: 'No portfólio' })}
             </button>
+            {simulated && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300"
+                title={t('orchestrator.simulation.badgeHint', { defaultValue: 'Encontro 3 was played by a model from this organisation’s record — these are not its own words' })}
+                data-testid={`badge-simulated-${project.id}`}
+              >
+                <FlaskConical className="w-3 h-3" strokeWidth={2} />
+                {t('orchestrator.simulation.badge', { defaultValue: 'E3 simulated' })}
+              </span>
+            )}
             {/* Remove the org from the cohort entirely (invite link dies).
                 Opens a confirm dialog — unlike Reset, the member is gone. */}
             <button
@@ -1475,9 +1489,10 @@ export default function OrchestratorLandingPage() {
     invite, unlockPhase, openWorkshopPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh, refreshProjects,
     projects: cohortProjects, createProject, updateProject, deleteProject,
-    cloneMember, importMember,
+    cloneMember, importMember, importCohort,
   } = useCohort();
   const [importOrgOpen, setImportOrgOpen] = useState(false);
+  const sim = useSimulations(cohort?.coordinatorSlug ?? null, () => { void refresh(); });
 
   // Organizações | Projetos. The choice rides in the URL (?view=projects) for
   // the same reason the cohort does: a reload must land where the coordinator
@@ -1836,6 +1851,15 @@ export default function OrchestratorLandingPage() {
     setFilesMember(null);
     openShare(memberInviteUrl(r.member), { kind: 'cbo', orgName: r.member.orgName });
   };
+  const handleImportCohort = async (bundle: unknown) => {
+    const r = await importCohort(bundle);
+    if ('error' in r) return r.error;
+    toast({
+      title: t('orchestrator.importCohort.done', { defaultValue: 'Cohort created: {{name}}', name: r.name }),
+      description: r.failed.length ? t('orchestrator.importCohort.failedSome', { defaultValue: 'Not copied: {{names}}', names: r.failed.join(', ') }) : undefined,
+    });
+    return null;
+  };
   const handleImportOrg = async (input: { snapshot: unknown; orgName?: string; asOf: 'end-of-e2' | 'as-is' }) => {
     const r = await importMember(input);
     if ('error' in r) return r.error;
@@ -1952,6 +1976,8 @@ export default function OrchestratorLandingPage() {
         initialTab={filesTab}
         onClose={() => setFilesMember(null)}
         onCloneTest={handleCloneTest}
+        onSimulateE3={filesMember && sim.eligible.has(filesMember.id) ? (m) => void sim.start([m.id]) : undefined}
+        simulating={!!filesMember && sim.busy.has(filesMember.id)}
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
@@ -2074,6 +2100,18 @@ export default function OrchestratorLandingPage() {
                   {t('orchestrator.cohort.new', { defaultValue: 'New cohort' })}
                 </Button>
               )}
+              {cohort?.coordinatorSlug && (
+                <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground/80">
+                  <a
+                    href={`/api/cohort/${cohort.coordinatorSlug}/export`}
+                    data-testid="button-export-cohort"
+                    title={t('orchestrator.exportCohort.tooltip', { defaultValue: 'Download every organisation as it stands (no contact details) — to import as a test cohort in another environment' }) as string}
+                  >
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    {t('orchestrator.exportCohort.button', { defaultValue: 'Export cohort' })}
+                  </a>
+                </Button>
+              )}
               <Button
                 size="sm" variant="outline" onClick={() => setImportOrgOpen(true)} data-testid="button-import-org"
                 title={t('orchestrator.importOrg.tooltip', { defaultValue: 'Create a test organisation from a snapshot of a real one' })}
@@ -2096,6 +2134,8 @@ export default function OrchestratorLandingPage() {
             onUpdateWorkshops={handleUpdateWorkshops}
           />
         </div>
+
+        <SimulationStrip sim={sim} />
 
         {/* Aggregate stats — diagnostic pipeline */}
         <motion.div
@@ -2345,6 +2385,7 @@ export default function OrchestratorLandingPage() {
                     onResetProfile={setMemberResetTarget}
                     onRemove={setMemberRemoveTarget}
                     onTogglePortfolio={handleTogglePortfolio}
+                    simulated={sim.simulated.has(p.id)}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
@@ -2377,7 +2418,7 @@ export default function OrchestratorLandingPage() {
       </main>
 
       {/* Cohort flow dialogs */}
-      <ImportOrgDialog open={importOrgOpen} onOpenChange={setImportOrgOpen} onSubmit={handleImportOrg} />
+      <ImportOrgDialog open={importOrgOpen} onOpenChange={setImportOrgOpen} onSubmit={handleImportOrg} onSubmitCohort={handleImportCohort} />
       <CreateProjectDialog
         open={createProjectOpen}
         onOpenChange={setCreateProjectOpen}
