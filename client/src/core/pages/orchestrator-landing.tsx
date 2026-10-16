@@ -174,6 +174,14 @@ type CboDemoProject = {
 const W3_STATES = ['needs_site', 'needs_study', 'needs_permission', 'ready'] as const;
 type W3State = (typeof W3_STATES)[number];
 
+/** The colour each pile's top edge carries — the same hue as its pill. */
+const W3_BAR: Record<W3State, string> = {
+  needs_site: 'bg-stone-400',
+  needs_study: 'bg-sky-500',
+  needs_permission: 'bg-amber-500',
+  ready: 'bg-emerald-500',
+};
+
 const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
   needs_site: {
     pt: 'falta o lugar', en: 'no place yet',
@@ -225,20 +233,40 @@ const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
  * line, actions on the right — so the page reads as one surface rather than
  * features added one at a time, each with its own idea of a header.
  */
-function SectionHeader({ title, meta, actions, testId }: { title: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode; testId?: string }) {
+const SECTION_TONE = {
+  emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-200/70 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
+  amber: 'bg-amber-50 text-amber-700 ring-amber-200/70 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
+  blue: 'bg-blue-50 text-[#1a3da6] ring-blue-200/70 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900',
+} as const;
+
+function SectionHeader({ title, meta, actions, testId, icon: Icon, tone = 'emerald' }: {
+  title: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode; testId?: string;
+  /** A small tile in the section's colour — the colour says what kind of section it is, not decoration. */
+  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  tone?: keyof typeof SECTION_TONE;
+}) {
   return (
     <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2" data-testid={testId}>
-      <div className="min-w-0">
-        <TitleLarge className="!text-xl tracking-tight mb-0">{title}</TitleLarge>
-        {meta && <BodySmall className="text-muted-foreground">{meta}</BodySmall>}
+      <div className="flex min-w-0 items-center gap-3">
+        {Icon && (
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${SECTION_TONE[tone]}`}>
+            <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+          </span>
+        )}
+        <div className="min-w-0">
+          <TitleLarge className="!text-xl tracking-tight mb-0">{title}</TitleLarge>
+          {meta && <BodySmall className="text-muted-foreground">{meta}</BodySmall>}
+        </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
 
-function CohortDoctorPanel({ coordinatorSlug, stats }: {
+function CohortDoctorPanel({ coordinatorSlug, stats, variant = 'line' }: {
   coordinatorSlug: string | null;
+  /** 'aurora': the message alone, white on the overview's gradient. */
+  variant?: 'line' | 'aurora';
   /** The three counts that used to be tiles, said in one line beside the diagnosis. */
   stats?: { sitesMapped: number; profilesInProgress: number; total: number };
 }) {
@@ -258,6 +286,32 @@ function CohortDoctorPanel({ coordinatorSlug, stats }: {
     return () => { alive = false; };
   }, [coordinatorSlug]);
 
+  if (variant === 'aurora') {
+    if (!data) return null;
+    const w = (data.orgs ?? []).filter((o: any) => o.verdict === 'ready-waiting');
+    return (
+      <div data-testid="cohort-doctor">
+        {w.length === 0 ? (
+          <p className="text-[12.5px] text-white/80" data-testid="doctor-all-clear">
+            {isPt ? 'Ninguém está travado: toda organização que terminou tem para onde ir.' : 'Nobody is stuck: every org that finished has somewhere to go.'}
+          </p>
+        ) : (
+          <div data-testid="doctor-waiting">
+            <p className="text-[12.5px] font-medium text-amber-200">
+              {isPt
+                ? `${w.length === 1 ? '1 organização terminou o encontro' : `${w.length} organizações terminaram o encontro`} e não têm o próximo aberto.`
+                : `${w.length} finished their encontro and have no next one open.`}
+            </p>
+            <ul className="mt-1.5 flex flex-wrap gap-1.5">
+              {w.map((o: any) => (
+                <li key={o.id} className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] text-white ring-1 ring-inset ring-white/20" title={`fase ${o.phase}`}>{o.orgName}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
   if (!data && !stats) return null;
   const waiting = (data?.orgs ?? []).filter((o: any) => o.verdict === 'ready-waiting');
   const counts = stats
@@ -680,12 +734,15 @@ function MapPanel({
   onSelect,
   activeRisk,
   onBairroClick,
+  compact = false,
 }: {
   projects: CboDemoProject[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   activeRisk: RiskView | null;
   onBairroClick: (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => void;
+  /** The overview's thumbnail: no zoom buttons, the same map. */
+  compact?: boolean;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -766,6 +823,25 @@ function MapPanel({
     // Intentionally run once; projects is stable demo data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The overview grows the same map from a thumbnail to full height rather
+  // than mounting a second one — so Leaflet has to be told its box changed,
+  // or it paints the old size and greys out the rest.
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => mapInstanceRef.current?.invalidateSize());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (compact) { map.zoomControl?.remove(); return; }
+    // Bottom-left when expanded: the tabs sit in the top-left corner.
+    map.zoomControl?.setPosition('bottomleft');
+    map.zoomControl?.addTo(map);
+  }, [compact]);
 
   // Drive the selected class on the marker DOM from props.
   useEffect(() => {
@@ -1773,6 +1849,7 @@ export default function OrchestratorLandingPage() {
 
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
   const cohortOpenMax = Math.max(1, ...workshops.filter(w => !!w.openedAt).map(w => Number(w.unlocksPhase) || 1));
+  const liveEncontro = workshops.some(w => !!w.openedAt) ? cohortOpenMax : null;
 
   // ── Test copies (docs/test-orgs.md) ───────────────────────────────────────
   // A copy of a real record, landed at the end of Encontro 2, with its own
@@ -1927,7 +2004,7 @@ export default function OrchestratorLandingPage() {
         {/* Cohort header — singleton model. One cohort for the pilot,
             no slug to manage. Reset (with confirmation) wipes members and
             restores the default workshop cadence. */}
-        <div className="mb-10 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3">
+        <div className="mb-4 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -2093,6 +2170,111 @@ export default function OrchestratorLandingPage() {
             </div>
           )}
 
+        </div>
+
+        {/* ── Overview: the cohort at a glance, and the place ────────────────
+            The aurora (the platform's blue drifting into the NBS green) carries
+            the numbers and the diagnosis; beside it, the risk map with every
+            organisation on it, as a thumbnail. "Expandir" grows the SAME map
+            to full height with Mapa / Soluções / Casos — remembered per browser.
+            The map is the one thing that says where this programme is. */}
+        <section className="mb-4" data-testid="overview-hero">
+          <Tabs value={regionTab} onValueChange={v => setRegionTab(v as typeof regionTab)} className="w-full">
+          <div className={`grid gap-3 ${mapOpen ? 'grid-cols-1' : 'lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'}`}>
+            <div className="relative overflow-hidden rounded-2xl text-white shadow-sm">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(125% 150% at 4% 0%, #2f66e8 0%, #1a3da6 38%, #001444 100%)' }} />
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(70% 150% at 72% 0%, rgba(22,163,74,.8) 0%, rgba(22,163,74,0) 62%), radial-gradient(48% 110% at 92% 88%, rgba(103,232,249,.5) 0%, rgba(103,232,249,0) 70%)' }} />
+              <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+              <div className={`relative flex h-full flex-col justify-between gap-5 p-5 ${mapOpen ? 'lg:flex-row lg:items-center' : ''}`}>
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200/90">
+                      {t('orchestrator.hero.kicker', { defaultValue: 'The cohort today' })}
+                    </span>
+                    {liveEncontro && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ring-white/25" data-testid="hero-live">
+                        <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" /></span>
+                        {t('orchestrator.hero.live', { defaultValue: 'Encontro {{n}} live', n: liveEncontro })}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`grid gap-x-6 gap-y-4 ${mapOpen ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`} data-testid="cohort-counts">
+                    {([
+                      [stats.total, t('orchestrator.hero.orgs', { defaultValue: 'organisations' })],
+                      [stats.sitesMapped, t('orchestrator.hero.sites', { defaultValue: 'with a mapped site' })],
+                      [stats.profilesInProgress, t('orchestrator.hero.inProgress', { defaultValue: 'in progress' })],
+                      [w3Stats.scoped.length, t('orchestrator.hero.tested', { defaultValue: 'tested solutions' })],
+                    ] as const).map(([n, label]) => (
+                      <div key={label} className="min-w-[5.5rem]">
+                        <div className="text-3xl font-semibold tabular-nums leading-none">{n}</div>
+                        <div className="mt-1 text-[11px] leading-tight text-white/70">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <CohortDoctorPanel coordinatorSlug={cohort?.coordinatorSlug ?? null} variant="aurora" />
+              </div>
+            </div>
+
+            {/* `isolate`: MapLayerControls is z-400 and sits outside
+                .leaflet-container; without a local stacking context the legend
+                paints over any dialog opened from this page. */}
+            <div className={`relative isolate w-full ${mapOpen ? 'h-[64vh] md:h-[74vh]' : 'h-[260px] lg:h-full lg:min-h-[260px]'}`}>
+              <div className="absolute inset-0" aria-label="Mapa" role="group">
+                <MapPanel
+                  key={`${cohort?.id ?? ''}:${projects.filter(p => p.coords).map(p => p.id).join(',')}`}
+                  projects={projects}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  activeRisk={activeRisk}
+                  onBairroClick={handleBairroClick}
+                  compact={!mapOpen}
+                />
+                {mapOpen && <MapLayerControls active={activeRisk} onChange={setActiveRisk} />}
+              </div>
+              {mapOpen && (
+                <>
+                  <TabsList className="absolute left-3 top-3 z-[600] shadow-sm">
+                    <TabsTrigger value="map" data-testid="region-tab-map">
+                      <MapIcon className="w-3.5 h-3.5 mr-1.5" />
+                      {t('orchestrator.regionTabs.map', { defaultValue: 'Mapa' })}
+                    </TabsTrigger>
+                    <TabsTrigger value="solutions" data-testid="region-tab-solutions">
+                      <Sprout className="w-3.5 h-3.5 mr-1.5" />
+                      {t('orchestrator.regionTabs.solutions', { defaultValue: 'Soluções' })}
+                    </TabsTrigger>
+                    <TabsTrigger value="cases" data-testid="region-tab-cases">
+                      <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                      {t('orchestrator.regionTabs.cases', { defaultValue: 'Casos' })}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="solutions" className="absolute inset-0 z-[500] m-0 overflow-y-auto overscroll-contain rounded-xl border border-foreground/10 bg-background p-4 pt-16 focus-visible:outline-none">
+                    <NbsSolutionsGrid lang={locale} />
+                  </TabsContent>
+                  <TabsContent value="cases" className="absolute inset-0 z-[500] m-0 overflow-y-auto overscroll-contain rounded-xl border border-foreground/10 bg-background p-4 pt-16 focus-visible:outline-none">
+                    <NbsCasesGrid cards={NBS_SHOWCASE_CARDS} lang={locale} />
+                  </TabsContent>
+                </>
+              )}
+              <Button
+                size="sm" variant="outline"
+                onClick={() => setMapOpen(o => !o)} aria-expanded={mapOpen}
+                className={`absolute z-[600] bg-background/95 shadow-sm backdrop-blur ${mapOpen ? 'right-3 bottom-3' : 'right-3 top-3'}`}
+                data-testid="button-toggle-map"
+              >
+                <MapIcon className="w-3.5 h-3.5 mr-1.5" />
+                {mapOpen
+                  ? t('orchestrator.hero.collapse', { defaultValue: 'Collapse map' })
+                  : t('orchestrator.hero.expand', { defaultValue: 'Map, solutions and cases' })}
+              </Button>
+            </div>
+          </div>
+          </Tabs>
+        </section>
+
+        {/* The encontros — their own card now, under the overview: the
+            first screen is the cohort at a glance, the calendar right below. */}
+        <div className="mb-10 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3" data-testid="encontros-card">
           <WorkshopCadence
             workshops={workshops}
             accessByPhase={accessByPhase}
@@ -2100,7 +2282,6 @@ export default function OrchestratorLandingPage() {
             onCloseWorkshop={handleCloseWorkshop}
             onUpdateWorkshops={handleUpdateWorkshops}
           />
-          <CohortDoctorPanel coordinatorSlug={cohort?.coordinatorSlug ?? null} stats={stats} />
         </div>
 
 
@@ -2115,6 +2296,8 @@ export default function OrchestratorLandingPage() {
         {w3Stats.scoped.length > 0 && (
           <div className="mb-10" data-testid="w3-portfolio">
             <SectionHeader
+              icon={Target}
+              tone="amber"
               title={t('orchestrator.w3.portfolioTitle', { defaultValue: 'Projetos do Encontro 3' })}
               meta={t('orchestrator.w3.portfolioSubtitle', {
                 defaultValue: '{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação',
@@ -2128,7 +2311,8 @@ export default function OrchestratorLandingPage() {
                 const rows = w3Stats.by[st];
                 const meta = W3_META[st];
                 return (
-                  <Card key={st} data-testid={`w3-pile-${st}`}>
+                  <Card key={st} data-testid={`w3-pile-${st}`} className="overflow-hidden">
+                    <div aria-hidden="true" className={`h-1 w-full ${W3_BAR[st]} ${rows.length ? '' : 'opacity-30'}`} />
                     <CardContent className="p-4">
                       <div className="flex items-baseline gap-2">
                         <div className="text-2xl font-semibold tracking-tight tabular-nums">
@@ -2162,6 +2346,8 @@ export default function OrchestratorLandingPage() {
 
         {/* Section heading */}
         <SectionHeader
+          icon={Network}
+          tone="blue"
           title={t('orchestrator.demo.portfolioTitle')}
           meta={t('orchestrator.demo.portfolioSubtitle')}
           actions={<>
@@ -2179,83 +2365,10 @@ export default function OrchestratorLandingPage() {
                 </a>
               </Button>
             )}
-            {/* The map, the solutions and the cases fold away: they are
-                reference, and at full height they pushed the roster and the
-                board a screen and a half down. Remembered per browser. */}
-            <Button
-              size="sm" variant="outline" onClick={() => setMapOpen(o => !o)} aria-expanded={mapOpen}
-              data-testid="button-toggle-map"
-            >
-              <MapIcon className="w-3.5 h-3.5 mr-1.5" />
-              {mapOpen
-                ? t('orchestrator.regionTabs.hide', { defaultValue: 'Hide map, solutions and cases' })
-                : t('orchestrator.regionTabs.show', { defaultValue: 'Show map, solutions and cases' })}
-            </Button>
           </>}
         />
 
-        {/* Tabs govern the map REGION only. The map stays mounted underneath —
-            the two card panels render as overlays over it — so switching tabs
-            never re-inits Leaflet, refetches the 2.5MB GeoJSON, or loses the
-            map's center/zoom (Leaflet greys out if init/resized while hidden).
-            The participants list below the tabs stays visible on every tab. */}
         <div className="flex flex-col gap-5">
-          {mapOpen && (
-          <Tabs
-            value={regionTab}
-            onValueChange={v => setRegionTab(v as typeof regionTab)}
-            className="w-full"
-          >
-            <TabsList className="mb-3">
-              <TabsTrigger value="map" data-testid="region-tab-map">
-                <MapIcon className="w-3.5 h-3.5 mr-1.5" />
-                {t('orchestrator.regionTabs.map', { defaultValue: 'Mapa' })}
-              </TabsTrigger>
-              <TabsTrigger value="solutions" data-testid="region-tab-solutions">
-                <Sprout className="w-3.5 h-3.5 mr-1.5" />
-                {t('orchestrator.regionTabs.solutions', {
-                  defaultValue: 'Soluções',
-                })}
-              </TabsTrigger>
-              <TabsTrigger value="cases" data-testid="region-tab-cases">
-                <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                {t('orchestrator.regionTabs.cases', { defaultValue: 'Casos' })}
-              </TabsTrigger>
-            </TabsList>
-
-            {/* `isolate`: MapLayerControls is z-400 and sits outside
-                .leaflet-container. Portalled Radix overlays are all z-50, so
-                without a local stacking context the legend paints over any
-                dialog opened from this page. */}
-            <div className="relative isolate h-[64vh] md:h-[78vh] w-full">
-              {/* Map is ALWAYS mounted, never in a TabsContent (which would
-                  display:none it). The overlays sit on top when active. */}
-              <div className="absolute inset-0" aria-label="Mapa" role="group">
-                <MapPanel
-                  projects={projects}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  activeRisk={activeRisk}
-                  onBairroClick={handleBairroClick}
-                />
-                <MapLayerControls active={activeRisk} onChange={setActiveRisk} />
-              </div>
-
-              <TabsContent
-                value="solutions"
-                className="absolute inset-0 z-[500] m-0 overflow-y-auto overscroll-contain rounded-xl border border-foreground/10 bg-background p-4 focus-visible:outline-none"
-              >
-                <NbsSolutionsGrid lang={locale} />
-              </TabsContent>
-              <TabsContent
-                value="cases"
-                className="absolute inset-0 z-[500] m-0 overflow-y-auto overscroll-contain rounded-xl border border-foreground/10 bg-background p-4 focus-visible:outline-none"
-              >
-                <NbsCasesGrid cards={NBS_SHOWCASE_CARDS} lang={locale} />
-              </TabsContent>
-            </div>
-          </Tabs>
-          )}
 
           {/* Organizações | Projetos — below the map, where the roster lives.
               Everything above (stats, diagnosis, synergies, the Encontro 3

@@ -605,7 +605,7 @@ export function WorkshopCadence({
   if (workshops.length === 0) return null;
 
   return (
-    <div className="mt-3 pt-3 border-t border-foreground/5">
+    <div className="pt-1">
       <div className="flex items-center justify-between mb-2.5">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {t('orchestrator.cohort.workshops', { defaultValue: 'Workshop cadence' })}
