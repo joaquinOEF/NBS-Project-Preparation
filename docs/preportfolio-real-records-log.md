@@ -22,7 +22,7 @@ adapters, never "ask them again", and never a rewrite of their records.
 | 4 | `encontroClosed(state, 4)` fell back to "every phase-4 section has a field" — an older record read as **Encontro 4 closed before it opened**. Drives the next-encontro gate, the cohort doctor and the organisation's own banner. | Sementes da Vida Nova and Conceito Arte "closed" E4 in one turn. | `shared/cbo-schema.ts`: Encontro 4 closes on its own marker only (`_e4_closed`, not reopened). |
 | 5 | **Gerar** reported done when the group narratives finished; the plan readings ran beside them uncounted, so three organisations showed "0 conexões com planos" for ~20 s more. | Periferia Feminista, Cooperativa Habitacional, Sementes da Vida Nova. | `cohortRoutes.ts` `runPasses`: the readings count in the progress, and "running" ends when the last one lands. |
 
-## Open — on the roster card (decided 17 Oct: the journey card)
+## Fixed by the journey card (`client/src/core/components/orchestrator/JourneyCard.tsx`)
 
 - **A verdict before Encontro 3.** Misturaí (still in Encontro 2) shows
   *precisa de autorização*; Instituto de Estudos Culturais (Encontro 2) shows
@@ -33,6 +33,10 @@ adapters, never "ask them again", and never a rewrite of their records.
   *Encontro 3*.
 - **"Intervenção ainda não escolhida"** on organisations that tested 3–5
   solutions (it reads `snapshotIntervention`, which nothing writes since the loop).
+
+All four are gone from the face of the card: the verdict is computed only once
+Encontro 3 closes (`w3SignalFrom`), maturity shows only when scored, the dots say
+*Encontro N*, and "Testou:" lists what they tried with each reaction.
 
 ## Open — needs a decision or a closer look
 
