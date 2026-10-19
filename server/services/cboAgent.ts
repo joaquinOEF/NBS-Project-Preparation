@@ -73,6 +73,7 @@ import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
+import { recordedSolutionIds } from '@shared/recorded-solutions';
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
 import { serveE4Checkpoint } from "./cboE4Checkpoint";
 import { prenoteInputFor, authorPrenote } from "./prenoteContext";
@@ -4428,7 +4429,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
       );
     const site = asRecord('intervention_site');
     const type = asRecord('intervention_type');
-    const solutions = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
+    const solutions = recordedSolutionIds(type);
     if (!solutions.length) { setAuthoringState(cboId, 'skipped:no solution'); return; }
     const areaM2 = Number(site.site_area_m2) || 0;
     const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';

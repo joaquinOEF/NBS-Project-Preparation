@@ -74,3 +74,32 @@ test.describe('Encontro 4 reads a typed name', () => {
     expect(JSON.parse(st.sections.intervention_type.fields._e4_solution_json.value).solutionId).toBe('biovaletas');
   });
 });
+
+test.describe('the documents read every era too', () => {
+  test('recordedSolutionIds: chosen ids, else what made sense, else first-era names', async () => {
+    const { recordedSolutionIds } = await import('../shared/recorded-solutions');
+    expect(recordedSolutionIds({ chosen_solutions: 'teto-verde' })).toEqual(['teto-verde']);
+    expect(recordedSolutionIds({ solution_tests_json: JSON.stringify([
+      { solutionId: 'biovaletas', reaction: 'nao-e-pra-gente', testedAt: 'x' },
+      { solutionId: 'jardins-de-chuva', reaction: 'faz-sentido', testedAt: 'x' },
+    ]) })).toEqual(['jardins-de-chuva']);
+    expect(recordedSolutionIds(CONCEITO_TYPE)).toEqual(['jardins-de-chuva', 'biovaletas', 'bacia-de-retencao', 'captacao-agua-da-chuva']);
+  });
+
+  test("a first-era record's profile lists its solutions", async () => {
+    const { buildOrgProfile } = await import('../shared/org-profile');
+    const state: any = { phase: 3, sections: { org_profile: { fields: { org_name: { value: 'Conceito Arte' } } }, intervention_site: { fields: {} }, intervention_type: { fields: Object.fromEntries(Object.entries(CONCEITO_TYPE).map(([k, v]) => [k, { value: v }])) } }, maturityScores: [], priorityFlags: [], metadata: {} };
+    const profile = buildOrgProfile({ state, orgName: 'Conceito Arte', lang: 'pt' } as any);
+    expect(JSON.stringify(profile)).toContain('Jardins de chuva');
+  });
+});
+
+test("a name outside the catalogue is said on the pre-note, not lost", async () => {
+  const { namesOutsideCatalogue } = await import('../shared/recorded-solutions');
+  const { buildPrenote, prenoteInputFromSections } = await import('../shared/e4-prenote');
+  expect(namesOutsideCatalogue(CONCEITO_TYPE.solution_types)).toEqual(['Evapotranspiração']);
+  const sections: any = { intervention_type: { fields: Object.fromEntries(Object.entries(CONCEITO_TYPE).map(([k, v]) => [k, { value: v }])) }, intervention_site: { fields: {} } };
+  const page = buildPrenote(prenoteInputFromSections(sections), 'pt');
+  const sol = page.sections.find(s => s.id === 'solucao')!;
+  expect(sol.lines.map(l => l.text).join(' ')).toContain('Também mencionaram: Evapotranspiração (fora do catálogo de soluções)');
+});

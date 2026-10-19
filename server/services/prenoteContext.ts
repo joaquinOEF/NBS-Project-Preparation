@@ -54,7 +54,8 @@ export async function authorPrenote(input: PrenoteInput, lang: 'pt' | 'en'): Pro
   if (!sol) return null;
   const note = buildConceptNote(conceptInputFor(input, sol), lang);
   const out = await authorConceptNote(note, lang, PRENOTE_AUTHOR_MODEL);
-  if (!out.accepted) return null;
+  // The reason, said — "nada escrito" alone hid a reply cut off at its token cap.
+  if (!out.accepted) { console.warn(`[prenote-author] nothing accepted for ${sol.id}: ${out.reason ?? 'no reason given'}`); return null; }
   const authored = out.note.sections
     .filter(sec => sec.paragraphs.some(p => p.authored))
     .map(sec => ({ section: sec.id, paragraphs: sec.paragraphs.filter(p => p.authored).map(p => ({ text: p.text, sources: p.sources })) }));

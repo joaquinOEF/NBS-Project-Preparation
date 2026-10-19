@@ -26,7 +26,7 @@ import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
 import { getSolution, NBS_SOLUTIONS } from '@shared/nbs-catalog';
-import { parseTests, testOf } from '@shared/w3-tests';
+import { testOf } from '@shared/w3-tests';
 import { testsOf, solutionsNamedIn } from '@shared/recorded-solutions';
 import { SOLUTION_COSTS, roundAreaM2 } from '@shared/w3-sizing';
 import { parseSpokenArea } from '@shared/w3-area-speech';

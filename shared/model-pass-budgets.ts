@@ -169,12 +169,14 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'conceptNoteAuthor',
     env: 'CBO_AUTHOR_TIMEOUT_MS',
     capMs: 180_000,
-    measuredMs: 46_055,
-    measuredOn: '2026-09-04',
+    measuredMs: 50_356,
+    measuredOn: '2026-10-17',
     how:
       'Two runs over the two richest simulated records, cohort layer included: 42.4 s and 46.1 s, 7 paragraphs accepted each. ' +
       'Also the pre-note summary (server/services/prenoteContext.ts → this pass on claude-opus-5-5, PRENOTE_AUTHOR_MODEL), 15 Oct, five live runs ' +
-      'over a whole-record pre-note: 28.2, 28.9, 31.2, 32.8 and 35.2 s, 6–7 paragraphs accepted, none refused (scripts/prenote-author-live.ts).',
+      'over a whole-record pre-note: 28.2, 28.9, 31.2, 32.8 and 35.2 s, 6–7 paragraphs accepted, none refused (scripts/prenote-author-live.ts). ' +
+      'Re-measured 17 Oct after the output allowance went 4,096 → 12,000 (Opus thinks before the tool and was cut off): six runs over three ' +
+      'real pre-notes from the prod copy, 34.1–50.4 s, 5–6 paragraphs each (scripts/prenote-author-why.ts).',
     costsWhenItFires:
       'the document is the deterministic one — whole, but never argued; the floor, forever, for everybody',
     blocking: false,

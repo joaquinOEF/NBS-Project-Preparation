@@ -31,7 +31,7 @@
 
 import { getSolution, type NbsSolution } from './nbs-catalog';
 import { sizeOf, testOf, type SolutionTest } from './w3-tests';
-import { testsOf } from './recorded-solutions';
+import { testsOf, namesOutsideCatalogue } from './recorded-solutions';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { studyRequirement } from './w3-dossier';
@@ -367,6 +367,12 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   ];
   if (has(type.construction_model)) {
     solution.push(W(pt ? `Execução: ${display('intervention_type', 'construction_model', type.construction_model)}.` : `Delivery: ${display('intervention_type', 'construction_model', type.construction_model)}.`, theirs));
+  }
+  // What they named in a first Encontro 3 that the catalogue does not hold —
+  // not priced, not tested, but said, so it is not silently lost.
+  const outside = namesOutsideCatalogue(type.solution_types);
+  if (outside.length) {
+    solution.push(W(pt ? `Também mencionaram: ${outside.join(', ')} (fora do catálogo de soluções).` : `They also named: ${outside.join(', ')} (not in the solution catalogue).`, theirs));
   }
   sections.push({ id: 'solucao', title: L.solucao, lines: solution, missing: null });
 

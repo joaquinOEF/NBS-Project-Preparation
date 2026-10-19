@@ -22,6 +22,14 @@ adapters, never "ask them again", and never a rewrite of their records.
 | 4 | `encontroClosed(state, 4)` fell back to "every phase-4 section has a field" — an older record read as **Encontro 4 closed before it opened**. Drives the next-encontro gate, the cohort doctor and the organisation's own banner. | Sementes da Vida Nova and Conceito Arte "closed" E4 in one turn. | `shared/cbo-schema.ts`: Encontro 4 closes on its own marker only (`_e4_closed`, not reopened). |
 | 5 | **Gerar** reported done when the group narratives finished; the plan readings ran beside them uncounted, so three organisations showed "0 conexões com planos" for ~20 s more. | Periferia Feminista, Cooperativa Habitacional, Sementes da Vida Nova. | `cohortRoutes.ts` `runPasses`: the readings count in the progress, and "running" ends when the last one lands. |
 
+## Fixed after the first pass
+
+| # | What | Who it hit | Fix |
+|---|------|-----------|-----|
+| 6 | **The pre-note writer wrote nothing for 3 of 9** real pre-notes. Opus 5.5 takes the tool only when offered and thinks first — 1.2–2.7k of a 4,096-token allowance — so the paragraphs were cut mid-call; it logged as "nothing survived the guards". | Cooperativa Habitacional, Associação Desabafa, one more. | Allowance 12,000 (`conceptNoteAuthor.ts`): six reruns write 5–6 paragraphs each, 34–50 s. Any structured call that stops at its cap now says so; the writer logs WHY it wrote nothing (`scripts/prenote-author-why.ts`). Plan links (peak 1,854 tokens) and the narrative get 8,000 of headroom. |
+| 7 | The **E3 concept note, the hoja de ruta / dossier prints and the profile** read `chosen_solutions` only. | Conceito Arte: "skipped: no solution" on each. | `recordedSolutionIds()` — chosen ids, else what made sense, else first-era names. |
+| 8 | A first-era name outside the catalogue (**"Evapotranspiração"**) was dropped silently. | Conceito Arte. | Decided 19 Oct: said on the pre-note — "Também mencionaram: Evapotranspiração (fora do catálogo de soluções)" (`namesOutsideCatalogue`). Not priced, not tested, not lost. |
+
 ## Fixed by the journey card (`client/src/core/components/orchestrator/JourneyCard.tsx`)
 
 - **A verdict before Encontro 3.** Misturaí (still in Encontro 2) shows
@@ -38,22 +46,14 @@ All four are gone from the face of the card: the verdict is computed only once
 Encontro 3 closes (`w3SignalFrom`), maturity shows only when scored, the dots say
 *Encontro N*, and "Testou:" lists what they tried with each reaction.
 
-## Open — needs a decision or a closer look
+## Decided, no code
 
-- **The pre-note author wrote nothing once** ("nada escrito — a página
-  determinística fica", 38 s) and refused one paragraph elsewhere ("parágrafo
-  longo demais para um bloco"). The page is still whole (deterministic), but
-  thinner. Look at what it refused before raising any limit.
-- **Conceito Arte's Encontro 3 concept note** was skipped ("no solution") —
-  the same first-era record; the pre-note path now reads it, the E3 concept
-  note path (`conceptNoteAuthor`) does not yet.
-- **"Evapotranspiração"** was named by Conceito Arte and is not in the
-  catalogue — dropped silently by the reader. Either a catalogue entry or a
-  note on the pre-note saying it was named.
 - **Four organisations are still in Encontro 2** (Misturaí, CEA Bom Jesus,
   SDV Reciclando — Centro SAMA, Instituto de Estudos Culturais). They cannot
-  reach the pre-portfolio until they mark their place and test. A coordination
-  decision, not a code one: the simulator deliberately does not invent a site.
+  reach the pre-portfolio until they mark their place and test. **Decided 19
+  Oct:** the board shows them clearly ("Ainda nos Encontros 1–2 · Terminar o
+  Encontro 2 — marcar o lugar") and the coordination follows up; no code beyond
+  that. The simulator deliberately does not invent a site.
 - **Vila Flores is out of the analysis** in production (`excludeFromPortfolio`)
   — by design, and carried to the copy.
 
