@@ -506,6 +506,22 @@
       "tested": "tested solutions",
       "collapse": "Collapse map",
       "expand": "Map, solutions and cases"
+    },
+    "journey": {
+      "whoOrg": "the organisation",
+      "whoCoord": "coordination",
+      "whoVisit": "technical team",
+      "outOfAnalysis": "out of analysis",
+      "dotsAria": "Encontros done: {{n}} of 6",
+      "encontros": "Encontros",
+      "statusReady": "Status",
+      "next": "Next step · {{who}}",
+      "tested": "Tested:",
+      "maturity": "maturity {{n}}/{{total}}",
+      "groupCoord": "The coordination acts",
+      "groupOrg": "The organisations continue",
+      "groupReady": "Ready for the pre-portfolio",
+      "groupEarly": "Still in Encontros 1–2"
     }
   },
   "citySelection": {

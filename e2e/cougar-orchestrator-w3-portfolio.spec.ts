@@ -30,6 +30,8 @@ const ORGS = [
       { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1726' },
       { sectionId: 'intervention_site', field: 'land_tenure', value: 'public-informal' },
       { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'jardins-de-chuva' },
+      // A verdict is only said once Encontro 3 has closed (17 Oct 2026).
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
     ],
   },
   {
@@ -41,6 +43,8 @@ const ORGS = [
       { sectionId: 'intervention_site', field: '_site_lng', value: '-51.2200' },
       { sectionId: 'intervention_site', field: 'land_tenure', value: 'public-informal' },
       { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'hortas-urbanas' },
+      // A verdict is only said once Encontro 3 has closed (17 Oct 2026).
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
     ],
   },
   {
@@ -52,6 +56,8 @@ const ORGS = [
       { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1500' },
       { sectionId: 'intervention_site', field: 'land_tenure', value: 'private-owned' },
       { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'hortas-urbanas' },
+      // A verdict is only said once Encontro 3 has closed (17 Oct 2026).
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
     ],
   },
   {
@@ -61,6 +67,8 @@ const ORGS = [
     sections: [
       { sectionId: 'intervention_site', field: 'bairro', value: 'Glória' },
       { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'grade-viva' },
+      // A verdict is only said once Encontro 3 has closed (17 Oct 2026).
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
     ],
   },
 ] as const;
@@ -111,6 +119,27 @@ test.describe('COUGAR — the W3 portfolio, in four piles', () => {
       const card = page.locator(`[data-testid="card-orchestrator-project-${ids[o.expect]}"]`);
       await expect(card.getByTestId(`w3-verdict-${ids[o.expect]}`)).toBeVisible();
     }
+  });
+
+  test('no verdict before Encontro 3 closes — an Encontro 2 record is not "pronto pra orçar"', async ({ page }) => {
+    // Instituto de Estudos Culturais, still in Encontro 2, read as "pronto pra
+    // orçar" on the prod copy: the verdict came from E2's tenure alone.
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`W3pre ${randomUUID().slice(0, 8)}`)).cohort;
+    await api.createCoordinator({ email: `w3pre-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ainda no E2', neighborhood: 'Partenon', withSession: true })).member;
+    await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Partenon' },
+      { sectionId: 'intervention_site', field: '_site_lat', value: '-30.07' },
+      { sectionId: 'intervention_site', field: '_site_lng', value: '-51.15' },
+      { sectionId: 'intervention_site', field: 'land_tenure', value: 'private-owned' },
+      { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'hortas-urbanas' },
+    ] });
+    await page.goto('/orchestrator');
+    await expect(page.getByTestId(`card-orchestrator-project-${m.id}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`w3-verdict-${m.id}`)).toHaveCount(0);
+    await expect(page.getByTestId(`journey-next-${m.id}`)).toContainText('Encontro 2');
   });
 
   test('a cohort still in W2 shows no portfolio at all', async ({ page }) => {

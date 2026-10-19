@@ -21,9 +21,9 @@ import { useTranslation } from 'react-i18next';
 import { BASEMAPS } from '@/core/lib/basemaps';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
-  Map as MapIcon, Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
-  FileText, Loader2, Share2, Sparkles, EyeOff, FlaskConical, Download, ChevronRight,
+  ArrowLeft, BookOpen, Check, Compass, Droplets, Leaf, LifeBuoy, Target,
+  Map as MapIcon, Mountain, Network, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
+  FileText, Loader2, Share2, Sparkles, Download, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -38,7 +38,7 @@ import {
   NbsCasesGrid,
 } from '@/core/components/cbo/NbsDesktopGrids';
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
-import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
+import { TitleLarge, BodySmall } from '@oef/components';
 import { useToast } from '@/core/hooks/use-toast';
 import { RedeMark } from '@/core/components/RedeMark';
 import { useResetRole } from '@/core/contexts/role-context';
@@ -73,6 +73,7 @@ import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialo
 import type { ProvenanceKey } from '@shared/data-provenance';
 import { CboFilesDrawer, type FilesDrawerMember, type CboDrawerTab } from '@/core/components/orchestrator/CboFilesDrawer';
 import { SimulationStrip, useSimulations } from '@/core/components/orchestrator/SimulationStrip';
+import { JourneyCard, nextStepOf, type Actor, type JourneyCardData } from '@/core/components/orchestrator/JourneyCard';
 import { usePersistedFlag } from '@/core/hooks/usePersistedFlag';
 
 // ---------------------------------------------------------------------------
@@ -517,7 +518,6 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
 }
 
 const TOTAL_SECTIONS = 7;
-const TOTAL_FLAGS = 6;
 const TOTAL_MATURITY = 27;
 
 // Build a member's invite/profile URL, preferring the unguessable capability
@@ -559,6 +559,7 @@ function worryLabel(id: string, locale: 'pt' | 'en'): string {
     flood: { pt: '💧 Água', en: '💧 Water' },
     heat: { pt: '🌡️ Calor', en: '🌡️ Heat' },
     landslide: { pt: '⛰️ O barranco', en: '⛰️ The slope' },
+    'agua-calor': { pt: '💧 Água e calor', en: '💧 Water and heat' },
   };
   const l = legacy[id];
   return l ? (locale === 'pt' ? l.pt : l.en) : id;
@@ -629,20 +630,6 @@ const TONE_STYLES: Record<Tone, { bubble: string; fg: string; ring: string; mark
   biodiversity: { bubble: 'bg-emerald-50 dark:bg-emerald-950/40', fg: 'text-emerald-600 dark:text-emerald-300', ring: 'ring-emerald-400',     marker: '#059669' },
 };
 
-// Maturity band: 0..27 → 'emerging' / 'developing' / 'building' / 'mature'
-function maturityBand(score: number): 'emerging' | 'developing' | 'building' | 'mature' {
-  if (score >= 21) return 'mature';
-  if (score >= 14) return 'building';
-  if (score >= 7)  return 'developing';
-  return 'emerging';
-}
-
-const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
-  emerging:   'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:border-slate-700',
-  developing: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
-  building:   'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800',
-  mature:     'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
-};
 
 // ---------------------------------------------------------------------------
 // Risk layer styling — neighborhood choropleth keyed by priorityScore from
@@ -1059,394 +1046,7 @@ function MapLayerControls({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Portfolio card — replaces the old funding-oriented card.
-// ---------------------------------------------------------------------------
-function ProjectCard({
-  project,
-  locale,
-  selected,
-  onHover,
-  onOpen,
-  onOpenCbo,
-  onSetTier,
-  onResetProfile,
-  onRemove,
-  onTogglePortfolio,
-  simulated = null,
-}: {
-  project: CboDemoProject;
-  locale: 'en' | 'pt';
-  selected: boolean;
-  onHover: (id: string | null) => void;
-  onOpen: (p: CboDemoProject) => void;
-  onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil' | 'visita') => void;
-  onSetTier: (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => void;
-  onResetProfile: (p: CboDemoProject) => void;
-  onRemove: (p: CboDemoProject) => void;
-  onTogglePortfolio: (p: CboDemoProject) => void;
-  /** The encontros the simulator walked (staging), not the organisation. */
-  simulated?: number[] | null;
-}) {
-  const { t } = useTranslation();
-  const hasIntervention = project.interventionKey !== null;
-  const tone: Tone = hasIntervention
-    ? INTERVENTION_META[project.interventionKey!].tone
-    : 'biodiversity';
-  const toneStyle = TONE_STYLES[tone];
-  const Icon = hasIntervention
-    ? INTERVENTION_META[project.interventionKey!].Icon
-    : Sprout;
-  const band = maturityBand(project.maturityScore);
-  const sectionsPct = Math.round((project.sectionsComplete / TOTAL_SECTIONS) * 100);
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="group text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 rounded-xl"
-      onMouseEnter={() => onHover(project.id)}
-      onMouseLeave={() => onHover(null)}
-      onFocus={() => onHover(project.id)}
-      onClick={() => onOpen(project)}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(project); } }}
-      data-testid={`card-orchestrator-project-${project.id}`}
-    >
-      <Card
-        className={`transition-all duration-200 ${
-          selected ? `ring-2 ${toneStyle.ring} shadow-lg` : 'group-hover:shadow-md'
-        }`}
-      >
-        <CardContent className="p-5 space-y-4">
-          {/* Header */}
-          <div className="flex items-start gap-3">
-            <div
-              className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${toneStyle.bubble} ${toneStyle.fg}`}
-            >
-              <Icon className="w-5 h-5" strokeWidth={1.75} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold tracking-tight truncate">
-                {project.name[locale]}
-              </h3>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                <MapPin className="w-3 h-3" />
-                <span>{project.neighborhood}</span>
-                {!project.coords && (
-                  <span className="ml-1.5 inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full border border-foreground/15 bg-background text-foreground/60">
-                    {t('orchestrator.demo.locationPending')}
-                  </span>
-                )}
-                {project.coords && project.siteDeferred && (
-                  <span className="ml-1.5 inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                    {t('orchestrator.demo.siteDeferred', { defaultValue: 'Site TBD — neighborhood level' })}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Its own row: the W2 read is what the coordinator SCANS, and
-              interleaving it with Ver/Resetar/Remover made both harder to
-              read — the signal and the controls are different jobs. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* ── W2 read, inline (backlog #25) ────────────────────────────
-                JVP asked for compact but INLINE, not behind an expand: the
-                coordinator should read an org without clicking. What they said
-                worries them, how much we actually know, and the two convening
-                answers. Everything degrades to nothing when absent — a card for
-                an org that hasn't started W2 must not sprout empty chips. */}
-            {project.w2.worry && (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-blue-200/60 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40"
-                title={t('orchestrator.w2.worryTitle', { defaultValue: 'What they said worries them at this place' })}
-                data-testid={`w2-worry-${project.id}`}
-              >
-                {worryLabel(project.w2.worry, locale)}
-                {project.w2.worryCount > 1 && ` +${project.w2.worryCount - 1}`}
-              </span>
-            )}
-            {project.w2.depth && (
-              <span
-                className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                  project.w2.depth === 'strong'
-                    ? 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                    : project.w2.depth === 'partial'
-                      ? 'border-amber-200/60 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                      : 'border-foreground/15 bg-foreground/5 text-foreground/60'
-                }`}
-                title={t('orchestrator.w2.depthTitle', { defaultValue: 'How much we actually know about their site' })}
-                data-testid={`w2-depth-${project.id}`}
-              >
-                {t(`orchestrator.w2.depth.${project.w2.depth}`, {
-                  defaultValue: { thin: 'pouco detalhe', partial: 'detalhe parcial', strong: 'bem detalhado' }[project.w2.depth],
-                })}
-              </span>
-            )}
-            {/* W3: the verdict, and what would move it. A row can only carry one
-                badge, so it carries the WORST verdict across the org's chosen
-                solutions — the only single answer that is honest. The
-                per-solution split lives on the org's own card. */}
-            {project.w3.state && (
-              <span
-                className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${W3_META[project.w3.state].cls}`}
-                title={
-                  project.w3.unblockedBy
-                    ? t('orchestrator.w3.unblockTitle', {
-                        defaultValue: 'Destrava com: {{what}}',
-                        what: project.w3.unblockedBy,
-                      })
-                    : t('orchestrator.w3.verdictTitle', { defaultValue: 'What is blocking this project' })
-                }
-                data-testid={`w3-verdict-${project.id}`}
-              >
-                {W3_META[project.w3.state][locale.startsWith('pt') ? 'pt' : 'en']}
-              </span>
-            )}
-            {/* An honest count of what W3 could not produce. Never hidden to
-                make a row look finished — these gaps ARE the coordinator's
-                agenda with the municipality. */}
-            {(project.w3.tested ?? 0) > 0 && (
-              <span
-                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70"
-                data-testid={`w3-tested-${project.id}`}
-                title={t('orchestrator.w3.testedHint', { defaultValue: 'Soluções testadas no Encontro 3 — gostadas ou não' })}
-              >
-                {t('orchestrator.w3.tested', { defaultValue: '{{n}} testadas', n: project.w3.tested })}
-              </span>
-            )}
-            {/* The technical visit — the step between Encontro 3 and the pre-note,
-                and the one Robson's team acts on. One tap opens the drawer on
-                its own tab: "Registrar visita" until it is recorded, then
-                which solution it indicated. */}
-            {((project.w3.tested ?? 0) > 0 || !!project.w3.visit) && (
-              <button
-                type="button"
-                onClick={e => { e.stopPropagation(); onOpenCbo(project, 'visita'); }}
-                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                  project.w3.visit
-                    ? 'border-emerald-200/70 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
-                    : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300'
-                }`}
-                data-testid={project.w3.visit ? `w3-visit-${project.id}` : `button-visit-${project.id}`}
-                title={project.w3.visit
-                  ? t('orchestrator.w3.visitTitle', { defaultValue: 'Indicada na visita técnica: {{what}}', what: project.w3.visit.summary })
-                  : t('orchestrator.w3.visitPendingTitle', { defaultValue: 'Encontro 3 done — record what the technical visit indicated' })}
-              >
-                <MapPin className="w-3 h-3" strokeWidth={2} />
-                {project.w3.visit
-                  ? t('orchestrator.w3.visitDone', { defaultValue: 'Visit ✓ {{what}}', what: project.w3.visit.summary })
-                  : t('orchestrator.w3.visitPending', { defaultValue: 'Record technical visit' })}
-              </button>
-            )}
-            {project.w3.gapCount > 0 && (
-              <span
-                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 bg-foreground/5 text-foreground/70"
-                title={t('orchestrator.w3.gapsTitle', { defaultValue: 'Open questions W3 named rather than left blank' })}
-                data-testid={`w3-gaps-${project.id}`}
-              >
-                {t('orchestrator.w3.gaps', { defaultValue: '{{n}} em aberto', n: project.w3.gapCount })}
-              </span>
-            )}
-            {project.docPreview.teiaSprint && (
-              <span
-                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-violet-200/60 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
-                title={t('orchestrator.w2.teiaTitle', { defaultValue: 'Teia Sprint application uploaded' })}
-                data-testid={`w2-teia-${project.id}`}
-              >
-                Teia Sprint
-              </span>
-            )}
-            {project.w2.priorCollaboration === 'sim' && (
-              <span
-                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 bg-foreground/5 text-foreground/70"
-                title={t('orchestrator.w2.collabTitle', { defaultValue: 'Has worked with other organizations in the network' })}
-                data-testid={`w2-collab-${project.id}`}
-              >
-                {t('orchestrator.w2.collab', { defaultValue: 'já colaborou' })}
-              </span>
-            )}
-          </div>
-
-          {/* Phase + Path + Intervention row */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border border-foreground/10 bg-foreground/5 text-foreground/75">
-              {t(`orchestrator.demo.phase.${project.currentPhase}`)}
-            </span>
-            {/* Maturity tier (EF-5): shown once E1 persists it; the select IS
-                the coordinator override — a wrong persisted tier is stickier
-                than per-turn inference, so correction must be one tap. */}
-            {project.maturityTier && (
-              <select
-                value={project.maturityTier}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => { e.stopPropagation(); onSetTier(project, e.target.value as 'emerging' | 'developing' | 'advanced'); }}
-                data-testid={`tier-select-${project.id}`}
-                className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 cursor-pointer"
-                title={t('orchestrator.demo.tierTitle', { defaultValue: 'Maturity tier (agent-read at E1 — you can override it)' })}
-              >
-                <option value="emerging">{t('orchestrator.demo.tier.emerging', { defaultValue: 'Emerging' })}</option>
-                <option value="developing">{t('orchestrator.demo.tier.developing', { defaultValue: 'Developing' })}</option>
-                <option value="advanced">{t('orchestrator.demo.tier.advanced', { defaultValue: 'Advanced' })}</option>
-              </select>
-            )}
-            {project.path && (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40"
-                title={project.path === 'has-project'
-                  ? t('orchestrator.demo.path.hasProjectFull', { defaultValue: 'CBO arrived with a selected, scoped NBS project — more mature / implementer-ready' })
-                  : project.path === 'has-idea'
-                    ? t('orchestrator.demo.path.hasIdeaFull', { defaultValue: 'CBO arrived with a specific NBS project idea in mind' })
-                    : t('orchestrator.demo.path.needsHelpFull', { defaultValue: 'CBO wants help discovering a project — needs more hand-holding' })}
-              >
-                {project.path === 'has-project'
-                  ? <Target className="w-3 h-3" strokeWidth={2} />
-                  : project.path === 'has-idea'
-                    ? <Lightbulb className="w-3 h-3" strokeWidth={2} />
-                    : <Compass className="w-3 h-3" strokeWidth={2} />}
-                {project.path === 'has-project'
-                  ? t('orchestrator.demo.path.hasProject', { defaultValue: 'Projeto definido' })
-                  : project.path === 'has-idea'
-                    ? t('orchestrator.demo.path.hasIdea', { defaultValue: 'Tem ideia' })
-                    : t('orchestrator.demo.path.needsHelp', { defaultValue: 'Quer descobrir' })}
-              </span>
-            )}
-            {project.supportPendingCount > 0 && (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/40"
-                title={t('orchestrator.demo.support.pendingTooltip', {
-                  defaultValue: '{{n}} pedido(s) de apoio aguardando',
-                  n: project.supportPendingCount,
-                })}
-              >
-                <LifeBuoy className="w-3 h-3" strokeWidth={2} />
-                {t('orchestrator.demo.support.pendingChip', {
-                  defaultValue: '{{n}} pedência(s)',
-                  n: project.supportPendingCount,
-                })}
-              </span>
-            )}
-            {project.documentCount > 0 && (
-              <button
-                type="button"
-                onClick={e => { e.stopPropagation(); onOpenCbo(project, 'arquivos'); }}
-                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-900/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
-                title={t('orchestrator.files.chipTooltip', { defaultValue: '{{n}} file(s) shared — tap to view', n: project.documentCount })}
-                data-testid={`button-cbo-files-${project.id}`}
-              >
-                <Paperclip className="w-3 h-3" strokeWidth={2} />
-                {project.documentCount}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onOpenCbo(project, 'perfil'); }}
-              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70 hover:bg-foreground/5 transition-colors"
-              title={t('orchestrator.cboView.openTooltip', { defaultValue: 'View conversation + profile' })}
-              data-testid={`button-cbo-view-${project.id}`}
-            >
-              <Eye className="w-3 h-3" strokeWidth={2} />
-              {t('orchestrator.cboView.open', { defaultValue: 'View' })}
-            </button>
-            {project.excludeFromPortfolio && (
-              <span
-                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
-                title={t('orchestrator.portfolioExclude.tooltip', { defaultValue: 'Keep this organization out of the synergy report (it stays on the board)' })}
-                data-testid={`badge-portfolio-excluded-${project.id}`}
-              >
-                <EyeOff className="w-3 h-3" strokeWidth={2} />
-                {t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })}
-              </span>
-            )}
-            {simulated && simulated.length > 0 && (
-              <span
-                className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300"
-                title={t('orchestrator.simulation.badgeHint', { defaultValue: 'Encontro 3 was played by a model from this organisation’s record — these are not its own words' })}
-                data-testid={`badge-simulated-${project.id}`}
-              >
-                <FlaskConical className="w-3 h-3" strokeWidth={2} />
-                {t('orchestrator.simulation.badge', { defaultValue: '{{which}} simulated', which: simulated.map(n => `E${n}`).join(' + ') })}
-              </span>
-            )}
-            {hasIntervention ? (
-              <span
-                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
-              >
-                <Icon className="w-3 h-3" strokeWidth={2} />
-                {t(`orchestrator.demo.intervention.${project.interventionKey}`)}
-              </span>
-            ) : (
-              <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border border-dashed border-foreground/20 text-muted-foreground">
-                {t('orchestrator.demo.intervention.notChosen')}
-              </span>
-            )}
-          </div>
-
-          {/* The maturity score stays — COUGAR's own reading of the
-              organisation, explained in the drawer. The section count, the six
-              flags and the "next action" line came off: they were Encontro 1's
-              measures, and by Encontro 4 they read as nobody having done
-              anything. The verdict pills above say where it stands now. */}
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center text-[11px] font-semibold px-2 py-1 rounded-md border ${BAND_CHIP[band]}`}
-              title={t('orchestrator.demo.maturityTooltip')}
-            >
-              {project.maturityScore}/{TOTAL_MATURITY} · {t(`orchestrator.demo.maturityBand.${band}`)}
-            </span>
-          </div>
-
-          {(project.updatedDaysAgo !== null || project.docPreview.imageIds.length > 0 || project.docPreview.filenames.length > 0) && (
-          <div className="pt-3 border-t border-foreground/5 space-y-1.5">
-            {/* What they actually shared, on the face of the card — the point of
-                #25. Thumbnails only for images with a durable original; without
-                one the card shows the count instead of a broken frame. */}
-            {(project.docPreview.imageIds.length > 0 || project.docPreview.filenames.length > 0) && (
-              <div className="flex items-center gap-1.5 flex-wrap" data-testid={`doc-preview-${project.id}`}>
-                {project.docPreview.imageIds.map(id => (
-                  <img
-                    key={id}
-                    src={`/api/documents/${id}/original`}
-                    alt=""
-                    loading="lazy"
-                    className="w-9 h-9 rounded object-cover border border-foreground/10 bg-foreground/5"
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ))}
-                {project.docPreview.filenames.map(nm => (
-                  <span
-                    key={nm}
-                    className="text-[10px] text-foreground/60 px-1.5 py-0.5 rounded border border-foreground/10 bg-foreground/[0.03] max-w-[140px] truncate"
-                    title={nm}
-                  >
-                    {nm}
-                  </span>
-                ))}
-                {project.docPreview.total >
-                  project.docPreview.imageIds.length + project.docPreview.filenames.length && (
-                  <span className="text-[10px] text-muted-foreground">
-                    +{project.docPreview.total - project.docPreview.imageIds.length - project.docPreview.filenames.length}
-                  </span>
-                )}
-              </div>
-            )}
-            {project.updatedDaysAgo !== null && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              <span>
-                {project.updatedDaysAgo === 0
-                  ? t('orchestrator.demo.updatedJust')
-                  : t('orchestrator.demo.updatedAgo', { count: project.updatedDaysAgo })}
-              </span>
-            </div>
-            )}
-          </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+// The roster card lives in components/orchestrator/JourneyCard.tsx.
 
 // ---------------------------------------------------------------------------
 // Page
@@ -1592,6 +1192,27 @@ export default function OrchestratorLandingPage() {
 
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
   const projectById = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
+  /** The card's data, from the roster's view of a member. */
+  const journeyOf = (p: CboDemoProject): JourneyCardData => {
+    const m = memberById.get(p.id);
+    return {
+      id: p.id,
+      name: p.name[locale],
+      neighborhood: p.neighborhood,
+      hasPlace: !!p.coords,
+      phase: Number(m?.snapshotPhase ?? 1) || 1,
+      worry: p.w2.worry,
+      worryCount: p.w2.worryCount,
+      // The card's icon already says the hazard; the label goes without its emoji.
+      worryLabel: p.w2.worry ? worryLabel(p.w2.worry, locale).replace(/^[^A-Za-zÀ-ÿ0-9]+/, '').replace(/^outro:\s*/i, '') : null,
+      documentCount: p.documentCount,
+      maturityScore: p.maturityScore,
+      maturityTotal: TOTAL_MATURITY,
+      excludeFromPortfolio: p.excludeFromPortfolio,
+      simulated: sim.simulatedBy.get(p.id) ?? null,
+      w3: p.w3 as JourneyCardData['w3'],
+    };
+  };
 
   // ⚠️ How many organisations can actually enter each encontro. The rail reads
   // the cohort's `openedAt`; the gate an org hits reads its own
@@ -2435,63 +2056,97 @@ export default function OrchestratorLandingPage() {
             </div>
           )}
 
-          {/* Participants — full-width list/grid below the tabs */}
-          {view === 'orgs' && (
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {projects.map((p, i) => {
-              const member = memberById.get(p.id);
-              const maxUnlocked = Math.max(0, ...(member?.unlockedPhases ?? [1]));
-              const canUnlockNext = maxUnlocked < 5;
-              // The per-organisation unlock is the exception: said only when this
-              // organisation's access differs from what the cohort has open.
-              const unlockDiffers = maxUnlocked !== cohortOpenMax;
-              return (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.15 + i * 0.06 }}
-                >
-                  <ProjectCard
-                    project={p}
-                    locale={locale}
-                    selected={selectedId === p.id}
-                    onHover={setSelectedId}
-                    onOpen={(p) => openCbo(p, 'convite')}
-                    onOpenCbo={openCbo}
-                    onSetTier={handleSetTier}
-                    onResetProfile={setMemberResetTarget}
-                    onRemove={setMemberRemoveTarget}
-                    onTogglePortfolio={handleTogglePortfolio}
-                    simulated={sim.simulatedBy.get(p.id) ?? null}
-                  />
-                  {member && unlockDiffers && (
-                    <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <Unlock className="w-3 h-3" />
-                        {t('orchestrator.cohort.unlockedThrough', {
-                          defaultValue: `Unlocked through Phase ${maxUnlocked}`,
-                          phase: maxUnlocked,
-                        })}
-                      </span>
-                      {canUnlockNext && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-[11px]"
-                          onClick={(e) => { e.stopPropagation(); handleUnlockNext(member); }}
-                          data-testid={`button-unlock-next-${p.id}`}
-                        >
-                          {t('orchestrator.cohort.unlockNext', { defaultValue: 'Unlock next phase' })}
-                        </Button>
-                      )}
+          {/* Participants, grouped by who has to act next (refine 2026-10-17, R1):
+              the coordination's queue first — the technical visit, an
+              authorisation, a study — then the organisations' own next
+              encontro, then the ones ready for the pre-portfolio, then those
+              still in Encontros 1–2. One rule (nextStepOf) for the card and
+              the grouping. */}
+          {view === 'orgs' && (() => {
+            const order: Actor[] = ['coordination', 'organisation', 'ready', 'early'];
+            const title: Record<Actor, string> = {
+              coordination: t('orchestrator.journey.groupCoord', { defaultValue: 'The coordination acts' }),
+              organisation: t('orchestrator.journey.groupOrg', { defaultValue: 'The organisations continue' }),
+              ready: t('orchestrator.journey.groupReady', { defaultValue: 'Ready for the pre-portfolio' }),
+              early: t('orchestrator.journey.groupEarly', { defaultValue: 'Still in Encontros 1–2' }),
+            };
+            const groups = new Map<Actor, CboDemoProject[]>(order.map(x => [x, []]));
+            for (const p of projects) groups.get(nextStepOf(journeyOf(p)).actor)!.push(p);
+            let i = 0;
+            return (
+              <div className="space-y-6">
+                {order.filter(x => groups.get(x)!.length).map(actor => (
+                  <section key={actor} data-testid={`roster-group-${actor}`}>
+                    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {title[actor]} <span className="font-normal">· {groups.get(actor)!.length}</span>
+                    </h4>
+                    <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {groups.get(actor)!.map(p => {
+                        const member = memberById.get(p.id);
+                        const maxUnlocked = Math.max(0, ...(member?.unlockedPhases ?? [1]));
+                        const canUnlockNext = maxUnlocked < 5;
+                        // The per-organisation unlock is the exception: said only when this
+                        // organisation's access differs from what the cohort has open.
+                        const unlockDiffers = maxUnlocked !== cohortOpenMax;
+                        return (
+                          <motion.div
+                            key={p.id}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.35, delay: 0.05 + Math.min(i++, 12) * 0.03 }}
+                          >
+                            <JourneyCard
+                              p={journeyOf(p)}
+                              selected={selectedId === p.id}
+                              onHover={setSelectedId}
+                              onOpen={() => openCbo(p, 'convite')}
+                              onOpenTab={tab => openCbo(p, tab)}
+                              tierControl={p.maturityTier ? (
+                                <select
+                                  value={p.maturityTier}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={e => { e.stopPropagation(); handleSetTier(p, e.target.value as 'emerging' | 'developing' | 'advanced'); }}
+                                  data-testid={`tier-select-${p.id}`}
+                                  className="rounded border border-foreground/10 bg-transparent px-1 py-0 text-[10.5px]"
+                                  title={t('orchestrator.demo.tierTitle', { defaultValue: 'Maturity tier (agent-read at E1 — you can override it)' }) as string}
+                                >
+                                  <option value="emerging">{t('orchestrator.demo.tier.emerging', { defaultValue: 'Emerging' })}</option>
+                                  <option value="developing">{t('orchestrator.demo.tier.developing', { defaultValue: 'Developing' })}</option>
+                                  <option value="advanced">{t('orchestrator.demo.tier.advanced', { defaultValue: 'Advanced' })}</option>
+                                </select>
+                              ) : undefined}
+                            />
+                            {member && unlockDiffers && (
+                              <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <Unlock className="w-3 h-3" />
+                                  {t('orchestrator.cohort.unlockedThrough', {
+                                    defaultValue: `Unlocked through Phase ${maxUnlocked}`,
+                                    phase: maxUnlocked,
+                                  })}
+                                </span>
+                                {canUnlockNext && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[11px]"
+                                    onClick={(e) => { e.stopPropagation(); handleUnlockNext(member); }}
+                                    data-testid={`button-unlock-next-${p.id}`}
+                                  >
+                                    {t('orchestrator.cohort.unlockNext', { defaultValue: 'Unlock next phase' })}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-          )}
+                  </section>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </main>
 

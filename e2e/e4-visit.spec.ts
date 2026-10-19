@@ -110,7 +110,11 @@ test.describe('the visit choice — the drawer', () => {
     const cohort = (await api.createCohort(`Visita UI ${tag}`)).cohort;
     await api.createCoordinator({ email: `visit-ui-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
     const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true })).member;
-    await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [{ sectionId: 'intervention_type', field: 'solution_tests_json', value: TESTS }] });
+    await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [
+      { sectionId: 'intervention_type', field: 'solution_tests_json', value: TESTS },
+      // After Encontro 3 the visit IS the next step — the card's box opens it.
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+    ] });
 
     await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
     // After Encontro 3 the card itself offers the visit, straight onto its tab.
