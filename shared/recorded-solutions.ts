@@ -85,3 +85,15 @@ export function recordedSolutionIds(type: Record<string, string | null | undefin
   if (chosen.length) return chosen;
   return testsOf(type).filter(t => t.reaction === 'faz-sentido').map(t => t.solutionId);
 }
+
+/**
+ * Names in a first-era `solution_types` that no catalogue solution matches
+ * ("Evapotranspiração"). Not priced, not tested — but said on the pre-note,
+ * so what the organisation named is not silently lost (JVP, 19 Oct 2026).
+ */
+export function namesOutsideCatalogue(text: string | null | undefined): string[] {
+  return String(text ?? '')
+    .split(/[,;\n]|\s+e\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 3 && solutionsNamedIn(s).length === 0);
+}

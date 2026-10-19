@@ -40,13 +40,12 @@ Encontro 3 closes (`w3SignalFrom`), maturity shows only when scored, the dots sa
 
 ## Open — needs a decision or a closer look
 
-- **"Evapotranspiração"** was named by Conceito Arte and is not in the
-  catalogue — dropped silently by the reader. Either a catalogue entry or a
-  note on the pre-note saying it was named.
 - **Four organisations are still in Encontro 2** (Misturaí, CEA Bom Jesus,
   SDV Reciclando — Centro SAMA, Instituto de Estudos Culturais). They cannot
-  reach the pre-portfolio until they mark their place and test. A coordination
-  decision, not a code one: the simulator deliberately does not invent a site.
+  reach the pre-portfolio until they mark their place and test. **Decided 19
+  Oct:** the board shows them clearly ("Ainda nos Encontros 1–2 · Terminar o
+  Encontro 2 — marcar o lugar") and the coordination follows up; no code beyond
+  that. The simulator deliberately does not invent a site.
 - **Vila Flores is out of the analysis** in production (`excludeFromPortfolio`)
   — by design, and carried to the copy.
 

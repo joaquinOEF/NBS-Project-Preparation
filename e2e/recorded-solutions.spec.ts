@@ -93,3 +93,13 @@ test.describe('the documents read every era too', () => {
     expect(JSON.stringify(profile)).toContain('Jardins de chuva');
   });
 });
+
+test("a name outside the catalogue is said on the pre-note, not lost", async () => {
+  const { namesOutsideCatalogue } = await import('../shared/recorded-solutions');
+  const { buildPrenote, prenoteInputFromSections } = await import('../shared/e4-prenote');
+  expect(namesOutsideCatalogue(CONCEITO_TYPE.solution_types)).toEqual(['Evapotranspiração']);
+  const sections: any = { intervention_type: { fields: Object.fromEntries(Object.entries(CONCEITO_TYPE).map(([k, v]) => [k, { value: v }])) }, intervention_site: { fields: {} } };
+  const page = buildPrenote(prenoteInputFromSections(sections), 'pt');
+  const sol = page.sections.find(s => s.id === 'solucao')!;
+  expect(sol.lines.map(l => l.text).join(' ')).toContain('Também mencionaram: Evapotranspiração (fora do catálogo de soluções)');
+});
