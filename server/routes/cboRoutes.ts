@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { recordedSolutionIds, testsOf } from '@shared/recorded-solutions';
 import { cityMapFor } from '../services/siteContext';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
@@ -580,7 +581,7 @@ export function registerCboRoutes(app: Express): void {
     const roadmap = buildRoadmap({
       site,
       org: asRecord('org_profile'),
-      solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
+      solutions: recordedSolutionIds(type),
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
     }, lang, observations);
@@ -614,8 +615,8 @@ export function registerCboRoutes(app: Express): void {
     const site = asRecord('intervention_site');
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
-    const chosen = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
-    const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), chosen);
+    const chosen = recordedSolutionIds(type);
+    const tests = testsOf(type);
     const comparison = buildComparison({
       site,
       org: asRecord('org_profile'),
@@ -659,8 +660,8 @@ export function registerCboRoutes(app: Express): void {
     const site = asRecord('intervention_site');
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
-    const chosen = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
-    const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), chosen);
+    const chosen = recordedSolutionIds(type);
+    const tests = testsOf(type);
     const comparison = buildComparison({
       site, org: asRecord('org_profile'), solutions: chosen, ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
@@ -700,7 +701,7 @@ export function registerCboRoutes(app: Express): void {
     const note = buildConceptNote({
       site,
       org: asRecord('org_profile'),
-      solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
+      solutions: recordedSolutionIds(type),
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
       // Same layer the authoring pass saw. See runConceptNoteAuthor.

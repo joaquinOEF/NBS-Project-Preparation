@@ -29,6 +29,7 @@ import { parseVisit, visitSummary } from './e4-visit';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from './cbo-schema';
 import { cboFieldLabel, cboDisplayValue } from './cbo-field-catalog';
 import { parseTests, seedTestsFromChosen } from './w3-tests';
+import { recordedSolutionIds, testsOf } from './recorded-solutions';
 import { buildComparison, verdictText } from './w3-comparison';
 import type { W3Input } from './w3-dossier';
 
@@ -160,8 +161,8 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
   // ── what they tested ─────────────────────────────────────────────────────
   const siteRec = Object.fromEntries(Object.entries(sections[SITE]?.fields ?? {}).map(([k, v]) => [k, String(v?.value ?? '')]));
   const typeRec = Object.fromEntries(Object.entries(sections[TYPE]?.fields ?? {}).map(([k, v]) => [k, String(v?.value ?? '')]));
-  const chosen = (typeRec.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  const tests = seedTestsFromChosen(parseTests(typeRec.solution_tests_json), chosen);
+  const chosen = recordedSolutionIds(typeRec);
+  const tests = testsOf(typeRec);
   const technicalNote = (typeRec.technical_note ?? '').trim() || null;
   const visitChoice = parseVisit(typeRec._visit_json);
   let tested: ProfileScenario[] = [];

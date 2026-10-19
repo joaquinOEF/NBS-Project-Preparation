@@ -140,10 +140,13 @@ async function searchAndLink(orgName: string, prenote: Prenote, docs: PlanDoc[])
   for (let turn = 0; turn <= MAX_SEARCHES; turn++) {
     const last = turn === MAX_SEARCHES;
     const reply = await anthropic({
-      model: PLAN_LINKS_MODEL, max_tokens: 4000, system,
+      model: PLAN_LINKS_MODEL, max_tokens: 8000, system, // headroom: thinking + links peaked at 1,854 (17 Oct)
       tools: last ? [answerTool] : [SEARCH_TOOL, answerTool],
       tool_choice: { type: 'auto' }, messages,
     });
+    // ⚠️ Cut off at the cap: an answer that does not parse returned NO links, silently.
+    if (reply.stop_reason === 'max_tokens') console.warn(`[plan-links] ${orgName}: turn ${turn} stopped at max_tokens — the reply is incomplete`);
+    if (process.env.STRUCTURED_DEBUG === 'plan_links') console.log(`[plan-links:debug] ${orgName} turn ${turn} stop=${reply.stop_reason} out=${reply.usage?.output_tokens} thinking=${reply.usage?.output_tokens_details?.thinking_tokens ?? 0}`);
     const uses = (reply.content ?? []).filter((b: any) => b.type === 'tool_use');
     const answer = uses.find((u: any) => u.name === answerTool.name);
     if (answer) {

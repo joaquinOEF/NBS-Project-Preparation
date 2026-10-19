@@ -72,3 +72,16 @@ export function testsOf(type: Record<string, string | null | undefined> | null |
   if (chosen.length) return seedTestsFromChosen([], chosen);
   return seedTestsFromChosen([], solutionsNamedIn(t.solution_types));
 }
+
+/**
+ * The solutions a record CHOSE, whatever era it is from: `chosen_solutions`
+ * (derived from the reactions since the loop), else the ones that made sense
+ * in the tests, else the names of the first era. The concept note, the prints
+ * and the profile read this — reading `chosen_solutions` alone gave Conceito
+ * Arte "skipped: no solution" on every one of them.
+ */
+export function recordedSolutionIds(type: Record<string, string | null | undefined> | null | undefined): string[] {
+  const chosen = String(type?.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  if (chosen.length) return chosen;
+  return testsOf(type).filter(t => t.reaction === 'faz-sentido').map(t => t.solutionId);
+}

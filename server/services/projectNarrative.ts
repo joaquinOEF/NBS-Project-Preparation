@@ -138,7 +138,7 @@ export async function buildProjectNarrative(
         { role: 'system', content: SYSTEM },
         { role: 'user', content: `FATOS:\n${facts}` },
       ],
-      config: { model: NARRATIVE_MODEL, maxCompletionTokens: 4000 },
+      config: { model: NARRATIVE_MODEL, maxCompletionTokens: 8000 }, // room for Opus to think before the tool (see conceptNoteAuthor)
     }, Schema, 'pagina_do_projeto'));
     if (!raw) return null;
     const { kept, dropped } = guardNarrative({ ...raw, synergies: raw.synergies ?? [], cautions: raw.cautions ?? [] }, facts);

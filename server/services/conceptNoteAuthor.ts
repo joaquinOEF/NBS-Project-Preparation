@@ -144,7 +144,12 @@ export async function authorConceptNote(
           config: {
             ...(model || AUTHOR_MODEL ? { model: model || AUTHOR_MODEL } : {}),
             reasoningEffort: 'medium',
-            maxCompletionTokens: 4096,
+            // ⚠️ Room for the model's own reasoning AND the paragraphs. Opus
+            // 5.5 takes the tool only when offered (not forced), and then
+            // thinks first — 1.2–2.7k of a 4,096 allowance — so the tool call
+            // was cut mid-way and the pass wrote NOTHING for 3 of 9 real
+            // pre-notes (prod copy, 17 Oct). It logged as "nothing survived".
+            maxCompletionTokens: 12_000,
           },
         },
         AuthoredSchema,
