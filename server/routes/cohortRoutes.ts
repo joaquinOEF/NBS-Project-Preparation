@@ -33,7 +33,7 @@ import { renderProjectBriefHtml } from '../services/projectBriefPrint';
 import { renderProjectNoteHtml } from '../services/projectNotePrint';
 import { buildSnapshot, parseSnapshot, trimToEndOfE2, stripContacts, describeSnapshot, type StateSnapshot, type AsOf } from '@shared/state-snapshot';
 import { buildBundle, parseBundle, describeBundle, type BundleMember } from '@shared/cohort-bundle';
-import { simulationEnabled, e3Eligibility, wasSimulated, simulationRuns, enqueueSimulation } from '../services/e3Simulator';
+import { simulationEnabled, simEligibility, simulatedEncontros, simulationRuns, enqueueSimulation } from '../services/e3Simulator';
 import { createDocument } from '../services/documentPersistence';
 import { buildOrgProfile } from '@shared/org-profile';
 import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
@@ -574,8 +574,8 @@ export function registerCohortRoutes(app: Express): void {
       void job().finally(() => { planLinksRunning--; pumpPlanLinks(); });
     }
   };
-  const queuePlanLinks = (cboStateId: string, orgName: string, prenote: ReturnType<typeof buildPrenote>, key: string) => {
-    if (planLinksInFlight.has(cboStateId)) return;
+  const queuePlanLinks = (cboStateId: string, orgName: string, prenote: ReturnType<typeof buildPrenote>, key: string, onDone?: () => void) => {
+    if (planLinksInFlight.has(cboStateId)) { onDone?.(); return; }
     planLinksInFlight.add(cboStateId);
     planLinksQueue.push(async () => {
       try {
@@ -588,6 +588,7 @@ export function registerCohortRoutes(app: Express): void {
         await flushNow(cboStateId);
       } finally {
         planLinksInFlight.delete(cboStateId);
+        onDone?.();
       }
     });
     pumpPlanLinks();
@@ -723,13 +724,17 @@ export function registerCohortRoutes(app: Express): void {
   /** Run the passes for these groups and these organisations' plan readings, two narratives at a time, with progress. */
   const runPasses = (cohortId: string, groupIds: string[][], readFor: string[], d: BoardData) => {
     const todo = groupIds.filter(ids => writable(ids, d.prenotes));
-    const prog = { running: true, done: 0, total: todo.length, startedAt: new Date().toISOString() };
+    // ⚠️ The plan readings count too. They ran beside the narratives,
+    // uncounted, so the board said "pronto" while three organisations still
+    // showed "0 conexões com planos" for another ~20 s (live run, 17 Oct).
+    const reads = readFor
+      .map(id => ({ r: d.reading.get(id), prenote: d.prenotes.get(id) }))
+      .filter((x): x is { r: NonNullable<typeof x.r>; prenote: NonNullable<typeof x.prenote> } => !!x.r && !!x.prenote && !x.r.current);
+    const prog = { running: true, done: 0, total: todo.length + reads.length, startedAt: new Date().toISOString() };
     genProgress.set(cohortId, prog);
-    for (const id of readFor) {
-      const r = d.reading.get(id);
-      const prenote = d.prenotes.get(id);
-      if (r && prenote && !r.current) queuePlanLinks(r.cboStateId, r.orgName, prenote, r.key);
-    }
+    let pending = 2 + reads.length; // two narrative workers + each reading
+    const settle = () => { if (--pending === 0) prog.running = false; };
+    for (const { r, prenote } of reads) queuePlanLinks(r.cboStateId, r.orgName, prenote, r.key, () => { prog.done++; settle(); });
     let next = 0;
     const worker = async () => {
       while (next < todo.length) {
@@ -738,7 +743,8 @@ export function registerCohortRoutes(app: Express): void {
         prog.done++;
       }
     };
-    void Promise.all([worker(), worker()]).finally(() => { prog.running = false; });
+    void worker().finally(settle);
+    void worker().finally(settle);
   };
 
   app.get('/api/cohort/:coordinatorSlug/preportfolio', wrap(async (req, res) => {
@@ -1935,8 +1941,13 @@ export function registerCohortRoutes(app: Express): void {
     const members = [];
     for (const m of rows) {
       const state = m.cboStateId ? (getCboState(m.cboStateId) ?? (await loadCboFromDb(m.cboStateId))?.state ?? null) : null;
-      const gate = e3Eligibility(state);
-      members.push({ memberId: m.id, eligible: gate.ok, reason: gate.ok ? null : gate.reason, simulated: wasSimulated(state) });
+      const gate = simEligibility(state);
+      const sim = simulatedEncontros(state);
+      members.push({
+        memberId: m.id, eligible: gate.ok, reason: gate.ok ? null : gate.reason,
+        // What a run would walk (e.g. [3, 4] or [4]) and what a model already walked.
+        encontros: gate.ok ? gate.encontros : [], simulated: sim.length > 0, simulatedEncontros: sim,
+      });
     }
     res.json({ enabled: true, members, runs: simulationRuns(rows.map(r => r.id)) });
   }));
@@ -1953,7 +1964,7 @@ export function registerCohortRoutes(app: Express): void {
       if (wanted && !wanted.includes(m.id)) continue;
       if (!m.cboStateId) continue;
       const state = getCboState(m.cboStateId) ?? (await loadCboFromDb(m.cboStateId))?.state ?? null;
-      if (!e3Eligibility(state).ok) continue;
+      if (!simEligibility(state).ok) continue;
       if (enqueueSimulation({ id: m.id, orgName: m.orgName, cboStateId: m.cboStateId }, baseUrl)) queued++;
     }
     res.json({ queued });

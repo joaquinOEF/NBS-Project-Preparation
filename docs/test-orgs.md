@@ -103,11 +103,12 @@ that were invited and never opened are left out.
 unless they were kept out at the source. A scoped coordinator gets a 403 — the
 server decides, not the button.
 
-**Simular Encontro 3** (staging only — `simulationEnabled()` is false on any
+**Simular até o Encontro 4** (staging only — `simulationEnabled()` is false on any
 Replit deployment; `COUGAR_SIMULATION=off` turns it off anywhere). A strip
 above the workshops counts who is ready (Encontro 2 closed, or Encontro 3 open
 and unfinished) and runs them three at a time; the drawer has the same button
-per organisation. `server/services/e3Simulator.ts`:
+per organisation. A walk does what is missing: Encontro 3 if it is open, then
+Encontro 4 (the pre-note) — using the technical visit if one is recorded. `server/services/e3Simulator.ts`:
 
 - every turn is a POST to the server's own `/api/cbo/:id/chat` — the turn
   queue, the checkpoints, the advisor, the dig and the document reader run
@@ -118,14 +119,16 @@ per organisation. `server/services/e3Simulator.ts`:
   person. It tests two solutions, then opens the comparison. With no key, or
   the fake model, a fixed policy plays instead;
 - when the workshop opens the map, the footprint already on record is traced;
-- the session is marked `metadata.simulated.e3` and the roster shows
-  **E3 simulado**. What it wrote are not the organisation's words.
+- the session is marked `metadata.simulated.e3` / `.e4` and the roster shows
+  **E3 + E4 simulado**. What it wrote are not the organisation's words.
 
 Measured live (`scripts/e3-sim-live.ts`, six w3-fullsim organisations): 22–24
 turns and about 70 s per organisation; the player's calls take 1.9 s median,
 9.3 s at worst (`shared/model-pass-budgets.ts` → `e3SimPlayer`). The player
 says "faz sentido" to most of what it tests — good for exercising the
 pre-note and the pre-portfolio, not a picture of how a room reacts.
+
+What a real cohort taught us when it was walked this way: `docs/preportfolio-real-records-log.md`.
 
 Organisations still in Encontro 1 or 2 are not simulated: Encontro 2 is the
 map and the place, and a model drawing someone's site would invent the one

@@ -445,7 +445,10 @@
       "gapsTitle": "Open questions W3 named rather than left blank",
       "gaps": "{{n}} open",
       "portfolioTitle": "Encontro 3 projects",
-      "portfolioSubtitle": "{{n}} of {{total}} organisations · {{items}} items in the coordination queue"
+      "portfolioSubtitle": "{{n}} of {{total}} organisations · {{items}} items in the coordination queue",
+      "visitPendingTitle": "Encontro 3 done — record what the technical visit indicated",
+      "visitDone": "Visit ✓ {{what}}",
+      "visitPending": "Record technical visit"
     },
     "files": {
       "chipTooltip": "{{n}} file(s) shared — tap to view"
@@ -470,14 +473,14 @@
       "show": "Show map, solutions and cases"
     },
     "simulation": {
-      "title": "Simulated Encontro 3 (test environment only)",
-      "counts": "{{ready}} ready to simulate · {{done}} simulated · {{waiting}} still in Encontro 1–2",
-      "startHint": "A model plays each organisation from its own record, through the real Encontro 3, up to the comparison. The session is marked as simulated.",
-      "start": "Simulate Encontro 3 ({{n}})",
+      "title": "Simulated encontros (test environment only)",
+      "counts": "{{ready}} ready to simulate · {{done}} simulated · {{waiting}} still in Encontro 1–2 (not simulated: Encontro 2 is their own place)",
+      "startHint": "A model plays each organisation from its own record through the real encontros it is missing — Encontro 3, then Encontro 4 (the pre-note). Uses a technical visit if one is recorded. The session is marked as simulated.",
+      "start": "Simulate up to Encontro 4 ({{n}})",
       "queued": "waiting",
-      "turn": "turn {{n}}",
-      "badgeHint": "Encontro 3 was played by a model from this organisation’s record — these are not its own words",
-      "badge": "E3 simulated",
+      "turn": "Encontro {{e}} · turn {{n}}",
+      "badgeHint": "These encontros were played by a model from this organisation’s record — these are not its own words",
+      "badge": "{{which}} simulated",
       "running": "Simulating…"
     },
     "importCohort": {
@@ -2500,7 +2503,8 @@
     "prenoteEdited": "adjusted by the coordination team",
     "prenoteEdit": "Edit the text",
     "prenoteRestore": "Restore the calculated text",
-    "simulateE3": "Simulate Encontro 3"
+    "simulateE3": "Simulate Encontro 3",
+    "tabVisit": "Technical visit"
   },
   "files": {
     "loadError": "Could not load files.",

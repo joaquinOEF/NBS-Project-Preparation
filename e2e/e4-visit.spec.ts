@@ -113,8 +113,8 @@ test.describe('the visit choice — the drawer', () => {
     await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [{ sectionId: 'intervention_type', field: 'solution_tests_json', value: TESTS }] });
 
     await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
-    await page.getByTestId(`card-orchestrator-project-${m.id}`).click({ timeout: 30_000 });
-    await page.getByTestId('cbo-tab-perfil').click();
+    // After Encontro 3 the card itself offers the visit, straight onto its tab.
+    await page.getByTestId(`button-visit-${m.id}`).click({ timeout: 30_000 });
     const editor = page.getByTestId('visit-editor');
     await expect(editor).toBeVisible();
     await expect(page.getByTestId('visit-status')).toHaveText('Sem visita registrada');

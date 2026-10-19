@@ -43,26 +43,50 @@ export function simulationEnabled(): boolean {
 
 const PLAYER_MODEL = process.env.E3_SIM_MODEL || 'claude-sonnet-5-5';
 const MAX_TURNS = 60;
-const ENTRY = { pt: 'Vamos começar o Encontro 3.', en: "Let's start Encontro 3." };
+const ENTRY: Record<3 | 4, { pt: string; en: string }> = {
+  3: { pt: 'Vamos começar o Encontro 3.', en: "Let's start Encontro 3." },
+  4: { pt: 'Vamos começar o Encontro 4.', en: "Let's start Encontro 4." },
+};
 /** Two solutions tried, then the comparison — what a real room does in an afternoon. */
 const TESTS_WANTED = 2;
 
+/**
+ * What a walk would do for this organisation: the encontros still missing up
+ * to Encontro 4 — the pre-note the pre-portfolio is built from. Encontro 2 is
+ * never simulated: it is where they mark their own place, and a model drawing
+ * someone's site would invent the one thing the rest of the flow stands on.
+ */
 export type Eligibility =
-  | { ok: true; resume: boolean }
-  | { ok: false; reason: 'no-session' | 'e2-open' | 'e3-closed' | 'project' };
+  | { ok: true; encontros: Array<3 | 4> }
+  | { ok: false; reason: 'no-session' | 'e2-open' | 'e4-closed' | 'project' };
 
-export function e3Eligibility(state: CboState | null | undefined): Eligibility {
+export function simEligibility(state: CboState | null | undefined): Eligibility {
   if (!state) return { ok: false, reason: 'no-session' };
   if (state.metadata?.project) return { ok: false, reason: 'project' };
   const phase = state.phase ?? 1;
-  if (phase > 3 || encontroClosed(state, 3)) return { ok: false, reason: 'e3-closed' };
-  if (phase === 3) return { ok: true, resume: true };
-  if (phase === 2 && encontroClosed(state, 2)) return { ok: true, resume: false };
-  return { ok: false, reason: 'e2-open' };
+  if (phase < 2 || (phase === 2 && !encontroClosed(state, 2))) return { ok: false, reason: 'e2-open' };
+  if (phase >= 4 && e4Closed(state)) return { ok: false, reason: 'e4-closed' };
+  const e3done = phase >= 4 || encontroClosed(state, 3);
+  return { ok: true, encontros: e3done ? [4] : [3, 4] };
 }
 
-export function wasSimulated(state: CboState | null | undefined): boolean {
-  return !!(state?.metadata as any)?.simulated?.e3;
+/**
+ * ⚠️ Encontro 4's OWN marker. `encontroClosed(state, 4)` falls back to "every
+ * phase-4 section has a field", which an older record meets without E4 ever
+ * opening — two organisations "closed" Encontro 4 in one turn that way.
+ */
+function e4Closed(state: CboState): boolean {
+  const f = (state.sections as any)?.intervention_type?.fields ?? {};
+  return String(f._e4_closed?.value ?? '') === 'yes' && String(f._e4_reopened?.value ?? '') !== 'yes';
+}
+function closedNow(state: CboState, n: 3 | 4): boolean {
+  return n === 4 ? (state.phase ?? 0) >= 4 && e4Closed(state) : encontroClosed(state, 3);
+}
+
+/** Which encontros a model walked for this organisation (staging). */
+export function simulatedEncontros(state: CboState | null | undefined): Array<3 | 4> {
+  const sim = (state?.metadata as any)?.simulated ?? {};
+  return ([3, 4] as const).filter(n => !!sim[`e${n}`]);
 }
 
 // ── Progress, in memory — a run lives as long as this process ───────────────
@@ -71,6 +95,8 @@ export interface SimRun {
   memberId: string;
   orgName: string;
   status: 'queued' | 'running' | 'done' | 'failed';
+  /** The encontro being walked now. */
+  encontro?: 3 | 4;
   turns: number;
   /** The last thing the workshop asked, for the roster's progress line. */
   step: string;
@@ -104,7 +130,7 @@ export function enqueueSimulation(member: { id: string; orgName: string; cboStat
   queue.push(async () => {
     run.status = 'running';
     try {
-      await simulateE3(member.id, member.cboStateId, baseUrl, run);
+      await simulate(member.id, member.cboStateId, baseUrl, run);
       run.status = 'done';
     } catch (e: any) {
       run.status = 'failed';
@@ -155,29 +181,36 @@ function mapPayload(state: CboState): string {
   return `Map selection (composite mode):\n- [custom] Área desenhada (5 vertices) (drawn area) at (${lat}, ${lng}) · ${m2} m²\nTotal: 1 asset, 0 sampled points`;
 }
 
-async function simulateE3(memberId: string, cboId: string, baseUrl: string, run: SimRun): Promise<void> {
-  let state = await loadState(cboId);
-  const gate = e3Eligibility(state);
+async function simulate(memberId: string, cboId: string, baseUrl: string, run: SimRun): Promise<void> {
+  const state0 = await loadState(cboId);
+  const gate = simEligibility(state0);
   if (!gate.ok) throw new Error(`not eligible: ${gate.reason}`);
 
-  // The coordinator's own door, opened for this one organisation.
+  // The coordinator's own doors, opened for this one organisation.
   const [member] = await db.select().from(cohortMembers).where(eq(cohortMembers.id, memberId)).limit(1);
   const unlocked = (member?.unlockedPhases as number[] | null) ?? [1];
-  if (!unlocked.includes(3)) {
-    await db.update(cohortMembers).set({ unlockedPhases: Array.from(new Set([...unlocked, 1, 2, 3])).sort((a, b) => a - b) }).where(eq(cohortMembers.id, memberId));
+  if (!unlocked.includes(4)) {
+    await db.update(cohortMembers).set({ unlockedPhases: Array.from(new Set([...unlocked, 1, 2, 3, 4])).sort((a, b) => a - b) }).where(eq(cohortMembers.id, memberId));
   }
-
-  const lang: 'pt' | 'en' = state!.metadata?.language === 'en' ? 'en' : 'pt';
+  const lang: 'pt' | 'en' = state0!.metadata?.language === 'en' ? 'en' : 'pt';
   const useModel = !isFakeModelEnabled() && structuredProvider() !== null;
+  for (const n of gate.encontros) await walk(n, cboId, baseUrl, run, lang, useModel);
+}
+
+/** One encontro, turn by turn over the real chat route, until it closes. */
+async function walk(n: 3 | 4, cboId: string, baseUrl: string, run: SimRun, lang: 'pt' | 'en', useModel: boolean): Promise<void> {
+  run.encontro = n;
+  let state = (await loadState(cboId))!;
   let turn: { message: string; turnKind: string; chipAnswers?: Array<{ question: string; answer: string }> } =
-    { message: ENTRY[lang], turnKind: 'chip' };
+    { message: ENTRY[n][lang], turnKind: 'chip' };
   let silent = 0;
+  let turns = 0;
 
   for (let i = 0; i < MAX_TURNS; i++) {
-    run.turns = i + 1;
+    turns++; run.turns++;
     const events = await chat(baseUrl, cboId, { ...turn, lang });
     state = (await loadState(cboId))!;
-    if (encontroClosed(state, 3)) break;
+    if (closedNow(state, n)) break;
 
     if (events.some(e => e.type === 'open_map')) {
       turn = { message: mapPayload(state), turnKind: 'map' };
@@ -187,28 +220,28 @@ async function simulateE3(memberId: string, cboId: string, baseUrl: string, run:
     if (!ask) {
       // A turn that ended with nothing to answer: ask the workshop where it is,
       // the way a return to the page does. Twice in a row is a dead end.
-      if (++silent > 2) throw new Error(`the workshop stopped asking after "${String(turn.message).slice(0, 60)}"`);
-      turn = { message: ENTRY[lang], turnKind: 'chip' };
+      if (++silent > 2) throw new Error(`Encontro ${n} stopped asking after "${String(turn.message).slice(0, 60)}"`);
+      turn = { message: ENTRY[n][lang], turnKind: 'chip' };
       continue;
     }
     silent = 0;
     run.step = String(ask.question ?? '').slice(0, 120);
     const lastSaid = String([...events].filter(e => e.type === 'chat').pop()?.content ?? '');
-    const answer = await answerFor(state, cboId, ask, lastSaid, lang, useModel);
+    const answer = await answerFor(n, state, cboId, ask, lastSaid, lang, useModel);
     turn = answer.kind === 'chip'
       ? { message: answer.label, turnKind: 'chip', chipAnswers: [{ question: String(ask.question ?? ''), answer: answer.label }] }
       : { message: answer.text, turnKind: 'text' };
   }
 
   state = (await loadState(cboId))!;
-  if (!encontroClosed(state, 3)) throw new Error(`Encontro 3 did not close in ${MAX_TURNS} turns (last: "${run.step}")`);
+  if (!closedNow(state, n)) throw new Error(`Encontro ${n} did not close in ${MAX_TURNS} turns (last: "${run.step}")`);
   (state.metadata as any).simulated = {
     ...((state.metadata as any).simulated ?? {}),
-    e3: { at: new Date().toISOString(), turns: run.turns, player: useModel ? PLAYER_MODEL : 'policy' },
+    [`e${n}`]: { at: new Date().toISOString(), turns, player: useModel ? PLAYER_MODEL : 'policy' },
   };
   setCboState(cboId, state);
   debouncedPersist(cboId);
-  console.log(`[e3-sim] ${run.orgName}: Encontro 3 closed in ${run.turns} turns (${useModel ? PLAYER_MODEL : 'policy'})`);
+  console.log(`[e3-sim] ${run.orgName}: Encontro ${n} closed in ${turns} turns (${useModel ? PLAYER_MODEL : 'policy'})`);
 }
 
 // ── The player ──────────────────────────────────────────────────────────────
@@ -227,8 +260,16 @@ function testsSoFar(state: CboState): number {
 }
 
 /** The fixed policy: no model, same goal. Also the fallback when the model's reply is not one of the options. */
-function policyAnswer(state: CboState, opts: Option[], composes: boolean, lang: 'pt' | 'en'): Answer {
-  const usable = opts.filter(o => !DEVICE.test(o.action ?? '') && !STOPS.test(o.label));
+/** Encontro 4's way forward: confirm what the record already says, close. Never reopen. */
+const E4_FORWARD = /^(é essa|isso ✓|isso$|isso, e mais|pode fechar|todas essas|só isso|seguir sem|that's it|yes ✓|close)/i;
+const E4_BACK = /mudar algo|queremos outra|outra solução|não é bem isso|mudou|change something/i;
+
+function policyAnswer(n: 3 | 4, state: CboState, opts: Option[], composes: boolean, lang: 'pt' | 'en'): Answer {
+  const usable = opts.filter(o => !DEVICE.test(o.action ?? '') && !STOPS.test(o.label) && !(n === 4 && E4_BACK.test(o.label)));
+  if (n === 4) {
+    const fwd = usable.find(o => !o.action && E4_FORWARD.test(o.label.trim()));
+    if (fwd && !composes) return { kind: 'chip', label: fwd.label };
+  }
   const tests = testsSoFar(state);
   if (tests >= TESTS_WANTED) { const c = usable.find(o => /compara/i.test(o.label)); if (c) return { kind: 'chip', label: c.label }; }
   else { const t = usable.find(o => /testar outr|try another/i.test(o.label)); if (t) return { kind: 'chip', label: t.label }; }
@@ -265,10 +306,10 @@ const PlayerReply = z.object({
   text: z.string().nullable().optional().describe('the answer in words, first person plural, when no option fits or the question asks for words'),
 });
 
-async function answerFor(state: CboState, cboId: string, ask: any, lastSaid: string, lang: 'pt' | 'en', useModel: boolean): Promise<Answer> {
+async function answerFor(n: 3 | 4, state: CboState, cboId: string, ask: any, lastSaid: string, lang: 'pt' | 'en', useModel: boolean): Promise<Answer> {
   const opts: Option[] = (ask.options ?? []).map((o: any) => ({ label: String(o.label), description: o.description, action: o.action }));
   const composes = opts.some(o => o.action === 'write' || o.action === 'record') || !opts.length;
-  if (!useModel) return policyAnswer(state, opts, composes, lang);
+  if (!useModel) return policyAnswer(n, state, opts, composes, lang);
 
   const tests = testsSoFar(state);
   const offered = opts
@@ -276,9 +317,13 @@ async function answerFor(state: CboState, cboId: string, ask: any, lastSaid: str
     .map(o => `- "${o.label}"${o.description ? ` — ${o.description}` : ''}${o.action === 'write' || o.action === 'record' ? ' (abre a caixa de texto: responda em palavras)' : ''}`)
     .join('\n');
   const system = [
-    `Você faz o papel de uma organização comunitária de Porto Alegre num encontro do COUGAR (Encontro 3: testar soluções baseadas na natureza para o lugar que ela marcou no Encontro 2).`,
+    n === 3
+      ? `Você faz o papel de uma organização comunitária de Porto Alegre num encontro do COUGAR (Encontro 3: testar soluções baseadas na natureza para o lugar que ela marcou no Encontro 2).`
+      : `Você faz o papel de uma organização comunitária de Porto Alegre num encontro do COUGAR (Encontro 4: a pré-nota de uma página — a solução escolhida, quem é atingido, o que querem ver mudar, quem faz e quem cuida, o que a organização coloca, os parceiros).`,
     `Responda como ESTA organização responderia, a partir do registro dela abaixo: as palavras, o lugar, os problemas e o jeito dela. Não invente números grandes nem fatos que contradigam o registro; quando não souber, diga isso como uma pessoa diria.`,
-    `Objetivo do encontro: testar ${TESTS_WANTED} soluções, uma de cada vez, e então ver a comparação. Já foram testadas ${tests}. ${tests >= TESTS_WANTED ? 'Agora vá para a comparação quando ela for oferecida.' : 'Quando oferecerem testar outra, aceite.'} Nunca escolha parar ou deixar para depois.`,
+    n === 3
+      ? `Objetivo do encontro: testar ${TESTS_WANTED} soluções, uma de cada vez, e então ver a comparação. Já foram testadas ${tests}. ${tests >= TESTS_WANTED ? 'Agora vá para a comparação quando ela for oferecida.' : 'Quando oferecerem testar outra, aceite.'} Nunca escolha parar ou deixar para depois.`
+      : `Objetivo do encontro: confirmar o que o registro já diz e responder com poucas palavras só o que falta, até fechar a pré-nota ("Pode fechar ✓"). Confirme a solução proposta. Não peça para mudar nada nem reabrir depois de fechar. Se perguntarem algo que o registro não responde, diga com honestidade que ainda não sabem.`,
     `Se a pergunta pede um arquivo, foto ou documento, diga que não tem agora e siga.`,
     `Responda ${lang === 'en' ? 'in English' : 'em português do Brasil, coloquial'}. Em palavras: 1 a 3 frases, primeira pessoa do plural, sem listas.`,
     `REGISTRO DA ORGANIZAÇÃO:\n${recordDigest(state, cboId)}`,
@@ -297,19 +342,19 @@ async function answerFor(state: CboState, cboId: string, ask: any, lastSaid: str
     }, PlayerReply, 'answer')).catch(e => { console.warn(`[e3-sim] player reply unusable (attempt ${attempt + 1}):`, String(e?.message ?? e).slice(0, 160)); return null; });
     console.log(`[e3-sim] player ${Date.now() - t0}ms · "${String(ask.question ?? '').slice(0, 50)}"`);
   }
-  const answer = pickAnswer(reply, opts, state, composes, lang);
+  const answer = pickAnswer(n, reply, opts, state, composes, lang);
   console.log(`[e3-sim]   → ${answer.kind === 'chip' ? `chip "${answer.label}"` : `"${answer.text.slice(0, 90)}"`}${reply ? '' : ' (policy)'}`);
   return answer;
 }
 
-function pickAnswer(reply: z.infer<typeof PlayerReply> | null, opts: Option[], state: CboState, composes: boolean, lang: 'pt' | 'en'): Answer {
+function pickAnswer(n: 3 | 4, reply: z.infer<typeof PlayerReply> | null, opts: Option[], state: CboState, composes: boolean, lang: 'pt' | 'en'): Answer {
   if (reply?.choice) {
     const hit = opts.find(o => norm(o.label) === norm(reply.choice!)) ?? opts.find(o => norm(o.label).startsWith(norm(reply.choice!)));
-    if (hit && !DEVICE.test(hit.action ?? '') && !STOPS.test(hit.label)) {
+    if (hit && !DEVICE.test(hit.action ?? '') && !STOPS.test(hit.label) && !(n === 4 && E4_BACK.test(hit.label))) {
       if (hit.action === 'write' || hit.action === 'record') { if (reply.text?.trim()) return { kind: 'text', text: reply.text.trim() }; }
       else return { kind: 'chip', label: hit.label };
     }
   }
   if (reply?.text?.trim()) return { kind: 'text', text: reply.text.trim().slice(0, 600) };
-  return policyAnswer(state, opts, composes, lang);
+  return policyAnswer(n, state, opts, composes, lang);
 }

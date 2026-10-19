@@ -77,7 +77,7 @@ test.describe('the cohort file', () => {
 test.describe('production → staging: a whole cohort, then Encontro 3 for those who never had it', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('export, import as a NEW cohort (names kept, in the analysis), then simulate Encontro 3 on the real chat route', async ({ page }) => {
+  test('export, import as a NEW cohort (names kept, in the analysis), then simulate Encontros 3 and 4 on the real chat route', async ({ page }) => {
     test.setTimeout(180_000);
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -133,8 +133,11 @@ test.describe('production → staging: a whole cohort, then Encontro 3 for those
     }, { timeout: 150_000, intervals: [2000] }).toBe('done');
 
     const st = (await (await page.request.get(`/api/cbo/${copy.cboStateId}`)).json()).state;
-    expect(st.phase).toBe(3);
+    // Walked through what it was missing: Encontro 3, then Encontro 4 (the pre-note).
+    expect(st.phase).toBe(4);
     expect(st.sections.intervention_type.fields._e3_closed?.value).toBe('yes');
+    expect(st.sections.intervention_type.fields._e4_closed?.value).toBe('yes');
+    expect(st.metadata.simulated?.e4?.player).toBe('policy');
     expect(JSON.parse(st.sections.intervention_type.fields.solution_tests_json.value).length).toBeGreaterThanOrEqual(1);
     expect(st.metadata.simulated?.e3?.player).toBe('policy');
     // The original in "production" was never touched.

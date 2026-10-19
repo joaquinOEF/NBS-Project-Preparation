@@ -485,7 +485,10 @@
       "gapsTitle": "Perguntas em aberto que o W3 nomeou em vez de deixar em branco",
       "gaps": "{{n}} em aberto",
       "portfolioTitle": "Projetos do Encontro 3",
-      "portfolioSubtitle": "{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação"
+      "portfolioSubtitle": "{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação",
+      "visitPendingTitle": "Encontro 3 feito — registrar o que a visita técnica indicou",
+      "visitDone": "Visita ✓ {{what}}",
+      "visitPending": "Registrar visita técnica"
     },
     "portfolioExclude": {
       "tooltip": "Deixar esta organização fora do relatório de sinergias (ela continua no quadro)",
@@ -503,14 +506,14 @@
       "show": "Mostrar mapa, soluções e casos"
     },
     "simulation": {
-      "title": "Encontro 3 simulado (só no ambiente de teste)",
-      "counts": "{{ready}} prontas para simular · {{done}} simuladas · {{waiting}} ainda no Encontro 1–2",
-      "startHint": "Um modelo faz o papel de cada organização, a partir do registro dela, pelo Encontro 3 real, até a comparação. A sessão fica marcada como simulada.",
-      "start": "Simular Encontro 3 ({{n}})",
+      "title": "Encontros simulados (só no ambiente de teste)",
+      "counts": "{{ready}} prontas para simular · {{done}} simuladas · {{waiting}} ainda no Encontro 1–2 (não simulamos: o Encontro 2 é o lugar delas)",
+      "startHint": "Um modelo faz o papel de cada organização, a partir do registro dela, pelos encontros reais que faltam — o Encontro 3 e depois o 4 (a pré-nota). Usa a visita técnica se houver uma registrada. A sessão fica marcada como simulada.",
+      "start": "Simular até o Encontro 4 ({{n}})",
       "queued": "na fila",
-      "turn": "turno {{n}}",
-      "badgeHint": "O Encontro 3 foi feito por um modelo a partir do registro desta organização — não são as palavras dela",
-      "badge": "E3 simulado",
+      "turn": "Encontro {{e}} · turno {{n}}",
+      "badgeHint": "Estes encontros foram feitos por um modelo a partir do registro desta organização — não são as palavras dela",
+      "badge": "{{which}} simulado",
       "running": "Simulando…"
     },
     "importCohort": {
@@ -2538,7 +2541,8 @@
     "prenoteEdited": "ajustado pela coordenação",
     "prenoteEdit": "Editar o texto",
     "prenoteRestore": "Voltar ao texto calculado",
-    "simulateE3": "Simular Encontro 3"
+    "simulateE3": "Simular Encontro 3",
+    "tabVisit": "Visita técnica"
   },
   "notFound": {
     "title": "Página não encontrada",

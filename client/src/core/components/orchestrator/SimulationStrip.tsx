@@ -10,16 +10,18 @@ import { useTranslation } from 'react-i18next';
 import { FlaskConical, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 
-export interface SimMember { memberId: string; eligible: boolean; reason: string | null; simulated: boolean }
+export interface SimMember { memberId: string; eligible: boolean; reason: string | null; simulated: boolean; encontros?: number[]; simulatedEncontros?: number[] }
 export interface SimRun {
   memberId: string; orgName: string; status: 'queued' | 'running' | 'done' | 'failed';
-  turns: number; step: string; error?: string;
+  turns: number; step: string; error?: string; encontro?: number;
 }
 export interface Simulations {
   enabled: boolean;
   members: SimMember[];
   runs: SimRun[];
   simulated: Set<string>;
+  /** Which encontros a model walked, per member — for the roster badge ("E3 + E4 simulados"). */
+  simulatedBy: Map<string, number[]>;
   eligible: Set<string>;
   busy: Set<string>;
   start: (memberIds?: string[]) => Promise<void>;
@@ -65,6 +67,7 @@ export function useSimulations(cohortSlug: string | null, onSettled: () => void)
   return {
     ...data,
     simulated: new Set(data.members.filter(m => m.simulated).map(m => m.memberId)),
+    simulatedBy: new Map(data.members.filter(m => m.simulated).map(m => [m.memberId, m.simulatedEncontros ?? [3]])),
     eligible: new Set(data.members.filter(m => m.eligible && !busy.has(m.memberId)).map(m => m.memberId)),
     busy,
     start,
@@ -87,11 +90,11 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-violet-700 dark:text-violet-300" />
           <div>
             <p className="font-semibold text-violet-900 dark:text-violet-200">
-              {t('orchestrator.simulation.title', { defaultValue: 'Simulated Encontro 3 (test environment only)' })}
+              {t('orchestrator.simulation.title', { defaultValue: 'Simulated encontros (test environment only)' })}
             </p>
             <p className="text-violet-900/80 dark:text-violet-200/80" data-testid="simulation-counts">
               {t('orchestrator.simulation.counts', {
-                defaultValue: '{{ready}} ready to simulate · {{done}} simulated · {{waiting}} still in Encontro 1–2',
+                defaultValue: '{{ready}} ready to simulate · {{done}} simulated · {{waiting}} still in Encontro 1–2 (not simulated: Encontro 2 is their own place)',
                 ready, done: sim.simulated.size, waiting: waitingE2,
               })}
             </p>
@@ -102,11 +105,11 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
           onClick={() => void sim.start()}
           className="border-violet-300 text-violet-900 hover:bg-violet-100 dark:border-violet-800 dark:text-violet-200"
           title={t('orchestrator.simulation.startHint', {
-            defaultValue: 'A model plays each organisation from its own record, through the real Encontro 3, up to the comparison. The session is marked as simulated.',
+            defaultValue: 'A model plays each organisation from its own record through the real encontros it is missing — Encontro 3, then Encontro 4 (the pre-note). Uses a technical visit if one is recorded. The session is marked as simulated.',
           }) as string}
           data-testid="button-simulate-e3-all"
         >
-          {t('orchestrator.simulation.start', { defaultValue: 'Simulate Encontro 3 ({{n}})', n: ready })}
+          {t('orchestrator.simulation.start', { defaultValue: 'Simulate up to Encontro 4 ({{n}})', n: ready })}
         </Button>
       </div>
       {(running.length > 0 || failed.length > 0) && (
@@ -117,7 +120,7 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
               <span className="font-medium">{r.orgName}</span>
               <span>· {r.status === 'queued'
                 ? t('orchestrator.simulation.queued', { defaultValue: 'waiting' })
-                : t('orchestrator.simulation.turn', { defaultValue: 'turn {{n}}', n: r.turns })}</span>
+                : t('orchestrator.simulation.turn', { defaultValue: 'Encontro {{e}} · turn {{n}}', e: r.encontro ?? 3, n: r.turns })}</span>
               {r.step && <span className="truncate text-muted-foreground">· {r.step}</span>}
             </li>
           ))}

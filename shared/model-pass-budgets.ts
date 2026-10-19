@@ -203,7 +203,8 @@ export const PASS_BUDGETS: PassBudget[] = [
     how:
       'scripts/e3-sim-live.ts over three w3-fullsim organisations (Humaitá, Santa Teresa, Escola do Partenon) on claude-sonnet-5-5, ' +
       'three walks in parallel: 67 calls, median 1.9 s, slowest 9.3 s (while the advisor and the dig were running beside it). ' +
-      'Each organisation closed Encontro 3 in 22–23 turns and about 70 s.',
+      'Each organisation closed Encontro 3 in 22–23 turns and about 70 s. ' +
+      'Re-measured 17 Oct with Encontro 4 added, over the 13 real organisations of the production copy: 195 calls, median 1.8 s, slowest 5.1 s.',
     costsWhenItFires:
       'that one answer comes from the fixed policy instead of from the organisation\'s record — a chip that moves the walk on, or an honest "não sabemos dizer" where words were asked for',
     blocking: false,

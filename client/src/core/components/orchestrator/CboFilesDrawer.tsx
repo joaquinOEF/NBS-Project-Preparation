@@ -16,14 +16,14 @@ import { Button } from '@/core/components/ui/button';
 import { CboFilesView } from '@/core/components/cbo-files/CboFilesView';
 import { CboInviteView } from '@/core/components/orchestrator/CboInviteView';
 import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscript';
-import { CboProfileSummary } from '@/core/components/orchestrator/CboProfileSummary';
+import { CboProfileSummary, VisitPanel } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
 import { getSolution } from '@shared/nbs-catalog';
 
 /** Each tab is as wide as its word (and grows to share what is left) — never an equal fifth it cannot fit in. */
 const TAB = 'grow shrink-0 basis-auto px-1.5 text-[12px] min-[420px]:px-2.5 min-[420px]:text-[12.5px]';
 
-export type CboDrawerTab = 'convite' | 'arquivos' | 'conversa' | 'perfil' | 'documentos';
+export type CboDrawerTab = 'convite' | 'arquivos' | 'conversa' | 'perfil' | 'visita' | 'documentos';
 export type FilesDrawerMember = {
   id: string; orgName: string; inviteUrl: string;
   /** Context for the line under the name. All optional — the drawer renders without them. */
@@ -247,6 +247,7 @@ export function CboFilesDrawer({
               <TabsTrigger value="arquivos" data-testid="cbo-tab-arquivos" className={TAB}>{t('cboView.tabFiles', { defaultValue: 'Files' })}</TabsTrigger>
               <TabsTrigger value="conversa" data-testid="cbo-tab-conversa" className={TAB}>{t('cboView.tabChat', { defaultValue: 'Chat' })}</TabsTrigger>
               <TabsTrigger value="perfil" data-testid="cbo-tab-perfil" className={TAB}>{t('cboView.tabProfile', { defaultValue: 'Profile' })}</TabsTrigger>
+              <TabsTrigger value="visita" data-testid="cbo-tab-visita" className={TAB}>{t('cboView.tabVisit', { defaultValue: 'Technical visit' })}</TabsTrigger>
               <TabsTrigger value="documentos" data-testid="cbo-tab-documentos" className={TAB}>{t('cboView.tabDocuments', { defaultValue: 'Documents' })}</TabsTrigger>
             </TabsList>
 
@@ -267,6 +268,9 @@ export function CboFilesDrawer({
             </TabsContent>
             <TabsContent value="perfil" className="flex-1 min-h-0 overflow-auto mt-2">
               <CboProfileSummary cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
+            </TabsContent>
+            <TabsContent value="visita" className="flex-1 min-h-0 overflow-auto mt-2">
+              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
             </TabsContent>
             {/* ⚠️ What the ORGANISATION took away. Until now nobody on the
                 coordination side could read it: the portfolio exists to carry
