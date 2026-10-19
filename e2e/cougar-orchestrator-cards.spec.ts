@@ -14,7 +14,7 @@ import { TestApi } from './helpers/testApi';
 test.describe('COUGAR — the coordinator reads an org without clicking', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('the W2 read is on the card: hazard, depth, Teia, collaboration', async ({ page }) => {
+  test('the W2 read on the card is the worry; the rest is in the drawer', async ({ page }) => {
     test.setTimeout(120_000);
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -52,11 +52,14 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
     await expect(worry).toContainText('Inundação');
     await expect(worry, 'a second worry is counted, not hidden').toContainText('+1');
 
-    await expect(page.getByTestId(`w2-depth-${member.id}`)).toContainText('bem detalhado');
-    await expect(page.getByTestId(`w2-collab-${member.id}`)).toBeVisible();
-    // No Teia application uploaded → no chip. A card for an org that hasn't got
-    // there must not sprout empty badges.
-    await expect(page.getByTestId(`w2-teia-${member.id}`)).toHaveCount(0);
+    // The journey card (refine 17 Oct, C2): of Encontro 1–2's signals only the
+    // worry stays on the face. Detail level, collaboration and Teia live in
+    // the drawer's Perfil — not on the card.
+    for (const id of [`w2-depth-${member.id}`, `w2-collab-${member.id}`, `w2-teia-${member.id}`]) {
+      await expect(page.getByTestId(id), id).toHaveCount(0);
+    }
+    // Where it stands, and who acts next.
+    await expect(page.getByTestId(`journey-next-${member.id}`)).toContainText('Encontro 2');
 
     await page.locator(`[data-testid="card-orchestrator-project-${member.id}"]`)
       .screenshot({ path: 'test-results/orchestrator-card.png' });

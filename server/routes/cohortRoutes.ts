@@ -33,6 +33,7 @@ import { renderProjectBriefHtml } from '../services/projectBriefPrint';
 import { renderProjectNoteHtml } from '../services/projectNotePrint';
 import { buildSnapshot, parseSnapshot, trimToEndOfE2, stripContacts, describeSnapshot, type StateSnapshot, type AsOf } from '@shared/state-snapshot';
 import { buildBundle, parseBundle, describeBundle, type BundleMember } from '@shared/cohort-bundle';
+import { testsOf } from '@shared/recorded-solutions';
 import { simulationEnabled, simEligibility, simulatedEncontros, simulationRuns, enqueueSimulation } from '../services/e3Simulator';
 import { createDocument } from '../services/documentPersistence';
 import { buildOrgProfile } from '@shared/org-profile';
@@ -40,7 +41,7 @@ import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
 import { addCboMessage, flushNow } from '../services/cboAgent';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
-import { cboSectionsFilledCount, shownMaturity, type CboState } from '@shared/cbo-schema';
+import { cboSectionsFilledCount, shownMaturity, encontroClosed, type CboState } from '@shared/cbo-schema';
 import {
   buildDossier,
   portfolioState,
@@ -320,10 +321,15 @@ export type MemberW3Signal = {
    * Encontro 4 with a checked solution and which will pick on their own.
    */
   visit: { solutionId: string; summary: string } | null;
+  /** Each solution tried and how they reacted — the card's "Testou:" line. Every era of record (shared/recorded-solutions.ts). */
+  tests: Array<{ id: string; reaction: string | null }>;
+  /** Which encontros closed, by their own markers — the card's 1–6 dots and its "próximo passo". */
+  closed: { e2: boolean; e3: boolean; e4: boolean };
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
   solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false, visit: null,
+  tests: [], closed: { e2: false, e3: false, e4: false },
 };
 
 /** The dossier, computed from a member's live state. Since Encontro 3 ends at
@@ -338,16 +344,25 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     );
   const site = asRecord('intervention_site');
   const type = asRecord('intervention_type');
-  const solutions = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  const testedIds = parseTests(type.solution_tests_json).map(t => t.solutionId);
+  const allTests = testsOf(type);
+  const chosen = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  const solutions = chosen.length ? chosen : allTests.filter(t => t.reaction === 'faz-sentido').map(t => t.solutionId);
+  const realTests = parseTests(type.solution_tests_json);
+  const testedIds = (realTests.length ? realTests : allTests).map(t => t.solutionId);
   const tested = testedIds.length;
   const v = parseVisit(type._visit_json);
   const visit = v ? { solutionId: v.solutionId, summary: visitSummary(v, 'pt') } : null;
-  // Nothing chosen, nothing tested and no place marked = this org has not
-  // started W3. Reporting a verdict for it would put a badge on a row that has
-  // no project behind it. A recorded visit still shows: it is the
-  // coordination's own work, whatever the organisation has done.
-  if (!solutions.length && !tested && !site._site_lat && !site.site_lat) return { ...EMPTY_W3, visit };
+  const closed = {
+    e2: encontroClosed({ sections, maturityScores: [] } as any, 2),
+    e3: encontroClosed({ sections, maturityScores: [] } as any, 3),
+    e4: encontroClosed({ sections, maturityScores: [] } as any, 4),
+  };
+  const tests = allTests.map(t => ({ id: t.solutionId, reaction: t.reaction ?? null }));
+  // ⚠️ No verdict before Encontro 3 closes. Computed from Encontro 2's tenure
+  // alone, it told the coordination that Instituto de Estudos Culturais —
+  // still in Encontro 2 — was "pronto pra orçar" (prod copy, 17 Oct 2026).
+  // A recorded visit still shows: it is the coordination's own work.
+  if (!closed.e3 || (!solutions.length && !tested)) return { ...EMPTY_W3, visit, tests, closed };
 
   const areaM2 = Number(site.site_area_m2) || 0;
   const impact = asRecord('impact_monitoring');
@@ -372,6 +387,8 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     testedIds,
     detailed,
     visit,
+    tests,
+    closed,
   };
 }
 

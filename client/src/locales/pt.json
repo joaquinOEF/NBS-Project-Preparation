@@ -539,6 +539,22 @@
       "tested": "testaram soluções",
       "collapse": "Recolher mapa",
       "expand": "Mapa, soluções e casos"
+    },
+    "journey": {
+      "whoOrg": "a organização",
+      "whoCoord": "coordenação",
+      "whoVisit": "equipe técnica",
+      "outOfAnalysis": "fora da análise",
+      "dotsAria": "Encontros feitos: {{n}} de 6",
+      "encontros": "Encontros",
+      "statusReady": "Situação",
+      "next": "Próximo passo · {{who}}",
+      "tested": "Testou:",
+      "maturity": "maturidade {{n}}/{{total}}",
+      "groupCoord": "A coordenação age",
+      "groupOrg": "As organizações seguem",
+      "groupReady": "Prontas para o pré-portfólio",
+      "groupEarly": "Ainda nos Encontros 1–2"
     }
   },
   "citySelection": {
