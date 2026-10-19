@@ -17,7 +17,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Paperclip, FileText, Image as ImageIcon, FileSpreadsheet, Music, File,
+  Paperclip, FileText, Image as ImageIcon, FileSpreadsheet, Music, File, Presentation,
   Download, ExternalLink, ChevronLeft, Loader2,
 } from 'lucide-react';
 import type { DocumentMeta, DocumentKind } from '@shared/document-schema';
@@ -25,6 +25,8 @@ import { Button } from '@/core/components/ui/button';
 
 const KIND_ICON: Record<DocumentKind, typeof FileText> = {
   pdf: FileText,
+  // A slide deck the organisation shared (PPTX extraction, 8209cddc) had no icon entry.
+  pptx: Presentation,
   docx: FileText,
   xlsx: FileSpreadsheet,
   text: FileText,

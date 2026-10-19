@@ -124,8 +124,13 @@ test.describe('the worry they said weighs most has seats on the shelf', () => {
     const top = topShortlist(site('heat, enxurrada', 'encostas-e-solo, aguas-pluviais'), 'pt', 4);
     expect(top.filter(e => e.answersFocus)).toHaveLength(2);
     expect(top.filter(e => !e.answersFocus).every(e => ['encostas-e-solo', 'aguas-pluviais'].includes(e.solution.familiaId))).toBe(true);
-    // The simplest first: a paved yard meets "Escola verde" before a landscape-scale park.
-    expect(top[0].solution.id).toBe('escola-verde');
+    // The simplest first: a paved yard meets a simple solution that answers the
+    // focus before a landscape-scale park. (It asserted 'escola-verde' by id;
+    // since the surface rules (#559) caveat every card on a record this bare,
+    // the tie between two "simples" heat answers falls to score order and
+    // Teto verde leads — the intent, simplest-and-on-focus first, holds.)
+    expect(top[0].solution.complexidade).toBe('simples');
+    expect(top[0].answersFocus).toBe(true);
     expect(top.map(e => e.solution.id)).not.toContain('parques-e-florestas-urbanas');
   });
 
