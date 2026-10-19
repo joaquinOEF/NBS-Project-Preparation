@@ -40,13 +40,6 @@ Encontro 3 closes (`w3SignalFrom`), maturity shows only when scored, the dots sa
 
 ## Open — needs a decision or a closer look
 
-- **The pre-note author wrote nothing once** ("nada escrito — a página
-  determinística fica", 38 s) and refused one paragraph elsewhere ("parágrafo
-  longo demais para um bloco"). The page is still whole (deterministic), but
-  thinner. Look at what it refused before raising any limit.
-- **Conceito Arte's Encontro 3 concept note** was skipped ("no solution") —
-  the same first-era record; the pre-note path now reads it, the E3 concept
-  note path (`conceptNoteAuthor`) does not yet.
 - **"Evapotranspiração"** was named by Conceito Arte and is not in the
   catalogue — dropped silently by the reader. Either a catalogue entry or a
   note on the pre-note saying it was named.

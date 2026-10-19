@@ -146,7 +146,6 @@ async function searchAndLink(orgName: string, prenote: Prenote, docs: PlanDoc[])
     });
     // ⚠️ Cut off at the cap: an answer that does not parse returned NO links, silently.
     if (reply.stop_reason === 'max_tokens') console.warn(`[plan-links] ${orgName}: turn ${turn} stopped at max_tokens — the reply is incomplete`);
-    if (process.env.STRUCTURED_DEBUG === 'plan_links') console.log(`[plan-links:debug] ${orgName} turn ${turn} stop=${reply.stop_reason} out=${reply.usage?.output_tokens} thinking=${reply.usage?.output_tokens_details?.thinking_tokens ?? 0}`);
     const uses = (reply.content ?? []).filter((b: any) => b.type === 'tool_use');
     const answer = uses.find((u: any) => u.name === answerTool.name);
     if (answer) {

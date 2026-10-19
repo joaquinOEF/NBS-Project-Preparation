@@ -161,9 +161,6 @@ export async function createStructured<T>(
   if (json.stop_reason === 'max_tokens') {
     console.warn(`[structured] ${schemaName}: stopped at max_tokens (${params.config?.maxCompletionTokens ?? 4096}) — the reply is incomplete`);
   }
-  if (process.env.STRUCTURED_DEBUG === schemaName) {
-    console.log(`[structured:debug] ${schemaName} stop=${json.stop_reason} usage=${JSON.stringify(json.usage)} blocks=${(json.content ?? []).map((c: any) => c.type + (c.type === 'tool_use' ? `(${Object.keys(c.input ?? {}).join(',')})` : c.type === 'text' ? `(${String(c.text).slice(0, 120).replace(/\n/g, ' ')})` : '')).join(' ')}`);
-  }
   const block = (json.content ?? []).find((c: any) => c.type === 'tool_use');
   if (!block) throw new Error('anthropic returned no tool_use block');
   return schema.parse(reviveStringified(block.input));
