@@ -145,7 +145,10 @@ export function encontroClosed(
     // writes into the sections Encontros 2–3 built, not needs_assessment, so
     // only its own marker can say it closed.
     const f = (state.sections as any)?.intervention_type?.fields ?? {};
-    if (String(f._e4_closed?.value ?? '').trim() === 'yes') return true;
+    // ⚠️ ONLY the marker. Falling through to phaseComplete read an older
+    // record's filled phase-4 sections as "Encontro 4 closed" before it ever
+    // opened — two real organisations, in a simulated walk on 17 Oct 2026.
+    return String(f._e4_closed?.value ?? '').trim() === 'yes' && String(f._e4_reopened?.value ?? '').trim() !== 'yes';
   }
   return phaseComplete(state, phase);
 }

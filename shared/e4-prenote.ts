@@ -30,7 +30,8 @@
 // ============================================================================
 
 import { getSolution, type NbsSolution } from './nbs-catalog';
-import { parseTests, sizeOf, testOf, type SolutionTest } from './w3-tests';
+import { sizeOf, testOf, type SolutionTest } from './w3-tests';
+import { testsOf } from './recorded-solutions';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { studyRequirement } from './w3-dossier';
@@ -209,7 +210,7 @@ export function parseEdits(raw: string | undefined): Partial<Record<PrenoteSecti
  * Encontro 4's confirmation → the visit → the first test that made sense.
  */
 export function prenoteSolution(input: PrenoteInput): Prenote['solution'] {
-  const tests = parseTests(input.type.solution_tests_json);
+  const tests = testsOf(input.type);
   const sized = (id: string, own?: { areaM2?: number; units?: number }) => {
     // A size the visit or Encontro 4 gave wins; otherwise the size it was tested at.
     const fallback = sizeOf(id, { site: input.site, w3: input.type }, testOf(tests, id));
@@ -320,7 +321,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   const s = getSolution(sol.id)!;
   const solLabel = label(s, lang);
   const size = { ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}), ...(sol.units ? { units: sol.units } : {}) };
-  const tests = parseTests(type.solution_tests_json);
+  const tests = testsOf(type);
   const test: SolutionTest | undefined = testOf(tests, sol.id);
   const display = (sec: string, f: string, v: string | undefined) => (has(v) ? cboDisplayValue(sec, f, v, lang) || v : '');
   const sections: PrenoteSection[] = [];
@@ -548,7 +549,7 @@ const normText = (t: string) => t.toLowerCase().replace(/\*\*|_|[“”"'«»]/g
 
 /** The concept note's input for the ONE solution of the pre-note, at its confirmed size. */
 export function conceptInputFor(input: PrenoteInput, sol: NonNullable<Prenote['solution']>): W3Input {
-  const tests = parseTests(input.type.solution_tests_json).map(t => (t.solutionId === sol.id
+  const tests = testsOf(input.type).map(t => (t.solutionId === sol.id
     ? { ...t, ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}), ...(sol.units ? { units: sol.units } : {}) }
     : t));
   return {

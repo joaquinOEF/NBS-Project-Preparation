@@ -168,6 +168,33 @@ function VisitEditor({ cohortSlug, memberId, fields }: { cohortSlug: string; mem
   );
 }
 
+/**
+ * The technical visit, as a tab of its own: what they tested, and the one
+ * place to record what the visit indicated. Opened from the roster card's
+ * "Visita técnica" button, so nobody has to dig for it inside the profile.
+ */
+export function VisitPanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: string; memberId: string; reloadKey: number }) {
+  const { t } = useTranslation();
+  const [fields, setFields] = useState<Record<string, { value?: unknown } | undefined> | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setFields(null); setError(false);
+    fetch(`/api/cohort/${cohortSlug}/member/${memberId}/profile`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(data => { if (!cancelled) setFields((data.profile?.sections as any)?.intervention_type?.fields ?? {}); })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
+  }, [cohortSlug, memberId, reloadKey]);
+  if (error) return <div className="py-12 text-center text-sm text-destructive">{t('cboView.loadError', { defaultValue: 'Could not load.' })}</div>;
+  if (!fields) return <div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+  return (
+    <div className="space-y-3 py-1 text-sm">
+      <VisitEditor key={`${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} fields={fields} />
+    </div>
+  );
+}
+
 export function CboProfileSummary({
   cohortSlug,
   memberId,
@@ -231,12 +258,8 @@ export function CboProfileSummary({
         </p>
       )}
 
-      <VisitEditor
-        key={`${memberId}-${reloadKey}`}
-        cohortSlug={cohortSlug}
-        memberId={memberId}
-        fields={(profile.sections as any)?.intervention_type?.fields ?? {}}
-      />
+      {/* The technical visit has its own tab now (VisitPanel) — opened
+          straight from the roster card, where Robson looks for it. */}
 
       {/* Sections → fields */}
       {CBO_SECTIONS.map(sec => {

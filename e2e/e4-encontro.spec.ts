@@ -115,6 +115,30 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     expect(html).toContain('COOP20 e a escola estadual');
   });
 
+  test('"Não sei ainda" leaves the count question — it is never read as an unreadable size', async ({ page }) => {
+    // Simulated Ksa Rosa, 2026-10-17: "Mais ou menos quantas cisternas?" →
+    // "Não sei ainda" → "Não consegui ler um tamanho" → the same question, four
+    // times, until the walk ran out of turns. The chip is the ask's own way out.
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cboId } = await api.newSession();
+    await api.seedState(cboId, { phase: 4, language: 'pt', sections: [
+      ...BASE_FIELDS, ...PLACE,
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+      // Counted in units, and nothing on record says how many.
+      { sectionId: 'intervention_type', field: '_visit_json', value: JSON.stringify({ solutionId: 'captacao-agua-da-chuva', date: '2026-10-23', recordedAt: 'x' }) },
+    ] });
+    const r = page.request;
+    let s = await step(r, cboId, 'Vamos começar o Encontro 4.', 'text');
+    s = await step(r, cboId, 'É essa ✓');
+    expect(s.ask.question).toMatch(/Mais ou menos quantas/);
+    s = await step(r, cboId, 'Não sei ainda');
+    expect(s.ask.question, 'the encontro moves on').not.toMatch(/Mais ou menos quantas/);
+    expect(s.events.filter(e => e.type === 'chat').map(e => e.content).join(' ')).not.toMatch(/Não consegui ler um tamanho/);
+    const t = (await stateOf(r, cboId)).sections.intervention_type.fields;
+    expect(t._e4_size_ok?.value).toBe('yes');
+  });
+
   test('nothing waits on a person: E3 still open, no visit, no place, no size', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');

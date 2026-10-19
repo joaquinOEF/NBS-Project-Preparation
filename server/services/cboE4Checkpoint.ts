@@ -27,6 +27,7 @@ import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
 import { getSolution, NBS_SOLUTIONS } from '@shared/nbs-catalog';
 import { parseTests, testOf } from '@shared/w3-tests';
+import { testsOf, solutionsNamedIn } from '@shared/recorded-solutions';
 import { SOLUTION_COSTS, roundAreaM2 } from '@shared/w3-sizing';
 import { parseSpokenArea } from '@shared/w3-area-speech';
 import { WHO, type WhoId } from '@shared/w3-criteria';
@@ -193,7 +194,9 @@ async function serveE4Inner(
   const extras = deps.extras ? await deps.extras().catch(() => ({})) : {};
   const input = (): PrenoteInput => ({ ...prenoteInputFromSections(state.sections), ...extras });
   const solution = (): E4Solution | null => parseE4Solution(type('_e4_solution_json'));
-  const tests = () => parseTests(type('solution_tests_json'));
+  // Every era of record (shared/recorded-solutions.ts) — Conceito Arte's
+  // Encontro 3 wrote names into `solution_types` and was told "nenhuma solução".
+  const tests = () => testsOf({ solution_tests_json: type('solution_tests_json'), chosen_solutions: type('chosen_solutions'), solution_types: type('solution_types') });
   const hasPlace = () => !!(site('_site_lat') || site('site_lat'));
 
   // ── Where are we? Derived, never stored. ──────────────────────────────────
@@ -508,7 +511,20 @@ async function serveE4Inner(
 
   // ── Free text the encontro is waiting for ────────────────────────────────
   if (isFree && raw) {
-    if (pendingSolution === 'other') {
+    // ⚠️ A name TYPED at "Qual vira a pré-nota?" is an answer too — not only
+    // after "Outra solução". Before, it went to the model, which chose nothing,
+    // and the question came back (simulated Conceito Arte, 47 turns, 17 Oct).
+    if (pendingSolution === 'other' || pendingSolution === 'pick') {
+      const named = solutionsNamedIn(raw);
+      if (named.length === 1) return pickSolution(named[0], 'organizacao');
+      if (named.length > 1) {
+        // Several in one sentence ("jardins de chuva com biovaletas"): one
+        // becomes the page, the rest stay in their words on the record.
+        writeType({ project_notes: [type('project_notes'), raw.slice(0, 300)].filter(Boolean).join('\n'), _e4_solution_pending: 'pick' });
+        ask('Qual delas vira a pré-nota? As outras ficam anotadas.', 'Which one becomes the pre-note? The others stay noted.',
+          [...named.slice(0, 4).map(id => ({ pt: label(id), en: label(id) })), { pt: E4C.outraSolucao.pt, en: E4C.outraSolucao.en, dPt: 'Escreve o nome aqui embaixo', dEn: 'Write its name below' }]);
+        return finish('solution-several');
+      }
       const n = (s: string) => deps.normChip(s).replace(/[^a-z0-9à-ú ]/gi, '');
       const hit = NBS_SOLUTIONS.find(s => n(s.pt.label) === n(raw) || n(s.en.label) === n(raw))
         ?? NBS_SOLUTIONS.find(s => n(raw).length >= 4 && (n(s.pt.label).includes(n(raw)) || n(raw).includes(n(s.pt.label))));
@@ -523,7 +539,11 @@ async function serveE4Inner(
       writeType({ _e4_solution_pending: '' });
       return serve('solution-other-miss');
     }
-    if (sizePending === 'ask' || (sizePending === 'confirm' && turnKind !== 'chip')) {
+    // ⚠️ "Não sei ainda" is the ask's own way out — handled below. Read here as
+    // a size, it was "não consegui ler um tamanho" and the same question again,
+    // forever: an organisation that does not know the count could not leave
+    // (simulated Ksa Rosa, 2026-10-17 — four times, then out of turns).
+    if ((sizePending === 'ask' && !is(E4C.naoSeiTamanho)) || (sizePending === 'confirm' && turnKind !== 'chip')) {
       const sol = solution();
       if (sol) {
         const byUnits = SOLUTION_COSTS[sol.solutionId]?.basis === 'unit';
@@ -609,6 +629,9 @@ async function serveE4Inner(
     }
     const hit = tests().find(t => deps.normChip(label(t.solutionId)) === msg);
     if (hit) return pickSolution(hit.solutionId, 'organizacao');
+    // A chip from "Qual delas vira a pré-nota?" — named in their sentence, not necessarily tested.
+    const named = NBS_SOLUTIONS.find(s => deps.normChip(label(s.id)) === msg);
+    if (named) return pickSolution(named.id, 'organizacao');
   }
   if (pendingSolution === 'other' && is(E4C.pular)) {
     writeType({ _e4_solution_pending: '' });

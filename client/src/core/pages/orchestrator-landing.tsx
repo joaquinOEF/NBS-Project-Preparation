@@ -1073,20 +1073,20 @@ function ProjectCard({
   onResetProfile,
   onRemove,
   onTogglePortfolio,
-  simulated = false,
+  simulated = null,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
   selected: boolean;
   onHover: (id: string | null) => void;
   onOpen: (p: CboDemoProject) => void;
-  onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil') => void;
+  onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil' | 'visita') => void;
   onSetTier: (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => void;
   onResetProfile: (p: CboDemoProject) => void;
   onRemove: (p: CboDemoProject) => void;
   onTogglePortfolio: (p: CboDemoProject) => void;
-  /** Encontro 3 was walked by the simulator (staging), not by the organisation. */
-  simulated?: boolean;
+  /** The encontros the simulator walked (staging), not the organisation. */
+  simulated?: number[] | null;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -1215,16 +1215,29 @@ function ProjectCard({
                 {t('orchestrator.w3.tested', { defaultValue: '{{n}} testadas', n: project.w3.tested })}
               </span>
             )}
-            {/* The technical visit's recommendation — which organisations go
-                into Encontro 4 with a checked solution, and which pick alone. */}
-            {project.w3.visit && (
-              <span
-                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-amber-200/70 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                data-testid={`w3-visit-${project.id}`}
-                title={t('orchestrator.w3.visitTitle', { defaultValue: 'Indicada na visita técnica: {{what}}', what: project.w3.visit.summary })}
+            {/* The technical visit — the step between Encontro 3 and the pre-note,
+                and the one Robson's team acts on. One tap opens the drawer on
+                its own tab: "Registrar visita" until it is recorded, then
+                which solution it indicated. */}
+            {((project.w3.tested ?? 0) > 0 || !!project.w3.visit) && (
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onOpenCbo(project, 'visita'); }}
+                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                  project.w3.visit
+                    ? 'border-emerald-200/70 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300'
+                }`}
+                data-testid={project.w3.visit ? `w3-visit-${project.id}` : `button-visit-${project.id}`}
+                title={project.w3.visit
+                  ? t('orchestrator.w3.visitTitle', { defaultValue: 'Indicada na visita técnica: {{what}}', what: project.w3.visit.summary })
+                  : t('orchestrator.w3.visitPendingTitle', { defaultValue: 'Encontro 3 done — record what the technical visit indicated' })}
               >
-                {t('orchestrator.w3.visit', { defaultValue: 'visita ✓' })}
-              </span>
+                <MapPin className="w-3 h-3" strokeWidth={2} />
+                {project.w3.visit
+                  ? t('orchestrator.w3.visitDone', { defaultValue: 'Visit ✓ {{what}}', what: project.w3.visit.summary })
+                  : t('orchestrator.w3.visitPending', { defaultValue: 'Record technical visit' })}
+              </button>
             )}
             {project.w3.gapCount > 0 && (
               <span
@@ -1345,14 +1358,14 @@ function ProjectCard({
                 {t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })}
               </span>
             )}
-            {simulated && (
+            {simulated && simulated.length > 0 && (
               <span
                 className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300"
                 title={t('orchestrator.simulation.badgeHint', { defaultValue: 'Encontro 3 was played by a model from this organisation’s record — these are not its own words' })}
                 data-testid={`badge-simulated-${project.id}`}
               >
                 <FlaskConical className="w-3 h-3" strokeWidth={2} />
-                {t('orchestrator.simulation.badge', { defaultValue: 'E3 simulated' })}
+                {t('orchestrator.simulation.badge', { defaultValue: '{{which}} simulated', which: simulated.map(n => `E${n}`).join(' + ') })}
               </span>
             )}
             {hasIntervention ? (
@@ -2450,7 +2463,7 @@ export default function OrchestratorLandingPage() {
                     onResetProfile={setMemberResetTarget}
                     onRemove={setMemberRemoveTarget}
                     onTogglePortfolio={handleTogglePortfolio}
-                    simulated={sim.simulated.has(p.id)}
+                    simulated={sim.simulatedBy.get(p.id) ?? null}
                   />
                   {member && unlockDiffers && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
