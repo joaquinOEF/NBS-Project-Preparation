@@ -79,6 +79,13 @@ export interface PortfolioOrg {
    * of eight sizes were 40–160 m² and none had been measured.
    */
   sizeMeasured: boolean;
+  /**
+   * What its pre-note total leaves out, by row: the works when they have no
+   * price yet, a required study still to quote, the upkeep. The total sums only
+   * rows with a published price (works at the ficha's reference, a study priced
+   * in w3-studies) — never a percentage we chose — so what is outside is named.
+   */
+  outside?: Array<'obra' | 'estudos' | 'manutencao'>;
   /** Where its pre-note meets the city's plans — set by the server, current readings only. */
   planLinks?: PlanLink[];
   /** A reading is missing or out of date and is being redone. */
@@ -138,6 +145,9 @@ export function portfolioOrg(memberId: string, orgName: string, sections: unknow
     gaps: note.gaps.length,
     visited: sol?.source === 'visita',
     sizeMeasured: (() => { const v = parseVisit(input.type._visit_json); return !!v && !!(v.areaM2 || v.units) && v.solutionId === sol?.id; })(),
+    outside: note.budget
+      .filter(b => (b.kind === 'obra' || b.kind === 'estudos' || b.kind === 'manutencao') && b.low == null)
+      .map(b => b.kind as 'obra' | 'estudos' | 'manutencao'),
   };
 }
 
@@ -276,6 +286,8 @@ export interface ProjectCard {
   unpriced: string[];
   /** Priced at the pilot size said in Encontro 3, not one measured at a visit. */
   pilotSized: string[];
+  /** Per kind of cost, the organisations whose sum leaves it out. */
+  outside: Partial<Record<'obra' | 'estudos' | 'manutencao', string[]>>;
   horizon: Horizon;
   horizonLabel: string;
   /** Who sets the horizon, and why. */
@@ -286,6 +298,19 @@ export interface ProjectCard {
   /** The union of the members' plan connections, each with the organisation it came from. */
   planLinks: Array<PlanLink & { orgName: string }>;
 }
+
+/**
+ * What every pre-portfolio sum leaves out, said once: no published price at
+ * community scale exists for the detailed design and the technical lead's work
+ * (w3-studies: "sem referência de preço publicada"), nor for managing the
+ * project and mobilising the community. Named, never estimated.
+ */
+export const ALWAYS_OUTSIDE_PT = ['projeto executivo e o trabalho do responsável técnico', 'gestão do projeto e mobilização da comunidade'];
+export const OUTSIDE_LABEL_PT: Record<'obra' | 'estudos' | 'manutencao', string> = {
+  obra: 'a obra ainda sem preço',
+  estudos: 'estudos e licenças a cotar',
+  manutencao: 'a manutenção',
+};
 
 /** Layer 2 — a project's card, from its members. Instant; no model. */
 export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lang = 'pt'): ProjectCard {
@@ -305,6 +330,10 @@ export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lan
     budget: priced.length ? { low: priced.reduce((s, m) => s + m.budget!.low, 0), high: priced.reduce((s, m) => s + m.budget!.high, 0) } : null,
     unpriced: ms.filter(m => !m.budget).map(m => m.orgName),
     pilotSized: ms.filter(m => m.budget && !m.sizeMeasured).map(m => m.orgName),
+    outside: (['obra', 'estudos', 'manutencao'] as const).reduce((acc, k) => {
+      const who = ms.filter(m => m.outside?.includes(k)).map(m => m.orgName);
+      return who.length ? { ...acc, [k]: who } : acc;
+    }, {} as Partial<Record<'obra' | 'estudos' | 'manutencao', string[]>>),
     horizon,
     horizonLabel: HORIZON_LABEL[horizon][lang],
     slowest: slowest && slowest.horizon !== 'agora' ? { orgName: slowest.orgName, why: slowest.horizonWhy } : null,

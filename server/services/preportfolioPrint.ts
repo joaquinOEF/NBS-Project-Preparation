@@ -13,7 +13,7 @@
 // has not got (a visit, a review, a budget) is hidden to make it look ready.
 // ============================================================================
 
-import { projectCard, HORIZON_LABEL, HORIZON_ORDER, type PortfolioOrg } from '@shared/preportfolio';
+import { projectCard, HORIZON_LABEL, HORIZON_ORDER, ALWAYS_OUTSIDE_PT, OUTSIDE_LABEL_PT, type PortfolioOrg, type ProjectCard } from '@shared/preportfolio';
 import type { Prenote } from '@shared/e4-prenote';
 import { esc, md, printShell } from './printShell';
 import { staticMapForPoints } from '@shared/org-profile';
@@ -43,6 +43,17 @@ export interface PrintGroup {
 }
 
 const brl = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
+
+/** "a manutenção (todas as 8 organizações)", "estudos e licenças a cotar (SDV Reciclando)". */
+function outsideOf(cards: ProjectCard[]): string[] {
+  const total = new Set(cards.flatMap(c => c.orgNames)).size;
+  return (['obra', 'estudos', 'manutencao'] as const).flatMap(k => {
+    const who = Array.from(new Set(cards.flatMap(c => c.outside[k] ?? [])));
+    if (!who.length) return [];
+    const whom = who.length === total && total > 1 ? `todas as ${total} organizações` : who.length > 3 ? `${who.length} organizações` : who.join(', ');
+    return [`${OUTSIDE_LABEL_PT[k]} (${whom})`];
+  });
+}
 
 export function renderPreportfolioHtml(input: {
   cohortName: string;
@@ -75,6 +86,7 @@ export function renderPreportfolioHtml(input: {
     <table class="index"><thead><tr><th>Projeto</th><th>Organizações</th><th>Estimativa</th><th>Quando</th></tr></thead><tbody>
       ${cards.map(({ g, c }, i) => `<tr><td>${i + 1}. ${esc(g.title || g.narrative?.title || c.reason)}</td><td>${esc(c.orgNames.join(', '))}</td><td>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : '—'}</td><td>${esc(c.horizonLabel)}</td></tr>`).join('')}
     </tbody></table>
+    <p class="outside"><strong>O que a soma inclui:</strong> a obra, ao preço de referência de cada ficha, e os estudos que têm preço publicado. <strong>Fica fora</strong> — por não haver preço publicado para a escala comunitária, e não por valer zero: ${esc([...ALWAYS_OUTSIDE_PT, ...outsideOf(cards.map(x => x.c))].join('; '))}.</p>
   </section>`;
 
   const pages = cards.map(({ g, c }, i) => {
@@ -101,6 +113,7 @@ export function renderPreportfolioHtml(input: {
     <p class="why">${esc(c.reason)}.</p>
     ${g.narrative?.why ? `<h3>Por que juntas</h3><p>${esc(g.narrative.why)}</p>` : ''}
     ${g.narrative?.synergies.length ? `<h3>O que fazem melhor juntas</h3><ul>${g.narrative.synergies.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${outsideOf([c]).length ? `<p class="outside">Fora da soma: ${esc(outsideOf([c]).join('; '))}.</p>` : ''}
     <p class="chips">${c.riskLabels.length ? `<span>${esc(c.riskLabels.join(' · '))}</span>` : ''}<span>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : 'sem estimativa'}</span><span>${esc(c.horizonLabel)}</span></p>
     ${g.story ? `<h3>A história</h3><p>${md(g.story)}</p>` : ''}
     ${g.quote ? `<blockquote>${esc(g.quote)}</blockquote>` : ''}
@@ -143,6 +156,7 @@ export function renderPreportfolioHtml(input: {
   .project h2 { margin: 2px 0 4px; }
   .project h3 { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 4px; }
   .why { color: #4c574f; margin: 0 0 6px; }
+  .outside { color: #4c574f; font-size: 12px; }
   .chips span { display: inline-block; border: 1px solid #cfd8d1; border-radius: 999px; padding: 1px 8px; margin-right: 4px; font-size: 11.5px; }
   blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid #9fb3a6; font-style: italic; }
   .src { color: #6d776f; font-size: 10.5px; }
