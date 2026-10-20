@@ -58,6 +58,8 @@ export function renderPreportfolioHtml(input: {
   const nOrgs = new Set(groups.flatMap(g => g.memberIds)).size;
   const byHorizon = HORIZON_ORDER.map(h => [h, cards.filter(x => x.c.horizon === h).length] as const).filter(([, n]) => n);
   const risks = Array.from(new Set(cards.flatMap(x => x.c.riskLabels)));
+  const pricedOrgs = cards.flatMap(x => x.c.memberIds).length - cards.reduce((n, x) => n + x.c.unpriced.length, 0);
+  const pilot = cards.reduce((n, x) => n + x.c.pilotSized.length, 0);
 
   const cover = `
   <section class="cover">
@@ -66,6 +68,7 @@ export function renderPreportfolioHtml(input: {
       <div><strong>${nOrgs}</strong><span>organizações da Rede</span></div>
       <div><strong>${high ? `${brl(low)}–${brl(high)}` : '—'}</strong><span>estimativa somada${priced.length < cards.length ? ` (${cards.length - priced.length} sem valor ainda)` : ''}</span></div>
     </div>
+    ${pilot ? `<p class="pilot"><strong>Escala piloto:</strong> ${pilot === pricedOrgs ? `nenhum dos ${pilot} tamanhos foi medido` : `${pilot} de ${pricedOrgs} tamanhos ainda não ${pilot === 1 ? 'foi medido' : 'foram medidos'}`} na visita técnica. ${pilot === 1 ? 'Esse é o tamanho dito' : 'São os tamanhos ditos'} pelas organizações no Encontro 3, e a estimativa é dessa escala; a medição na visita técnica fecha o tamanho de cada projeto.</p>` : ''}
     <p><strong>Quando podem começar:</strong> ${byHorizon.map(([h, n]) => `${esc(HORIZON_LABEL[h].pt)}: ${n} ${n === 1 ? 'projeto' : 'projetos'}`).join(' · ') || '—'}.</p>
     ${risks.length ? `<p><strong>Riscos que respondem:</strong> ${esc(risks.join(', '))}.</p>` : ''}
     ${placesMap(cards.flatMap(({ c }, i) => c.places.map(p => ({ ...p, n: i + 1 }))), 'Os lugares, numerados pelo projeto a que pertencem.')}
@@ -79,7 +82,9 @@ export function renderPreportfolioHtml(input: {
       const o = orgs.find(x => x.memberId === id);
       const p = prenotes.get(id);
       if (!o) return '';
-      const size = p?.solution?.areaM2 ? `${p.solution.areaM2.toLocaleString('pt-BR')} m²` : p?.solution?.units ? `${p.solution.units}` : '';
+      const measured = p?.solution?.areaM2 ? `${p.solution.areaM2.toLocaleString('pt-BR')} m²` : p?.solution?.units ? `${p.solution.units}` : '';
+      // Whose number the size is — measured at the visit, or the pilot they named.
+      const size = measured ? `${measured} · ${o.sizeMeasured ? 'medido na visita técnica' : 'escala piloto, dita no Encontro 3'}` : '';
       const ind = (p?.indicators ?? []).map(x => x.label).join(' · ');
       return `<tr>
         <td><strong>${esc(o.orgName)}</strong><span class="sub">${esc(o.bairro)}</span></td>

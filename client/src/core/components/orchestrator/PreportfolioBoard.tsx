@@ -406,6 +406,12 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                   </button>
                 )}
                 {card.unvisited.length > 0 && <span className="rounded-full border border-dashed border-amber-300 px-2 py-0.5 text-amber-800 dark:text-amber-300">{t('orchestrator.preportfolio.unvisited', { defaultValue: 'sem visita: {{n}}', n: card.unvisited.length })}</span>}
+                {card.pilotSized.length > 0 && (
+                  <span className="rounded-full border border-dashed border-amber-300 px-2 py-0.5 text-amber-800 dark:text-amber-300" data-testid={`preportfolio-pilot-${gi}`}
+                    title={t('orchestrator.preportfolio.pilotTitle', { defaultValue: 'Estimado no tamanho dito no Encontro 3 ({{names}}). A medição na visita técnica fecha o tamanho.', names: card.pilotSized.join(', ') }) as string}>
+                    {t('orchestrator.preportfolio.pilot', { defaultValue: 'escala piloto: {{n}}', n: card.pilotSized.length })}
+                  </span>
+                )}
               </div>
               {/* ⚠️ The passages, readable on the board — a count with a hover
                   tooltip meant the Rede's differentiator (Antonia, 13 Oct) could

@@ -26,6 +26,7 @@ import { studyRequirement } from './w3-dossier';
 import { approvalRequirement } from './nbs-approvals';
 import { buildPrenote, prenoteInputFromSections, type Prenote } from './e4-prenote';
 import type { PlanLink } from './plan-links';
+import { parseVisit } from './e4-visit';
 
 type Lang = 'pt' | 'en';
 
@@ -70,6 +71,14 @@ export interface PortfolioOrg {
   gaps: number;
   /** The solution came from the technical visit. */
   visited: boolean;
+  /**
+   * The size was measured at the technical visit. Otherwise it is the PILOT
+   * size the organisation gave in Encontro 3 — "até 50 m², do tamanho de uma
+   * sala" — and the estimate is that pilot's, which the page has to say: the
+   * real cohort summed to R$ 200–331 mil for eight organisations because seven
+   * of eight sizes were 40–160 m² and none had been measured.
+   */
+  sizeMeasured: boolean;
   /** Where its pre-note meets the city's plans — set by the server, current readings only. */
   planLinks?: PlanLink[];
   /** A reading is missing or out of date and is being redone. */
@@ -128,6 +137,7 @@ export function portfolioOrg(memberId: string, orgName: string, sections: unknow
     horizonWhy: why,
     gaps: note.gaps.length,
     visited: sol?.source === 'visita',
+    sizeMeasured: (() => { const v = parseVisit(input.type._visit_json); return !!v && !!(v.areaM2 || v.units) && v.solutionId === sol?.id; })(),
   };
 }
 
@@ -264,6 +274,8 @@ export interface ProjectCard {
   budget: { low: number; high: number } | null;
   /** Organisations whose budget is not closed yet — the sum leaves them out. */
   unpriced: string[];
+  /** Priced at the pilot size said in Encontro 3, not one measured at a visit. */
+  pilotSized: string[];
   horizon: Horizon;
   horizonLabel: string;
   /** Who sets the horizon, and why. */
@@ -292,6 +304,7 @@ export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lan
     solutions: Array.from(new Set(ms.map(m => m.solutionLabel).filter((x): x is string => !!x))),
     budget: priced.length ? { low: priced.reduce((s, m) => s + m.budget!.low, 0), high: priced.reduce((s, m) => s + m.budget!.high, 0) } : null,
     unpriced: ms.filter(m => !m.budget).map(m => m.orgName),
+    pilotSized: ms.filter(m => m.budget && !m.sizeMeasured).map(m => m.orgName),
     horizon,
     horizonLabel: HORIZON_LABEL[horizon][lang],
     slowest: slowest && slowest.horizon !== 'agora' ? { orgName: slowest.orgName, why: slowest.horizonWhy } : null,

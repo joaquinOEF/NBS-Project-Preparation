@@ -124,6 +124,16 @@ export interface SolutionCost {
   /** Portuguese agrees: "Quantas hortas?" but "Quantos biodigestores?". */
   unitFemininePt?: boolean;
   /**
+   * A 'project' band that holds only up to a size, and the ficha's own figure
+   * above it. Hortas urbanas prices "uma horta pequena (10–50 m²)" at R$ 300–1.200
+   * and "uma horta comunitária de porte médio" at "perto de R$ 25.000" in the
+   * same sentence. Without the size the total is withheld (see budgetLineFor);
+   * WITH a recorded area the ficha already says which figure applies, so a
+   * 1.200 m² community garden is no longer printed "sem estimativa" beside a
+   * 40 m² one. Both figures literal in quantoCusta — checked at module load.
+   */
+  bySize?: { upToM2: number; aboveLow: number; aboveHigh: number; abovePt: string; aboveEn: string };
+  /**
    * What the band assumes about WHO BUILDS IT, and what changes if they build
    * it themselves.
    *
@@ -284,6 +294,11 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
     unitPt: 'horta', unitEn: 'garden', unitPluralPt: 'hortas', unitPluralEn: 'gardens',
     unitChips: [1, 2, 3, 5],
     unitFemininePt: true,
+    bySize: {
+      upToM2: 50, aboveLow: 25000, aboveHigh: 25000,
+      abovePt: 'uma horta comunitária de porte médio, para cerca de 50 famílias, com cercamento, rede de irrigação e mudas',
+      aboveEn: 'a mid-size community garden for about 50 families, with fencing, irrigation and seedlings',
+    },
   },
   'compostagem': {
     basis: 'project', low: 300, high: 2000,
@@ -496,6 +511,34 @@ export function budgetLineFor(
           `For ${units}, what weighs is getting the machine there, not the count — the quote to ask for is machine time.${nota(false)}`,
       };
     }
+    // The ficha says which of its figures fits the recorded area — when the area
+    // is the SOLUTION's (the pre-note's confirmed size: an area and no count).
+    // With a count, the area on record is the whole place's footprint, not one
+    // garden's: 7 hortas on a 2.900 m² site are not 7 community gardens, and
+    // that total stays withheld as before.
+    if (cost.basis === 'project' && cost.bySize && areaM2 && !(units && units > 0)) {
+      const big = areaM2 > cost.bySize.upToM2;
+      const n = 1;
+      const lo = (big ? cost.bySize.aboveLow : lowV) * n;
+      const hi = (big ? cost.bySize.aboveHigh : highV) * n;
+      const nounPt = n === 1 ? cost.unitPt : cost.unitPluralPt;
+      const nounEn = n === 1 ? cost.unitEn : cost.unitPluralEn;
+      const whatPt = big ? cost.bySize.abovePt : cost.scalePt;
+      const whatEn = big ? cost.bySize.aboveEn : cost.scaleEn;
+      return {
+        ...base,
+        lowBrl: lo,
+        highBrl: hi,
+        units: n,
+        areaM2,
+        notePt:
+          `Cerca de ${lo === hi ? brl(lo) : `${brl(lo)}–${brl(hi)}`} para ${n} ${nounPt ?? 'unidade(s)'} de ${areaM2.toLocaleString('pt-BR')} m², ` +
+          `à referência da ficha para ${whatPt}. É uma faixa para pedir cotação, não um orçamento fechado.${nota(true)}`,
+        noteEn:
+          `About ${lo === hi ? brlEn(lo) : `${brlEn(lo)}–${brlEn(hi)}`} for ${n} ${nounEn ?? 'unit(s)'} of ${areaM2.toLocaleString('en-US')} m², ` +
+          `at the ficha's reference for ${whatEn}. A range to request quotes against, not a closed budget.${nota(false)}`,
+      };
+    }
     if (units && units > 0 && cost.basis === 'project') {
       const nounPt = units === 1 ? cost.unitPt : cost.unitPluralPt;
       const nounEn = units === 1 ? cost.unitEn : cost.unitPluralEn;
@@ -617,6 +660,13 @@ for (const [id, cost] of Object.entries(SOLUTION_COSTS)) {
     }
     if (bm.mutiraoLow != null && bm.mutiraoImpossiblePt) {
       throw new Error(`w3-sizing: ${id} both prices a mutirão and says one is impossible`);
+    }
+  }
+  if (cost.bySize) {
+    for (const value of [cost.bySize.aboveLow, cost.bySize.aboveHigh]) {
+      if (!ficha.pt.quantoCusta.includes(value.toLocaleString('pt-BR')) && !ficha.pt.quantoCusta.includes(String(value))) {
+        throw new Error(`w3-sizing: ${id} claims a larger-size figure of ${value}, which does not appear in its own quantoCusta`);
+      }
     }
   }
   if (cost.basis === 'none') continue;
