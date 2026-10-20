@@ -368,6 +368,8 @@
       "unpriced": "no price: {{names}}",
       "plans": "{{n}} links to plans",
       "unvisited": "not visited: {{n}}",
+      "pilot": "pilot scale: {{n}}",
+      "pilotTitle": "Estimated at the size given in Encontro 3 ({{names}}). Measuring at the technical visit sets the real size.",
       "noSolution": "no solution",
       "moveTo": "Move to",
       "project": "Project",

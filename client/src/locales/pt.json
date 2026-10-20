@@ -440,6 +440,8 @@
       "unpriced": "sem valor: {{names}}",
       "plans": "{{n}} conexões com planos",
       "unvisited": "sem visita: {{n}}",
+      "pilot": "escala piloto: {{n}}",
+      "pilotTitle": "Estimado no tamanho dito no Encontro 3 ({{names}}). A medição na visita técnica fecha o tamanho.",
       "noSolution": "sem solução",
       "moveTo": "Mover para",
       "project": "Projeto",
