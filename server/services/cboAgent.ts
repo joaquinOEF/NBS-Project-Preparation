@@ -16,6 +16,7 @@ import {
   isValidMaturityMetric,
   isValidSectionId,
   canonicalPriorityFlag,
+  encontroClosed,
 } from "@shared/cbo-schema";
 import { getPhasePolicyForCbo, isPhaseAllowed, buildAccessPolicyPrompt, type PhasePolicy } from "./phaseGating";
 import { loadEncontroSkill } from "./encontroSkills";
@@ -54,7 +55,8 @@ import { cohortLines, peerFrom, type CohortPeer } from "./cohortContext";
 import { synergyFactsFrom } from "@shared/w3-synergies";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
-import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg, listDocumentsForScope } from "./documentPersistence";
+import { getOrgIdForCboState, listDocumentSummariesForScope, getDocumentForScope, listDocumentsForScope } from "./documentPersistence";
+import { documentPurposeLabel } from "@shared/document-purpose";
 import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPersistence";
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
@@ -1311,11 +1313,14 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
     "List the documents this organization has shared so far (across all sessions) — proposals, budgets, photos, voice memos, prior-project docs. Use this to recall what evidence already exists before asking the user to re-explain something. Returns an id, filename, kind, and short summary for each.",
     {},
     async () => {
+      // Org OR session — an upload made before the org was linked is still theirs.
       const orgId = await getOrgIdForCboState(cboId);
-      if (!orgId) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
-      const docs = await listDocumentSummariesByOrg(orgId); // summaries only — no fullText on a listing (LT-3)
+      const docs = await listDocumentSummariesForScope({ orgId, cboStateId: cboId }); // summaries only — no fullText on a listing (LT-3)
       if (docs.length === 0) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
-      const lines = docs.map(d => `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${(d.summary || '').slice(0, 160)}`);
+      const lines = docs.map(d => {
+        const why = documentPurposeLabel(d.purpose, 'en');
+        return `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}${why ? `, ${why}` : ''}) — ${(d.summary || '').slice(0, 160)}`;
+      });
       return { content: [{ type: "text" as const, text: `Documents on file (${docs.length}):\n${lines.join('\n')}\n\nUse read_org_document with an [id] to read the full text.` }] };
     },
     { annotations: { readOnlyHint: true } }
@@ -1327,12 +1332,12 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
     { id: z.string().describe("Document id from list_org_documents") },
     async (args: any) => {
       const orgId = await getOrgIdForCboState(cboId);
-      if (!orgId) return { content: [{ type: "text" as const, text: "No documents available." }], isError: true };
-      const doc = await getDocumentForOrg(args.id, orgId);
+      const doc = await getDocumentForScope(args.id, { orgId, cboStateId: cboId });
       if (!doc) return { content: [{ type: "text" as const, text: `Document ${args.id} not found for this organization.` }], isError: true };
       // File text is data: a paragraph addressed to an AI never reaches the model.
       const text = neutraliseInjected(doc.fullText || doc.summary || '(no extracted text)', getActiveCboLang(cboId)).text;
-      return { content: [{ type: "text" as const, text: `# ${doc.filename}\n\n${text.length > 6000 ? text.slice(0, 6000) + '\n...(truncated — use search_org_documents to find a specific passage further in)' : text}` }] };
+      const why = documentPurposeLabel(doc.purpose, 'en');
+      return { content: [{ type: "text" as const, text: `# ${doc.filename}${why ? ` (${why})` : ''}\n\n${text.length > 6000 ? text.slice(0, 6000) + '\n...(truncated — use search_org_documents to find a specific passage further in)' : text}` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -1346,8 +1351,7 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
     { query: z.string().describe("What to look for, e.g. 'budget' or 'number of beneficiaries'") },
     async (args: any) => {
       const orgId = await getOrgIdForCboState(cboId);
-      if (!orgId) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
-      const docs = await listDocumentsByOrg(orgId);
+      const docs = await listDocumentsForScope({ orgId, cboStateId: cboId });
       const terms = queryTerms(args.query);
       const scored = docs
         .map(d => ({ d, score: scoreText(`${d.filename} ${d.fullText || d.summary || ''}`, terms) }))
@@ -3982,7 +3986,7 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
     if (!state?.sections?.intervention_type) return;
     const orgId = await getOrgIdForCboState(cboId).catch(() => null);
     const docs = (await listDocumentsForScope({ cboStateId: cboId, orgId }).catch(() => []))
-      .map((d: any) => ({ filename: d.filename as string, fullText: (d.fullText ?? null) as string | null }));
+      .map((d: any) => ({ filename: d.filename as string, fullText: (d.fullText ?? null) as string | null, purpose: (d.purpose ?? null) as string | null }));
     const type: any = state.sections.intervention_type.fields ?? {};
     // What the organisation SAID and the assistant noted is a source too.
     const conversationNotes = [
@@ -4035,6 +4039,48 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
     await done;
   } catch (err: any) {
     console.error(`[w3-reader] ${cboId} failed (cards unchanged):`, err?.message || err);
+  }
+}
+
+/**
+ * A file that arrived from OUTSIDE the organisation's session — the
+ * coordination's technical visit. The passes that turn files into notes and
+ * observations (the reader, the advisor) used to run only inside the
+ * organisation's Encontro 3 chat, so a visit report attached afterwards reached
+ * nothing a model writes from. Both are keyed on the set of files: run them for
+ * the new set, then rewrite what was already written from the old one — the
+ * concept note when it had been written, the pre-note's summary when Encontro 4
+ * has closed. Fire and forget from the route; every pass fails soft.
+ */
+const rereadInFlight = new Map<string, Promise<void>>();
+export function rereadFiles(cboId: string): Promise<void> {
+  const running = rereadInFlight.get(cboId);
+  // A second file while the first is being read: read again after, with both.
+  const next = (running ?? Promise.resolve()).then(() => rereadFilesNow(cboId));
+  const tracked = next.finally(() => { if (rereadInFlight.get(cboId) === tracked) rereadInFlight.delete(cboId); });
+  rereadInFlight.set(cboId, tracked);
+  return tracked;
+}
+
+async function rereadFilesNow(cboId: string): Promise<void> {
+  const started = Date.now();
+  try {
+    if (!getCboState(cboId)) {
+      const persisted = await loadCboFromDb(cboId);
+      if (!persisted) return;
+      setCboState(cboId, persisted.state);
+      for (const msg of persisted.messages) addCboMessage(cboId, msg);
+    }
+    await Promise.all([runW3DocumentReader(cboId), runW3Advisor(cboId)]);
+    const st = getCboState(cboId);
+    if (!st) return;
+    const authored = String((st.sections as any)?.intervention_type?.fields?._concept_note_authoring?.value ?? '');
+    if (authored === 'done') await runConceptNoteAuthor(cboId);
+    if (encontroClosed(st as any, 4)) await runPrenoteAuthor(cboId);
+    await flushNow(cboId);
+    console.log(`[reread] ${cboId}: files re-read${authored === 'done' ? ', concept note rewritten' : ''}${encontroClosed(st as any, 4) ? ', pre-note summary rewritten' : ''} in ${Date.now() - started}ms`);
+  } catch (err: any) {
+    console.error(`[reread] ${cboId} failed (the record stands as it was):`, err?.message || err);
   }
 }
 
@@ -4864,13 +4910,15 @@ function buildStateSummary(state: CboState): string {
 async function buildDocumentsBlock(cboId: string): Promise<string> {
   try {
     const orgId = await getOrgIdForCboState(cboId);
-    if (!orgId) return '';
     // Projection only — the full rows carry fullText, which for a doc-heavy
-    // org is megabytes pulled from Postgres on EVERY chat turn (LT-3).
-    const docs = await listDocumentSummariesByOrg(orgId);
+    // org is megabytes pulled from Postgres on EVERY chat turn (LT-3). Org OR
+    // session: an upload made before the org was linked is still theirs.
+    const docs = await listDocumentSummariesForScope({ orgId, cboStateId: cboId });
     if (docs.length === 0) return '';
-    const lines = docs.slice(0, 20).map(d =>
-      `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${neutraliseInjected((d.summary || '').slice(0, 120)).text}`);
+    const lines = docs.slice(0, 20).map(d => {
+      const why = documentPurposeLabel(d.purpose, 'en');
+      return `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}${why ? `, ${why}` : ''}) — ${neutraliseInjected((d.summary || '').slice(0, 120)).text}`;
+    });
     return `\n\n## DOCUMENTS ON FILE (${docs.length})\nThis org has already shared these. Read the full text with read_org_document([id]) before re-asking for information that's likely in them:\n${lines.join('\n')}`;
   } catch (e: any) {
     console.error('[cbo] buildDocumentsBlock failed:', e?.message || e);

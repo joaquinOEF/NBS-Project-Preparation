@@ -27,7 +27,9 @@ export type DocumentKind = 'pdf' | 'pptx' | 'docx' | 'xlsx' | 'text' | 'image' |
  *
  * null = an ordinary upload, which is almost all of them.
  */
-export type DocumentPurpose = 'teia_sprint';
+export type DocumentPurpose = 'teia_sprint' | 'visita_tecnica';
+
+// Its label for people and prompts lives in ./document-purpose.ts (no drizzle, so the client can import it).
 
 export const documents = pgTable('documents', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
@@ -56,7 +58,8 @@ export const documents = pgTable('documents', {
   parseError: text('parse_error'),
   // Provenance: which phase the upload arrived in, and who added it.
   droppedInPhase: integer('dropped_in_phase'),
-  source: text('source').$type<'upload' | 'agent'>().default('upload'),
+  // 'coordinator' = attached by the coordination (the technical visit), not by the organisation.
+  source: text('source').$type<'upload' | 'agent' | 'coordinator'>().default('upload'),
   // Reserved for Phase 2b (durable blob originals in object storage).
   storageKey: text('storage_key'),
   createdAt: timestamp('created_at').defaultNow(),

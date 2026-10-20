@@ -70,7 +70,7 @@ Three findings worth naming:
 
 ### 1 · Every pass declares every source
 
-`shared/context-sources.ts` holds a catalogue of the twelve sources and, per
+`shared/context-sources.ts` holds a catalogue of the sources and, per
 pass, one of three states for each:
 
 | | |
@@ -361,3 +361,29 @@ ONE helper, `synergyExtrasFrom`. `tested` and `technicalNote` had been declared
 on the type and printed by the prompt for weeks while the route never copied
 them — the report never saw what was tested or the coordination's reading. A
 spec now fails if either list stops spreading the helper.
+
+## The visit is a source (2026-10-20)
+
+The coordination's technical visit — the solution and size it recommends
+(`_visit_json`), what it saw (`technical_note`) and the files it attaches in the
+visit tab (documents marked `visita_tecnica`, `source: 'coordinator'`) — is its
+own entry in the catalogue, so every pass declares what it does with it.
+
+Two silences it closes:
+
+- **A file attached after Encontro 3 reached nothing a model writes from.** The
+  document reader and the advisor ran only inside the organisation's chat.
+  `POST …/member/:id/visit/files` stores the file through the same intake as the
+  organisation's uploads and calls `rereadFiles` (cboAgent): reader and advisor
+  for the new set of files, then the concept note and the pre-note's summary
+  rewritten when they already existed. Measured live: one report, 8 quoted notes
+  and 4 observations citing it, 29 s.
+- **Whose words?** Everywhere a file is named to a model or a person, its purpose
+  is said (`shared/document-purpose.ts`): a visit report reads as the
+  coordination's, never the organisation's. The reader reads visit files first —
+  it reads six files at most, and a technician's report must not lose its place
+  to a sixth long PDF.
+
+Also closed on the way: the context bundle (and so the project's shared
+session) carried a 400-character summary of each file and never its text; the
+chat's document tools saw only documents whose org was linked.

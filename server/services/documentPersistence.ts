@@ -71,7 +71,7 @@ export async function createDocument(input: {
   fullText?: string | null;
   summary?: string | null;
   droppedInPhase?: number | null;
-  source?: 'upload' | 'agent';
+  source?: 'upload' | 'agent' | 'coordinator';
   parseStatus?: 'parsed' | 'failed' | null;
   parseError?: string | null;
 }): Promise<DocumentRow> {
@@ -111,6 +111,30 @@ export interface DocumentSummary {
   droppedInPhase: number | null;
   summary: string | null;
 }
+/** The same projection, for a CBO scope (org OR session) — an upload whose org
+ *  was not linked yet is still this organisation's. */
+export async function listDocumentSummariesForScope(scope: DocumentScope): Promise<DocumentSummary[]> {
+  const conds = scopeConds(scope);
+  if (conds.length === 0) return [];
+  return db
+    .select({
+      id: documents.id,
+      filename: documents.filename,
+      kind: documents.kind,
+      purpose: documents.purpose,
+      droppedInPhase: documents.droppedInPhase,
+      summary: documents.summary,
+    })
+    .from(documents)
+    .where(conds.length === 1 ? conds[0] : or(...conds))
+    .orderBy(desc(documents.createdAt));
+}
+
+/** Remove one document row (its original blob, if any, is left to storage). */
+export async function deleteDocument(id: string): Promise<void> {
+  await db.delete(documents).where(eq(documents.id, id));
+}
+
 export async function listDocumentSummariesByOrg(orgId: string): Promise<DocumentSummary[]> {
   return db
     .select({

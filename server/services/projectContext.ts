@@ -197,6 +197,7 @@ export async function buildProjectContext(project: CohortProject, lang: 'pt' | '
     const docs: BundleDoc[] = m.synergy.docs.map(d => ({
       filename: d.filename,
       kind: 'file',
+      purpose: d.purpose ?? null,
       droppedInPhase: null,
       summary: d.summary ?? '',
       fullText: (d.fullText ?? '').slice(0, 12_000),

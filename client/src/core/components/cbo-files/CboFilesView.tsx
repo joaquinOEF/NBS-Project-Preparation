@@ -21,6 +21,7 @@ import {
   Download, ExternalLink, ChevronLeft, Loader2,
 } from 'lucide-react';
 import type { DocumentMeta, DocumentKind } from '@shared/document-schema';
+import { documentPurposeTag } from '@shared/document-purpose';
 import { Button } from '@/core/components/ui/button';
 
 const KIND_ICON: Record<DocumentKind, typeof FileText> = {
@@ -125,6 +126,7 @@ export function CboFilesView({
                 <span className="block text-sm font-medium truncate">{doc.filename}</span>
                 <span className="block text-[11px] text-muted-foreground truncate">
                   {[
+                    documentPurposeTag(doc.purpose, i18n.language?.startsWith('pt') ? 'pt' : 'en'),
                     formatSize(doc.sizeBytes),
                     doc.droppedInPhase
                       ? t('files.fromEncontro', { defaultValue: 'Encontro {{n}}', n: doc.droppedInPhase })

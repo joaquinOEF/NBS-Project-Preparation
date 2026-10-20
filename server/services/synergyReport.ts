@@ -29,6 +29,7 @@
 //     disagreed with ours outranks it.
 // ============================================================================
 
+import { documentPurposeLabel } from '@shared/document-purpose';
 import { WHO, HARDEST, CRITERIA, type WhoId, type HardestId } from '@shared/w3-criteria';
 import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
@@ -207,6 +208,7 @@ export function analysisForModel(a: SynergyAnalysis): string {
     if (m.studiesDone?.length) L.push(`    já tem (confirmado): ${m.studiesDone.join(', ')}`);
     // The coordination's own reading — Robson's visit to the place. Attributed
     // as the coordination's, never blended into the organisation's words.
+    if (m.visitPt) L.push(`    visita técnica da coordenação indicou: ${m.visitPt}`);
     if (m.technicalNote) L.push(`    leitura técnica da coordenação: ${m.technicalNote.slice(0, 600)}`);
     if (m.correctionsPt) L.push(`    ⚠️ corrigiu nossos dados de risco: ${m.correctionsPt} — a percepção dela vale mais que a nossa média`);
     // ⚠️ Pre-digested, never the images. Two organisations photographing the
@@ -237,7 +239,8 @@ export function analysisForModel(a: SynergyAnalysis): string {
     for (const d of m.docs) {
       const body = (d.fullText ?? d.summary ?? '').replace(/\s+/g, ' ').trim();
       if (!body) { L.push(`    arquivo: ${d.filename}`); continue; }
-      L.push(`    arquivo ${d.filename}${d.purpose ? ` (${d.purpose})` : ''}: ${body.slice(0, 1200)}`);
+      const why = documentPurposeLabel(d.purpose);
+      L.push(`    arquivo ${d.filename}${why ? ` (${why})` : ''}: ${body.slice(0, 1200)}`);
     }
   }
 

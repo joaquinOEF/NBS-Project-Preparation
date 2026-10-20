@@ -5,6 +5,7 @@ import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import path from 'path';
 import { db } from '../db';
 import {
   listDocumentsForScope,
@@ -35,10 +36,12 @@ import { buildSnapshot, parseSnapshot, trimToEndOfE2, stripContacts, describeSna
 import { buildBundle, parseBundle, describeBundle, type BundleMember } from '@shared/cohort-bundle';
 import { testsOf } from '@shared/recorded-solutions';
 import { simulationEnabled, simEligibility, simulatedEncontros, simulationRuns, enqueueSimulation } from '../services/e3Simulator';
-import { createDocument } from '../services/documentPersistence';
+import { createDocument, deleteDocument, getOrgIdForCboState } from '../services/documentPersistence';
 import { buildOrgProfile } from '@shared/org-profile';
 import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
-import { addCboMessage, flushNow } from '../services/cboAgent';
+import { addCboMessage, flushNow, rereadFiles } from '../services/cboAgent';
+import { upload, uploadErrorHandler, storeDocument, UPLOAD_RUNS_DIR } from './uploadRoutes';
+import { saveAndParseUpload } from '../services/fileParser';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, shownMaturity, encontroClosed, type CboState } from '@shared/cbo-schema';
@@ -1552,6 +1555,7 @@ export function registerCohortRoutes(app: Express): void {
       docs.push({
         filename: d.filename,
         kind: d.kind,
+        purpose: d.purpose ?? null,
         droppedInPhase: d.droppedInPhase,
         summary: d.summary,
         fullText: d.fullText,
@@ -2369,6 +2373,53 @@ export function registerCohortRoutes(app: Express): void {
     // there when the drawer closes, not a debounce later.
     await flushNow(member.cboStateId);
     res.json({ ok: true, visit });
+  }));
+
+  /**
+   * Files the coordination attaches to its technical visit — the visit report,
+   * the photographs a technician took, a sketch. Same intake as the
+   * organisation's own uploads (full text extracted, original kept), stored in
+   * the organisation's locker marked `visita_tecnica` and `source:
+   * 'coordinator'`, so every pass that reads its files reads these too and
+   * names them as the coordination's.
+   *
+   * Then the files are READ: the document reader and the advisor used to run
+   * only inside the organisation's Encontro 3 chat, so a report attached after
+   * it reached nothing a model writes from. `rereadFiles` runs both for the new
+   * set and rewrites what was written from the old one (the concept note, the
+   * pre-note's summary). In the background — the upload answers at once.
+   */
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/visit/files', upload.single('file'), wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    const file = (req as any).file as { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined;
+    if (!file) { res.status(400).json({ error: 'No file uploaded' }); return; }
+    const state = getCboState(member.cboStateId) ?? (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const parsed = await saveAndParseUpload(file.buffer, file.originalname, path.join(UPLOAD_RUNS_DIR, `cbo-${member.cboStateId}`), file.mimetype, lang);
+    const orgId = member.orgId ?? (await getOrgIdForCboState(member.cboStateId).catch(() => null));
+    const doc = await storeDocument(file, parsed, {
+      orgId,
+      cboStateId: member.cboStateId,
+      purpose: 'visita_tecnica',
+      droppedInPhase: state?.phase ?? null,
+      source: 'coordinator',
+    });
+    if (!parsed.parseError) void rereadFiles(member.cboStateId);
+    res.json({ document: toDocumentMeta(doc), parsed: !parsed.parseError, parseError: parsed.parseError ?? null });
+  }), uploadErrorHandler);
+
+  /** Remove a file the coordination attached — only those; the organisation's own stay theirs. */
+  app.delete('/api/cohort/:coordinatorSlug/member/:memberId/visit/files/:docId', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const doc = await getDocumentForScope(req.params.docId, { orgId: member.orgId, cboStateId: member.cboStateId });
+    if (!doc || doc.purpose !== 'visita_tecnica') { res.status(404).json({ error: 'not a file of this visit' }); return; }
+    await deleteDocument(doc.id);
+    // The notes read from it go with it: read the remaining set again.
+    if (member.cboStateId) void rereadFiles(member.cboStateId);
+    res.json({ ok: true });
   }));
 
   /**

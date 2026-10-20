@@ -73,6 +73,8 @@ export function CboFilesDrawer({
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState<string | null>(null);
+  // A file attached in the visit tab belongs on the Arquivos list too.
+  const [filesTick, setFilesTick] = useState(0);
 
   // Reset to the requested tab each time the drawer opens for a member.
   useEffect(() => { if (member) setTab(initialTab); }, [member, initialTab]);
@@ -88,7 +90,7 @@ export function CboFilesDrawer({
       .catch(() => { if (!cancelled) setDocsError(t('files.loadError', { defaultValue: 'Could not load files.' })); })
       .finally(() => { if (!cancelled) setDocsLoading(false); });
     return () => { cancelled = true; };
-  }, [member, cohortSlug, reloadKey, t]);
+  }, [member, cohortSlug, reloadKey, filesTick, t]);
 
   const fetchText = async (docId: string): Promise<string> => {
     if (!member || !cohortSlug) return '';
@@ -270,7 +272,7 @@ export function CboFilesDrawer({
               <CboProfileSummary cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
             </TabsContent>
             <TabsContent value="visita" className="flex-1 min-h-0 overflow-auto mt-2">
-              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
+              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} onFilesChanged={() => setFilesTick(n => n + 1)} />
             </TabsContent>
             {/* ⚠️ What the ORGANISATION took away. Until now nobody on the
                 coordination side could read it: the portfolio exists to carry

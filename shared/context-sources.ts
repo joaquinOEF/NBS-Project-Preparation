@@ -43,6 +43,7 @@ export const CONTEXT_SOURCES = {
   cohort: 'what the other organisations in this cohort are doing',
   artefacts: 'what earlier passes produced — the dossier, roadmap, concept note',
   city: "the city's own plans and maps — the PLAC and its 30 actions, the 2025 Plano Diretor, Regenera Dilúvio, Centro+4D, and what SMAMUS's map layers say at the marked site (knowledge/porto-alegre/city, `npm run city:import`)",
+  visit: "the coordination's technical visit — the solution and size it recommends (`_visit_json`), what it saw on the ground (`technical_note`) and the files it attached (documents marked `visita_tecnica`), always attributed to the coordination, never to the organisation",
 } as const;
 
 export type ContextSource = keyof typeof CONTEXT_SOURCES;
@@ -111,6 +112,8 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: uses,
       artefacts: no('it runs BEFORE the dossier and the note exist'),
       city: uses,
+      // Its reading (`technical_note`) through the record, the attached files as documents labelled as the coordination's — and it runs again when a visit file arrives (cboAgent `rereadFiles`), so its observations reach the concept note and the pre-note.
+      visit: uses,
     },
   },
   {
@@ -131,6 +134,8 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: no('it reads one organisation\'s own files; nothing from another record may reach a card'),
       artefacts: no('it runs BEFORE the comparison and the note exist, and feeds them'),
       city: no('it reads one organisation\'s own files; the city\'s documents are not theirs and must not be confused with what they sent'),
+      // The visit's attachments are read FIRST (a technician's report must not lose its place to a sixth long PDF) and headed as the coordination's; a new one triggers a fresh read (`rereadFiles`).
+      visit: uses,
     },
   },
   {
@@ -157,6 +162,7 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: no('a ranking that depended on the cohort would move under an organisation for reasons it cannot see'),
       artefacts: no('nothing has been produced yet at Encontro 2'),
       city: uses,
+      visit: no('it ranks the famílias in Encontro 2, before Encontro 3 has run — there is no visit yet to read'),
     },
   },
   {
@@ -177,6 +183,7 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: no('what another organisation was asked is not a reason to ask this one; the question has to come from THEIR record'),
       artefacts: uses,
       city: uses,
+      visit: no('it writes questions inside Encontro 3, and the visit happens after Encontro 3 closes; what the visit adds reaches the record through the advisor and the reader, which run again when it does'),
     },
   },
   {
@@ -197,6 +204,7 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: no('what another organisation was asked is not a reason to ask this one — a follow-up has to come from the answer just given'),
       artefacts: uses,
       city: uses,
+      visit: no('it follows up answers given in the Encontro 3 room; the visit comes after that room has closed'),
     },
   },
   {
@@ -230,6 +238,8 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: uses,
       artefacts: uses,
       city: uses,
+      // `technical_note` enters the fact base labelled as the coordination's (concept-note.ts COORDINATION_FIELDS); the attached files arrive pre-digested as the advisor's observations, and both documents are rewritten when a visit file arrives.
+      visit: uses,
     },
   },
   {
@@ -264,6 +274,8 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: uses,
       artefacts: uses,
       city: uses,
+      // The visit's recommendation, the coordination's reading and the attached files (labelled), per organisation.
+      visit: uses,
       // ⚠️ PRE-DIGESTED, never the images themselves. Handing eight
       // organisations' photographs to one cross-organisation call would widen
       // the reach and lose the provenance; the advisor already wrote one-sentence
@@ -298,6 +310,8 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: uses,
       artefacts: uses,
       city: uses,
+      // Through each pre-note: the solution "indicada na visita técnica" and its size, the coordination's reading, the reader's notes from the visit files, and "sem visita técnica" when there was none.
+      visit: uses,
     },
   },
   {
@@ -314,6 +328,8 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: uses,
       artefacts: uses,
       city: uses,
+      // Through the pre-note, as for the narrative: the visit's solution and size, its reading and the notes from its files.
+      visit: uses,
       transcript: no('the pre-note already carries what the encontros captured; the comparison is against plans, not conversation'),
       // Pre-digested through the pre-note: the verified quotes the document
       // reader took from their files, each with its filename.
@@ -348,6 +364,8 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: uses,
       artefacts: uses,
       city: uses,
+      // Each member's record carries the reading; the bundle prints every file's text with its purpose, so a visit report reads as the coordination's.
+      visit: uses,
     },
   },
   {
@@ -370,6 +388,7 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: no('each organisation answers for itself in its own encontro; what the others are doing reaches it only through the workshop'),
       artefacts: no('it runs before the artefacts exist — producing them is what the simulation is for'),
       city: no('the city plans are read by the plan links and the advisor; an organisation answering a workshop question does not cite the PLAC'),
+      visit: no('it plays the ORGANISATION; the visit is the coordination\'s, and the workshop it plays already opens Encontro 4 on the recorded visit'),
     },
   },
   {
@@ -394,6 +413,7 @@ export const MODEL_PASSES: ModelPass[] = [
       cohort: no('there is no cohort on the city path — one city, one plan, no peers to be introduced to'),
       artefacts: no('the CBO artefacts belong to organisations this flow never sees'),
       city: no('it computes impact figures from the fichas and layer statistics; a plan\'s text does not change a computed number'),
+      visit: CITY_SIDE,
     },
   },
 ];
