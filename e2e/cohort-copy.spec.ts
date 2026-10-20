@@ -160,3 +160,36 @@ test.describe('production → staging: a whole cohort, then Encontro 3 for those
     expect(r.status()).toBe(403);
   });
 });
+
+test.describe('the simulator never invents a place', () => {
+  test.use({ locale: 'pt-BR' });
+  test('an organisation with no site on record walks Encontros 3 and 4 and still has no coordinates', async ({ page }) => {
+    // Ksa Rosa, staging copy 19 Oct: no site in production; the walk traced a
+    // footprint at a default coordinate and the pre-portfolio grouped it with
+    // a slope project 9 km away.
+    test.setTimeout(180_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`NoPlace ${randomUUID().slice(0, 6)}`)).cohort;
+    await api.createCoordinator({ email: `noplace-${randomUUID()}@e2e.test`, password: 'pw-123456' });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Sem Lugar', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3] })).member;
+    await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [
+      { sectionId: 'org_profile', field: 'org_name', value: 'Sem Lugar' },
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+      { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+      { sectionId: 'intervention_site', field: 'site_story', value: 'A água entra pelo portão da sede.' },
+      { sectionId: 'intervention_type', field: '_quick_tests', value: 'yes' },
+    ] });
+    const r = await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/simulate-e3`, { data: { memberIds: [m.id] } });
+    expect((await r.json()).queued).toBe(1);
+    await expect.poll(async () => {
+      const s = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/simulations`)).json();
+      const run = s.runs.find((x: any) => x.memberId === m.id);
+      if (run?.status === 'failed') throw new Error(`simulation failed: ${run.error}`);
+      return run?.status;
+    }, { timeout: 150_000, intervals: [2000] }).toBe('done');
+    const st = (await (await page.request.get(`/api/cbo/${m.cboStateId}`)).json()).state;
+    expect(st.sections.intervention_type.fields._e4_closed?.value).toBe('yes');
+    expect(st.sections.intervention_site.fields._site_lat, 'no place was invented').toBeUndefined();
+  });
+});

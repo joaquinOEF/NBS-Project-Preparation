@@ -30,6 +30,8 @@ adapters, never "ask them again", and never a rewrite of their records.
 | 7 | The **E3 concept note, the hoja de ruta / dossier prints and the profile** read `chosen_solutions` only. | Conceito Arte: "skipped: no solution" on each. | `recordedSolutionIds()` — chosen ids, else what made sense, else first-era names. |
 | 8 | A first-era name outside the catalogue (**"Evapotranspiração"**) was dropped silently. | Conceito Arte. | Decided 19 Oct: said on the pre-note — "Também mencionaram: Evapotranspiração (fora do catálogo de soluções)" (`namesOutsideCatalogue`). Not priced, not tested, not lost. |
 
+| 9 | **The simulator invented a place.** With no site on record, it answered the map with a default coordinate (-30.03, -51.20). | Ksa Rosa (no site in production) landed in the Dilúvio basin, and the pre-portfolio grouped it with a slope project 9 km away; the narrative itself said "dois pares com territórios e problemas diferentes". Staging copy only. | `e3Simulator.ts`: a footprint is traced only where the record has the place; otherwise the walk takes the encontro's own way past ("Seguir sem o lugar" / "Ainda não sei o tamanho"). Test in `cohort-copy.spec.ts`. |
+
 ## Fixed by the journey card (`client/src/core/components/orchestrator/JourneyCard.tsx`)
 
 - **A verdict before Encontro 3.** Misturaí (still in Encontro 2) shows

@@ -174,12 +174,28 @@ const field = (state: CboState, section: string, key: string) =>
   String((state.sections as any)?.[section]?.fields?.[key]?.value ?? '').trim();
 
 /** What the client posts after a shape is traced — the place they marked in Encontro 2, at the size it has. */
-function mapPayload(state: CboState): string {
-  const lat = field(state, 'intervention_site', '_site_lat') || field(state, 'intervention_site', 'site_lat') || '-30.03';
-  const lng = field(state, 'intervention_site', '_site_lng') || field(state, 'intervention_site', 'site_lng') || '-51.20';
+/** Whether the record already says where the place is — the only place a walk may trace. */
+function placeOnRecord(state: CboState): boolean {
+  return !!(field(state, 'intervention_site', '_site_lat') || field(state, 'intervention_site', 'site_lat'));
+}
+
+/**
+ * ⚠️ NEVER A PLACE THE ORGANISATION DID NOT MARK. The footprint is traced only
+ * where the record already has the place. A default coordinate here put Ksa
+ * Rosa — no site in production — in the Dilúvio basin, and the pre-portfolio
+ * grouped it with a slope project 9 km away (staging copy, 19 Oct 2026).
+ */
+function mapPayload(state: CboState): string | null {
+  if (!placeOnRecord(state)) return null;
+  const lat = field(state, 'intervention_site', '_site_lat') || field(state, 'intervention_site', 'site_lat');
+  const lng = field(state, 'intervention_site', '_site_lng') || field(state, 'intervention_site', 'site_lng');
   const m2 = Math.round(Number(field(state, 'intervention_site', 'site_area_m2')) || 300);
   return `Map selection (composite mode):\n- [custom] Área desenhada (5 vertices) (drawn area) at (${lat}, ${lng}) · ${m2} m²\nTotal: 1 asset, 0 sampled points`;
 }
+
+/** The encontro's own way past the map when there is no place to trace. */
+const NO_PLACE: Record<3 | 4, string> = { 3: 'Ainda não sei o tamanho', 4: 'Seguir sem o lugar' };
+const MARKS_A_PLACE = /marcar o lugar|desenhar no mapa|mark the place|draw on the map/i;
 
 async function simulate(memberId: string, cboId: string, baseUrl: string, run: SimRun): Promise<void> {
   const state0 = await loadState(cboId);
@@ -213,7 +229,8 @@ async function walk(n: 3 | 4, cboId: string, baseUrl: string, run: SimRun, lang:
     if (closedNow(state, n)) break;
 
     if (events.some(e => e.type === 'open_map')) {
-      turn = { message: mapPayload(state), turnKind: 'map' };
+      const payload = mapPayload(state);
+      turn = payload ? { message: payload, turnKind: 'map' } : { message: NO_PLACE[n], turnKind: 'chip' };
       continue;
     }
     const ask = [...events].reverse().find(e => e.type === 'ask_user');
@@ -307,7 +324,9 @@ const PlayerReply = z.object({
 });
 
 async function answerFor(n: 3 | 4, state: CboState, cboId: string, ask: any, lastSaid: string, lang: 'pt' | 'en', useModel: boolean): Promise<Answer> {
-  const opts: Option[] = (ask.options ?? []).map((o: any) => ({ label: String(o.label), description: o.description, action: o.action }));
+  const all: Option[] = (ask.options ?? []).map((o: any) => ({ label: String(o.label), description: o.description, action: o.action }));
+  // No place on record → the options that would mark one are not offered to the player.
+  const opts = placeOnRecord(state) ? all : all.filter(o => !MARKS_A_PLACE.test(o.label));
   const composes = opts.some(o => o.action === 'write' || o.action === 'record') || !opts.length;
   if (!useModel) return policyAnswer(n, state, opts, composes, lang);
 
