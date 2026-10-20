@@ -24,6 +24,7 @@
 //     said. That is the honest answer to "the photos and the voice note — what
 //     did they change?", including when the answer is "nothing, we fell back".
 
+import { documentPurposeLabel } from '@shared/document-purpose';
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 import { CBO_SECTIONS, isInternalCboField } from '@shared/cbo-schema';
 import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES } from '@shared/cbo-field-catalog';
@@ -38,9 +39,14 @@ import {
   PHILANTHROPIC_VS_COMMERCIAL,
 } from '@shared/funding-sources';
 
+/** How much of each file's text the bundle carries. */
+const BUNDLE_DOC_CHARS = 4000;
+
 export interface BundleDoc {
   filename: string;
   kind: string | null;
+  /** Why it was sent — `visita_tecnica` reads as the coordination's, not the organisation's. */
+  purpose?: string | null;
   droppedInPhase: number | null;
   summary: string | null;
   fullText: string | null;
@@ -300,8 +306,16 @@ export function buildContextMarkdown(input: BundleInput): string {
   L.push('## Arquivos enviados', '');
   if (!docs.length) L.push('_Nenhum arquivo._', '');
   for (const d of docs) {
-    L.push(`- \`arquivos/${d.filename}\`${d.kind ? ` (${d.kind})` : ''}${d.droppedInPhase ? ` · Encontro ${d.droppedInPhase}` : ''}`);
-    if (d.summary) L.push(`  - ${d.summary.replace(/\s+/g, ' ').trim().slice(0, 400)}`);
+    const why = documentPurposeLabel(d.purpose);
+    L.push(`- \`arquivos/${d.filename}\`${d.kind ? ` (${d.kind})` : ''}${d.droppedInPhase ? ` · Encontro ${d.droppedInPhase}` : ''}${why ? ` · ${why}` : ''}`);
+    // The text itself, not only the 280-character summary: a reader handed
+    // this folder (and the project's shared session, which is built from it)
+    // used to see a précis of a visit report and never the report. Bounded
+    // per file; the original is beside it in arquivos/.
+    const body = (d.fullText ?? '').replace(/\s+/g, ' ').trim();
+    if (body && d.kind !== 'image') {
+      L.push(`  - ${body.slice(0, BUNDLE_DOC_CHARS)}${body.length > BUNDLE_DOC_CHARS ? ` … (${body.length} caracteres no total — o arquivo inteiro está em arquivos/)` : ''}`);
+    } else if (d.summary) L.push(`  - ${d.summary.replace(/\s+/g, ' ').trim().slice(0, 400)}`);
   }
   L.push('');
 

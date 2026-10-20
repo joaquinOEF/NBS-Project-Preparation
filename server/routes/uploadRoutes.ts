@@ -6,7 +6,7 @@ import { transcribeAudio } from "../services/fileExtract";
 import { getCboState, setCboState, debouncedPersist } from "../services/cboAgent";
 import { createDocument, getOrgIdForCboState, updateDocumentStorageKey, getDocumentById } from "../services/documentPersistence";
 import { putObject, getObject, blobKey } from "../services/blobStorage";
-import type { DocumentKind } from "@shared/document-schema";
+import type { DocumentKind, DocumentPurpose, DocumentRow } from "@shared/document-schema";
 
 // Map an upload to the document kind (mirrors fileExtract's routing).
 function kindFromUpload(filename: string, mime?: string): DocumentKind {
@@ -29,12 +29,12 @@ const RUNS_DIR = path.join(process.cwd(), 'knowledge', 'runs');
 // documents, spreadsheets, images (vision), and audio (transcription).
 const MAX_UPLOAD_MB = 25;
 
-const upload = multer({
+export const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 }, // audio recordings run larger than docs
   fileFilter: (_req, file, cb) => {
     const allowed = [
-      '.pdf', '.docx', '.xlsx', '.txt', '.md', '.csv', '.tsv', '.json',      // docs
+      '.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.md', '.csv', '.tsv', '.json', // docs
       '.png', '.jpg', '.jpeg', '.gif', '.webp',                              // images
       '.mp3', '.wav', '.m4a', '.webm', '.ogg', '.oga', '.opus', '.aac', '.flac', // audio
     ];
@@ -72,7 +72,7 @@ const audioUpload = multer({
 //
 // These are the only two ways multer can refuse, and each has a fix the org can
 // actually act on.
-function uploadErrorHandler(err: any, _req: Request, res: Response, next: NextFunction) {
+export function uploadErrorHandler(err: any, _req: Request, res: Response, next: NextFunction) {
   if (!err) return next();
   if (err?.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({
@@ -91,6 +91,44 @@ function uploadErrorHandler(err: any, _req: Request, res: Response, next: NextFu
   console.error('[upload] rejected:', err?.message || err);
   return res.status(500).json({ error: String(err?.message ?? err) });
 }
+
+/**
+ * The durable half of an upload: the documents row with the FULL extracted text,
+ * then the original in object storage. One path for every uploader — the
+ * organisation's chat and the coordination's technical visit — so a file reads
+ * the same to every pass whoever sent it.
+ */
+export async function storeDocument(
+  file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
+  parsed: { content: string; parseError?: string | null; caption?: string | null },
+  meta: { orgId: string | null; cboStateId: string | null; purpose: DocumentPurpose | null; droppedInPhase: number | null; source: 'upload' | 'coordinator' },
+): Promise<DocumentRow> {
+  const { content, parseError, caption } = parsed;
+  const doc = await createDocument({
+    orgId: meta.orgId,
+    cboStateId: meta.cboStateId,
+    filename: file.originalname,
+    mimeType: file.mimetype,
+    kind: kindFromUpload(file.originalname, file.mimetype),
+    purpose: meta.purpose,
+    sizeBytes: file.size,
+    fullText: parseError ? null : content,
+    // A photo's summary is its caption — what the Perfil prints under it.
+    summary: parseError ? null : caption ?? content.slice(0, 280),
+    droppedInPhase: meta.droppedInPhase,
+    source: meta.source,
+    parseStatus: parseError ? 'failed' : 'parsed',
+    parseError: parseError ?? null,
+  });
+  // Phase 2b: persist the ORIGINAL file durably (object storage) so it
+  // survives container recycle and can be re-opened/re-processed.
+  // Best-effort — a blob failure leaves the full text intact.
+  const key = await putObject(blobKey(meta.orgId, doc.id, file.originalname), file.buffer);
+  if (key) await updateDocumentStorageKey(doc.id, key);
+  return doc;
+}
+
+export const UPLOAD_RUNS_DIR = RUNS_DIR;
 
 export function registerUploadRoutes(app: Express): void {
   // Upload a file for a concept note or CBO session
@@ -139,31 +177,17 @@ export function registerUploadRoutes(app: Express): void {
         // Best-effort: a doc-store failure must not fail the upload.
         try {
           const orgId = await getOrgIdForCboState(sessionId);
-          const doc = await createDocument({
+          await storeDocument(file, { content, parseError, caption }, {
             orgId,
             cboStateId: sessionId,
-            filename: file.originalname,
-            mimeType: file.mimetype,
-            kind: kindFromUpload(file.originalname, file.mimetype),
             // Why it was sent, when the client knows — today only the Teia
             // Sprint chip sets it. `kind` stays the format: a Teia application
             // is a pdf like any other pdf, and the coordination team still has
             // to find it among the site photos.
             purpose: req.body?.purpose === 'teia_sprint' ? 'teia_sprint' : null,
-            sizeBytes: file.size,
-            fullText: parseError ? null : content,
-            // A photo's summary is its caption — what the Perfil prints under it.
-            summary: parseError ? null : caption ?? content.slice(0, 280),
             droppedInPhase: state?.phase ?? null,
             source: 'upload',
-            parseStatus: parseError ? 'failed' : 'parsed',
-            parseError,
           });
-          // Phase 2b: persist the ORIGINAL file durably (object storage) so it
-          // survives container recycle and can be re-opened/re-processed.
-          // Best-effort — a blob failure leaves the full text intact.
-          const key = await putObject(blobKey(orgId, doc.id, file.originalname), file.buffer);
-          if (key) await updateDocumentStorageKey(doc.id, key);
         } catch (e: any) {
           console.error('[upload] doc-store write failed (continuing):', e?.message || e);
         }

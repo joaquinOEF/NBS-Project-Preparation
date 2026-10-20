@@ -37,6 +37,7 @@ import { approvalRequirement } from './nbs-approvals';
 import { parseTests, REACTION, type TestReaction } from './w3-tests';
 import { fundingMatches } from './funding-sources';
 import { HARDEST, CRITERIA, parseCriteria, type HardestId } from './w3-criteria';
+import { parseVisit, visitSummary } from './e4-visit';
 import { notesFromInput, toCardNote, DOCUMENT_NOTES_FIELD } from './w3-document-notes';
 
 /**
@@ -81,6 +82,8 @@ export interface SynergyMember {
   tested?: TestedFact[];
   /** The coordination's technical reading of this organisation, when entered. */
   technicalNote?: string | null;
+  /** The technical visit's recommendation — solution, size, date (shared/e4-visit.ts). */
+  visitPt?: string | null;
   /** "O que pesa mais pra escolher?" — criterion ids (shared/w3-criteria.ts). */
   choiceCriteria?: string[];
   /**
@@ -607,6 +610,7 @@ export type SynergyFacts = {
   areaM2: number | null;
   tested?: TestedFact[];
   technicalNote?: string | null;
+  visitPt?: string | null;
   choiceCriteria: string[];
   fileNotesPt: string[];
   studiesDone: string[];
@@ -720,6 +724,7 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
       units: t.units ?? null,
     })),
     technicalNote: f('intervention_type', 'technical_note') || null,
+    visitPt: (() => { const v = parseVisit(f('intervention_type', '_visit_json')); return v ? visitSummary(v, 'pt') : null; })(),
     choiceCriteria: parseCriteria(f('intervention_type', '_choice_criteria')),
     // Verified, third person, with the file named — the same notes the card and
     // the comparison print. Their contras first (they decide), then the place.
@@ -747,10 +752,11 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
  * `tested` and `technicalNote` out of the cohort report for weeks: declared on
  * the type, printed by the prompt when present, never copied by the route.
  */
-export function synergyExtrasFrom(facts: SynergyFacts | null | undefined): Pick<SynergyMember, 'tested' | 'technicalNote' | 'choiceCriteria' | 'fileNotesPt' | 'studiesDone'> {
+export function synergyExtrasFrom(facts: SynergyFacts | null | undefined): Pick<SynergyMember, 'tested' | 'technicalNote' | 'visitPt' | 'choiceCriteria' | 'fileNotesPt' | 'studiesDone'> {
   return {
     tested: facts?.tested ?? [],
     technicalNote: facts?.technicalNote ?? null,
+    visitPt: facts?.visitPt ?? null,
     choiceCriteria: facts?.choiceCriteria ?? [],
     fileNotesPt: facts?.fileNotesPt ?? [],
     studiesDone: facts?.studiesDone ?? [],

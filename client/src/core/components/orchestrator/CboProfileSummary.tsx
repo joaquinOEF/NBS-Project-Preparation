@@ -7,7 +7,8 @@ import { HEALTH_LABEL, type HealthEntry, type HealthKind } from '@shared/session
 import { useEffect, useState } from 'react';
 import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
-import { Loader2, FileText, Check } from 'lucide-react';
+import { Loader2, FileText, Check, Paperclip, X } from 'lucide-react';
+import type { DocumentMeta } from '@shared/document-schema';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
 import { parseVisit, visitOptions, visitSummary, sizedByUnits } from '@shared/e4-visit';
 import { parseTests } from '@shared/w3-tests';
@@ -173,7 +174,103 @@ function VisitEditor({ cohortSlug, memberId, fields }: { cohortSlug: string; mem
  * place to record what the visit indicated. Opened from the roster card's
  * "Visita técnica" button, so nobody has to dig for it inside the profile.
  */
-export function VisitPanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: string; memberId: string; reloadKey: number }) {
+const VISIT_FILE_ACCEPT = '.pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*';
+
+/**
+ * What the visit brought back on paper — the report, a technician's photos, a
+ * sketch. Each file is saved the moment it is chosen (no Salvar), into the
+ * organisation's locker marked as the coordination's visit, and then READ: the
+ * passes that turn files into notes run again, so what is in the report reaches
+ * the comparison, the concept note, the pre-note, the synergy report and the
+ * pre-portfolio — always named as the coordination's, never the organisation's.
+ */
+function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; memberId: string; onChanged?: () => void }) {
+  const { t } = useTranslation();
+  const base = `/api/cohort/${cohortSlug}/member/${memberId}`;
+  const [files, setFiles] = useState<DocumentMeta[] | null>(null);
+  const [sending, setSending] = useState<string[]>([]);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [over, setOver] = useState(false);
+  const load = () =>
+    fetch(`${base}/documents`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => setFiles(((d.documents ?? []) as DocumentMeta[]).filter(x => x.purpose === 'visita_tecnica')))
+      .catch(() => setFiles([]));
+  useEffect(() => { void load(); }, [base]);
+
+  const send = async (list: FileList | File[]) => {
+    setProblem(null);
+    for (const f of Array.from(list)) {
+      setSending(s => [...s, f.name]);
+      const body = new FormData();
+      body.append('file', f);
+      const r = await fetch(`${base}/visit/files`, { method: 'POST', credentials: 'include', body }).catch(() => null);
+      const data = r ? await r.json().catch(() => ({})) : {};
+      setSending(s => s.filter(x => x !== f.name));
+      if (!r?.ok) { setProblem(data?.reason ?? data?.error ?? t('cboView.visitFileFailed', { defaultValue: 'Não foi possível anexar {{name}}.', name: f.name })); continue; }
+      if (data.parsed === false) setProblem(t('cboView.visitFileUnread', { defaultValue: '{{name}} foi guardado, mas não conseguimos ler o texto dele.', name: f.name }));
+      if (data.document) { setFiles(cur => [data.document as DocumentMeta, ...(cur ?? [])]); onChanged?.(); }
+    }
+  };
+  const remove = async (id: string) => {
+    const r = await fetch(`${base}/visit/files/${id}`, { method: 'DELETE', credentials: 'include' }).catch(() => null);
+    if (r?.ok) { setFiles(cur => (cur ?? []).filter(x => x.id !== id)); onChanged?.(); }
+  };
+
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 space-y-2 transition-colors ${over ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-amber-200/70 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20'}`}
+      onDragOver={e => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => { e.preventDefault(); setOver(false); if (e.dataTransfer.files?.length) void send(e.dataTransfer.files); }}
+      data-testid="visit-files"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('cboView.visitFiles', { defaultValue: 'Arquivos da visita' })}
+        </span>
+        <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium hover:bg-muted/50">
+          <Paperclip className="h-3 w-3" />
+          {t('cboView.visitFilesAdd', { defaultValue: 'Anexar' })}
+          <input type="file" multiple accept={VISIT_FILE_ACCEPT} className="hidden" data-testid="visit-files-input"
+            onChange={e => { if (e.target.files?.length) void send(e.target.files); e.target.value = ''; }} />
+        </label>
+      </div>
+      <p className="text-[11.5px] leading-snug text-muted-foreground">
+        {t('cboView.visitFilesHint', { defaultValue: 'O relatório da visita, fotos, um croqui. Cada arquivo é lido e o que importa vai para a comparação, a pré-nota, o relatório de sinergias e o pré-portfólio — sempre como da coordenação. Arraste para cá ou anexe.' })}
+      </p>
+      {files === null ? (
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      ) : (
+        <ul className="space-y-1" data-testid="visit-files-list">
+          {files.map(f => (
+            <li key={f.id} className="flex items-center gap-2 text-[12.5px]" data-testid={`visit-file-${f.id}`}>
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {f.hasOriginal
+                ? <a href={`/api/documents/${f.id}/original`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate hover:underline">{f.filename}</a>
+                : <span className="min-w-0 flex-1 truncate">{f.filename}</span>}
+              <button type="button" onClick={() => void remove(f.id)} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={t('cboView.visitFileRemove', { defaultValue: 'Remover {{name}}', name: f.filename }) as string} data-testid={`visit-file-remove-${f.id}`}>
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+          {sending.map(n => (
+            <li key={`sending-${n}`} className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />{t('cboView.visitFileSending', { defaultValue: 'Lendo {{name}}…', name: n })}
+            </li>
+          ))}
+          {files.length === 0 && sending.length === 0 && (
+            <li className="text-[11.5px] italic text-muted-foreground/80">{t('cboView.visitFilesNone', { defaultValue: 'Nenhum arquivo anexado.' })}</li>
+          )}
+        </ul>
+      )}
+      {problem && <p className="text-[11.5px] text-destructive" data-testid="visit-files-problem">{problem}</p>}
+    </div>
+  );
+}
+
+export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged }: { cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void }) {
   const { t } = useTranslation();
   const [fields, setFields] = useState<Record<string, { value?: unknown } | undefined> | null>(null);
   const [error, setError] = useState(false);
@@ -191,6 +288,7 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: st
   return (
     <div className="space-y-3 py-1 text-sm">
       <VisitEditor key={`${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} fields={fields} />
+      <VisitFiles key={`files-${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} onChanged={onFilesChanged} />
     </div>
   );
 }

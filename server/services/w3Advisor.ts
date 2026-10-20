@@ -34,6 +34,7 @@
 //               no single org could ever reach on its own.
 // ============================================================================
 
+import { documentPurposeLabel } from '@shared/document-purpose';
 import { cityMapFor } from './siteContext';
 import { z } from 'zod';
 import { createStructured, structuredProvider, type ContentPart } from './structuredModel';
@@ -248,7 +249,7 @@ export function buildPrompt(input: AdvisorInput): string {
 
   const docText = docs
     .filter(d => d.fullText && d.fullText.trim().length > 40)
-    .map(d => `### ${d.filename}${d.purpose ? ` (${d.purpose})` : ''}\n${d.fullText!.slice(0, 12_000)}`)
+    .map(d => `### ${d.filename}${documentPurposeLabel(d.purpose) ? ` (${documentPurposeLabel(d.purpose)})` : ''}\n${d.fullText!.slice(0, 12_000)}`)
     .join('\n\n');
 
   const fichas = questionCtx.solutions
