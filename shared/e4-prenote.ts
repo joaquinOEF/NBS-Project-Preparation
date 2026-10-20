@@ -107,6 +107,8 @@ export interface BudgetRow {
   low?: number;
   high?: number;
   source: string;
+  /** What the row is for — so a page can say what a total leaves out without parsing labels. */
+  kind?: 'obra' | 'estudos' | 'manutencao' | 'contrapartida';
 }
 
 export interface PrenoteReview {
@@ -412,6 +414,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
     value: line?.lowBrl != null ? range(line.lowBrl, line.highBrl ?? line.lowBrl, lang) : (pt ? 'a cotar' : 'to be quoted'),
     ...(line?.lowBrl != null ? { low: line.lowBrl, high: line.highBrl ?? line.lowBrl } : {}),
     source: pt ? 'preço de referência da ficha' : "the ficha's reference price",
+    kind: 'obra',
   });
   const study = studyRequirement(sol.id, site);
   const studyLine = study ? studyCostLine(study.pt, lang) : null;
@@ -432,16 +435,20 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
           : (pt ? 'a cotar' : 'to be quoted'),
     ...(studyPriced ? { low: sc!.lowBrl!, high: sc!.highBrl ?? sc!.lowBrl! } : {}),
     source: study ? (pt ? `${study.pt} — custos de estudo` : `${study.en} — study costs`) : (pt ? 'ficha da solução' : "the solution's ficha"),
+    // No study required is not a gap in the sum.
+    ...(study ? { kind: 'estudos' as const } : {}),
   });
   budget.push({
     label: pt ? 'Manutenção no 1º ano' : 'Upkeep, first year',
     value: has(ops.opex_band) ? display('operations_sustain', 'opex_band', ops.opex_band) : (pt ? 'a levantar' : 'to be estimated'),
     source: has(ops.opex_band) ? (pt ? 'estimativa da organização' : "the organisation's estimate") : (pt ? 'a ficha descreve o cuidado, sem valor' : 'the ficha describes the upkeep, with no figure'),
+    kind: 'manutencao',
   });
   budget.push({
     label: pt ? 'Contrapartida da organização' : "The organisation's contribution",
     value: has(type.e4_contribution) ? type.e4_contribution.trim() : (pt ? 'a definir' : 'to be defined'),
     source: has(type.e4_contribution) ? theirs : (pt ? 'ainda não respondido' : 'not answered yet'),
+    kind: 'contrapartida',
   });
   const priced = budget.filter(b => b.low != null);
   const total = priced.length ? { low: priced.reduce((n, b) => n + (b.low ?? 0), 0), high: priced.reduce((n, b) => n + (b.high ?? 0), 0) } : null;
