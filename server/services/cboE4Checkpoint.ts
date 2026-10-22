@@ -25,7 +25,7 @@
 import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
-import { getSolution, NBS_SOLUTIONS } from '@shared/nbs-catalog';
+import { getSolution, NBS_SOLUTIONS, orderSolutionsByMechanism, mechanismNote, type NbsSolution } from '@shared/nbs-catalog';
 import { testOf } from '@shared/w3-tests';
 import { testsOf, solutionsNamedIn } from '@shared/recorded-solutions';
 import { SOLUTION_COSTS, roundAreaM2 } from '@shared/w3-sizing';
@@ -53,6 +53,12 @@ export interface E4Deps {
   extras?(): Promise<Pick<PrenoteInput, 'photos' | 'cohort'>>;
   /** At the close: the summary written over the facts (fire and forget). */
   startAuthoring?(): void;
+  /**
+   * A file arrived or they told us something new: read their files and notes
+   * again (cboAgent `rereadFiles` — the reader, the advisor and, once Encontro 4
+   * has closed, the proposal's summary). Fire and forget.
+   */
+  rereadFiles?(): void;
 }
 
 const SITE = 'intervention_site';
@@ -85,6 +91,8 @@ export const E4C = {
   issoEMais: { pt: 'Isso, e mais coisa', en: 'That, and more' },
   naoEBemIsso: { pt: 'Não é bem isso', en: 'Not quite' },
   soIsso: { pt: 'Só isso', en: "That's all" },
+  anexar: { pt: '📎 Anexar arquivos', en: '📎 Attach files' },
+  podeSeguir: { pt: 'Pode seguir', en: 'Carry on' },
 } as const;
 
 /** "Mudar algo" → which part. Each clears the answers behind it and asks again. */
@@ -126,7 +134,7 @@ const MAINTAIN = [
 const WHO_TO_BUILD: Record<WhoId, string> = { nos: 'mutirao', 'nos-com-parceiro': 'mista', contratar: 'contratada', ninguem: 'indefinido', 'nao-sei': 'indefinido' };
 
 type Step =
-  | 'close-e3' | 'solution' | 'size' | 'place' | 'problem' | 'draft'
+  | 'close-e3' | 'solution' | 'size' | 'place' | 'problem' | 'contexto' | 'draft'
   | 'beneficiarios' | 'mudancas' | 'quem-faz-obra' | 'quem-cuida' | 'contrapartida' | 'parceiros'
   | 'approve' | 'done';
 
@@ -171,12 +179,12 @@ async function serveE4Inner(
   const writeType = (f: Record<string, string>) => deps.writeFields(TYPE, f);
 
   const say = (pt: string, en: string) => pushEvent({ type: 'chat', content: isPt ? pt : en, role: 'assistant' } as any);
-  type Opt = { pt: string; en: string; dPt?: string; dEn?: string };
+  type Opt = { pt: string; en: string; dPt?: string; dEn?: string; action?: string };
   const ask = (qPt: string, qEn: string, opts: Opt[]) =>
     pushEvent({
       type: 'ask_user',
       question: isPt ? qPt : qEn,
-      options: opts.map(o => ({ label: isPt ? o.pt : o.en, description: isPt ? (o.dPt ?? '') : (o.dEn ?? '') })),
+      options: opts.map(o => ({ label: isPt ? o.pt : o.en, description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''), ...(o.action ? { action: o.action } : {}) })),
     } as any);
   const finish = (detail: string): true => {
     pushEvent({ type: 'done', summary: `E4 checkpoint (${detail})` } as any);
@@ -202,12 +210,14 @@ async function serveE4Inner(
   // ── Where are we? Derived, never stored. ──────────────────────────────────
   const step = (): Step => {
     if (type('_e4_closed') === 'yes' && type('_e4_reopened') !== 'yes') return 'done';
-    if (type('_e3_closed') !== 'yes') return 'close-e3';
+    // Skipped by the coordination ("Levar ao Encontro 4") — not offered a close it never reached.
+    if (type('_e3_closed') !== 'yes' && type('_e3_skipped') !== 'yes') return 'close-e3';
     const sol = solution();
     if (!sol) return 'solution';
     if (type('_e4_size_ok') !== 'yes') return 'size';
     if (!hasPlace() && type('_e4_place_skipped') !== 'yes') return 'place';
     if (type('_e4_problem_ok') !== 'yes') return 'problem';
+    if (type('_skip_json') && type('_e4_context_done') !== 'yes') return 'contexto';
     if (type('_e4_draft_shown') !== 'yes') return 'draft';
     if (!site('beneficiaries_note')) return 'beneficiarios';
     if (!type('_e4_changes')) return 'mudancas';
@@ -264,6 +274,16 @@ async function serveE4Inner(
           );
         }
         writeType({ _e4_solution_pending: 'pick' });
+        // ⚠️ Nothing tested and no visit (an organisation the coordination
+        // took straight to Encontro 4, or an Encontro 3 that ended empty): the
+        // only chip used to be "Outra solução — escreve o nome", and its "Pular"
+        // came back here — someone who only taps could never pick (e4-fuzz I9,
+        // "nothing-tested"). Four from the catalogue instead: the families they
+        // said interest them first, the ones answering their worry on top.
+        const interest = site('nbs_interest').split(',').map(x => x.trim()).filter(Boolean);
+        const pool: NbsSolution[] = interest.length ? NBS_SOLUTIONS.filter(x => interest.includes(x.familiaId)) : NBS_SOLUTIONS;
+        const worriesNamed = site('site_worry').split(',').map(w => w.trim()).filter(Boolean);
+        const suggested = ordered.length ? [] : orderSolutionsByMechanism(pool.length ? pool : NBS_SOLUTIONS, worriesNamed).slice(0, 4);
         ask(
           ordered.length ? 'Qual solução vira a pré-nota?' : 'No Encontro 3 nenhuma solução foi testada. Qual vira a pré-nota?',
           ordered.length ? 'Which solution becomes the pre-note?' : 'No solution was tested in Encontro 3. Which one becomes the pre-note?',
@@ -273,6 +293,10 @@ async function serveE4Inner(
               dPt: t.reaction === 'faz-sentido' ? 'Fez sentido no Encontro 3' : 'Testada no Encontro 3',
               dEn: t.reaction === 'faz-sentido' ? 'Made sense in Encontro 3' : 'Tested in Encontro 3',
             })),
+            ...suggested.map(x => {
+              const why = mechanismNote(x.id, worriesNamed, L);
+              return { pt: label(x.id), en: label(x.id), ...(why ? { dPt: why, dEn: why } : {}) };
+            }),
             { pt: E4C.outraSolucao.pt, en: E4C.outraSolucao.en, dPt: 'Escreve o nome aqui embaixo', dEn: 'Write its name below' },
           ],
         );
@@ -318,6 +342,17 @@ async function serveE4Inner(
         const worries = site('site_worry').split(',').map(w => w.trim()).filter(Boolean)
           .map(w => WORRY_SUBTYPES.find(x => x.id === w)).filter(Boolean).map(w => (isPt ? w!.dPt : w!.dEn).toLowerCase());
         writeType({ _e4_problem_pending: 'yes' });
+        // ⚠️ Nothing on record (Encontro 2 skipped, or never answered): ask it,
+        // in Encontro 2's own words — not "continua o mesmo do Encontro 2?".
+        if (!worries.length && !site('site_story')) {
+          writeType({ _e4_problem_pick: 'yes' });
+          ask(
+            'Qual é o problema principal que essa solução enfrenta aqui?',
+            'What is the main problem this solution takes on here?',
+            WORRY_SUBTYPES.map(w => ({ pt: w.pt, en: w.en, dPt: w.dPt, dEn: w.dEn })),
+          );
+          return finish(detail);
+        }
         ask(
           worries.length
             ? `E o problema que essa solução enfrenta continua sendo **${worries.join('; ')}**${site('site_name') ? ` em ${site('site_name')}` : ''}?`
@@ -327,6 +362,23 @@ async function serveE4Inner(
             : 'Is the problem this solution takes on still the one from Encontro 2?',
           [{ pt: E4C.isso.pt, en: E4C.isso.en }, { pt: E4C.mudou.pt, en: E4C.mudou.en, dPt: 'Conta o que mudou aqui embaixo', dEn: 'Tell what changed below' }],
         );
+        return finish(detail);
+      }
+      case 'contexto': {
+        // The coordination skipped Encontro 2 or 3, so what those encontros
+        // would have gathered — their story, what they already did, their
+        // material — is asked once, open: in words, by audio or as files. A
+        // note goes to project_notes (every pass reads it); a file goes the way
+        // every upload goes, and both are read again (deps.rereadFiles).
+        writeType({ _e4_context_pending: 'yes' });
+        say(
+          'Antes de montar a proposta: tem alguma coisa sobre o lugar, sobre o que vocês já fizeram ou sobre quem está junto que a gente ainda não sabe? Pode escrever, mandar um áudio ou anexar arquivos — o relatório da visita, fotos, um projeto. Tudo é lido e entra na proposta.',
+          'Before we put the proposal together: is there anything about the place, what you have already done or who is with you that we do not know yet? Write it, send an audio or attach files — the visit report, photos, a design. Everything is read and goes into the proposal.',
+        );
+        ask('Querem acrescentar algo?', 'Anything to add?', [
+          { pt: E4C.anexar.pt, en: E4C.anexar.en, dPt: 'Abre pra escolher os arquivos', dEn: 'Opens the file chooser', action: 'upload_then_answer' },
+          { pt: E4C.podeSeguir.pt, en: E4C.podeSeguir.en, dPt: 'Montar a proposta', dEn: 'Build the proposal' },
+        ]);
         return finish(detail);
       }
       case 'draft': {
@@ -509,8 +561,67 @@ async function serveE4Inner(
   const sizePending = type('_e4_size_pending');
   const gap = type('_e4_gap_pending');
 
+  // A file, at any step: read again, so the proposal and every pass after it
+  // see it. At the context step it is the answer, acknowledged on the spot.
+  if (turnKind === 'upload' || raw.startsWith('Uploaded "')) {
+    deps.rereadFiles?.();
+    if (type('_e4_context_pending') === 'yes') {
+      say('Recebi ✓ — está sendo lido e entra na proposta.', 'Got it ✓ — it is being read and goes into the proposal.');
+      ask('Mais alguma coisa?', 'Anything else?', [
+        { pt: E4C.anexar.pt, en: E4C.anexar.en, action: 'upload_then_answer' },
+        { pt: E4C.podeSeguir.pt, en: E4C.podeSeguir.en, dPt: 'Montar a proposta', dEn: 'Build the proposal' },
+      ]);
+      return finish('context-file');
+    }
+    return false;
+  }
+
+  // The problem, picked from Encontro 2's own options when nothing was on record.
+  if (type('_e4_problem_pick') === 'yes' && type('_e4_problem_pending') === 'yes') {
+    const w = WORRY_SUBTYPES.find(x => is({ pt: x.pt, en: x.en }));
+    if (w && w.id !== 'other') {
+      deps.writeFields(SITE, { site_worry: w.id });
+      writeType({ _e4_problem_ok: 'yes', _e4_problem_pending: '', _e4_problem_pick: '' });
+      say(`${isPt ? w.pt : w.en} ✓`, `${isPt ? w.pt : w.en} ✓`);
+      return serve('problem-picked');
+    }
+    if (w) {
+      writeType({ _e4_problem_pick: '' });
+      ask('Me conta o que é — aqui embaixo.', 'Tell me what it is — below.', [{ pt: E4C.pular.pt, en: E4C.pular.en }]);
+      return finish('problem-other');
+    }
+  }
+  if (type('_e4_problem_pending') === 'yes' && is(E4C.pular)) {
+    writeType({ _e4_problem_ok: 'yes', _e4_problem_pending: '', _e4_problem_pick: '' });
+    return serve('problem-skipped');
+  }
+
+  // The context step's chips.
+  if (type('_e4_context_pending') === 'yes') {
+    if (is(E4C.podeSeguir)) {
+      writeType({ _e4_context_done: 'yes', _e4_context_pending: '' });
+      return serve('context-done');
+    }
+    if (is(E4C.anexar)) {
+      say('Pode anexar aqui embaixo. Quando terminar, toca em **Pode seguir**.', 'Attach below. When you are done, tap **Carry on**.');
+      ask('Quando terminar de anexar:', 'When you finish attaching:', [{ pt: E4C.podeSeguir.pt, en: E4C.podeSeguir.en }]);
+      return finish('context-upload-open');
+    }
+  }
+
   // ── Free text the encontro is waiting for ────────────────────────────────
   if (isFree && raw) {
+    // What they add at the context step is theirs, kept whole as a note.
+    if (type('_e4_context_pending') === 'yes') {
+      deps.writeFields(TYPE, { project_notes: [type('project_notes'), raw.slice(0, 1500)].filter(Boolean).join('\n') });
+      deps.rereadFiles?.();
+      say('Anotado ✓ — entra na proposta.', 'Noted ✓ — it goes into the proposal.');
+      ask('Mais alguma coisa?', 'Anything else?', [
+        { pt: E4C.anexar.pt, en: E4C.anexar.en, action: 'upload_then_answer' },
+        { pt: E4C.podeSeguir.pt, en: E4C.podeSeguir.en, dPt: 'Montar a proposta', dEn: 'Build the proposal' },
+      ]);
+      return finish('context-said');
+    }
     // ⚠️ A name TYPED at "Qual vira a pré-nota?" is an answer too — not only
     // after "Outra solução". Before, it went to the model, which chose nothing,
     // and the question came back (simulated Conceito Arte, 47 turns, 17 Oct).

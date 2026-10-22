@@ -37,6 +37,8 @@ export interface JourneyCardData {
     visit: { solutionId: string; summary: string } | null;
     tests?: Array<{ id: string; reaction: string | null }>;
     closed?: { e2: boolean; e3: boolean; e4: boolean };
+    /** Skipped by the coordination ("Levar ao Encontro 4") — passed, not done. */
+    skipped?: { e2: boolean; e3: boolean };
   };
 }
 
@@ -56,10 +58,13 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 /** The one rule: the next thing that has to happen for this organisation, and who does it. */
 export function nextStepOf(p: Pick<JourneyCardData, 'phase' | 'w3'>): NextStep {
   const raw = p.w3.closed ?? { e2: false, e3: false, e4: false };
+  // An encontro the coordination skipped is passed: the next step is what
+  // comes after it, never "Terminar o Encontro 2" again.
+  const sk = p.w3.skipped ?? { e2: false, e3: false };
   // The furthest encontro closed decides — Ksa Rosa never closed Encontro 2
   // (no site marked) yet finished 3 and 4; sending it back to "Terminar o
   // Encontro 2" hid what it actually needs: a place, even an approximate one.
-  const c = { e4: raw.e4, e3: raw.e3 || raw.e4, e2: raw.e2 || raw.e3 || raw.e4 };
+  const c = { e4: raw.e4, e3: raw.e3 || raw.e4 || sk.e3, e2: raw.e2 || raw.e3 || raw.e4 || sk.e2 || sk.e3 };
   if (!c.e2) {
     const n = Math.max(1, Math.min(2, p.phase));
     return n === 1
@@ -116,8 +121,11 @@ export function JourneyCard({
   const pt = !i18n.language?.startsWith('en');
   const next = nextStepOf(p);
   const { Icon, cls } = worryIcon(p.worry);
-  const c = p.w3.closed ?? { e2: false, e3: false, e4: false };
+  const closed = p.w3.closed ?? { e2: false, e3: false, e4: false };
+  const skipped = p.w3.skipped ?? { e2: false, e3: false };
+  const c = { e4: closed.e4, e3: closed.e3 || skipped.e3, e2: closed.e2 || skipped.e2 || closed.e3 || skipped.e3 };
   const doneThrough = c.e4 ? 4 : c.e3 ? 3 : c.e2 ? 2 : p.phase >= 2 ? 1 : 0;
+  const wasSkipped = (n: number) => (n === 2 && skipped.e2 && !closed.e2) || (n === 3 && skipped.e3 && !closed.e3);
   const current = Math.min(6, doneThrough + 1);
   // Not in the catalogue ("aquecedor-solar"): said as words, never as an id.
   const label = (id: string) => { const s = getSolution(id); return s ? (pt ? s.pt.label : s.en.label) : cap(id.replace(/-/g, ' ')); };
@@ -178,8 +186,11 @@ export function JourneyCard({
           <div className="flex items-center gap-1" data-testid={`journey-dots-${p.id}`} aria-label={t('orchestrator.journey.dotsAria', { defaultValue: 'Encontros done: {{n}} of 6', n: doneThrough }) as string}>
             <span className="mr-1.5 text-[9.5px] uppercase tracking-wider text-muted-foreground">{t('orchestrator.journey.encontros', { defaultValue: 'Encontros' })}</span>
             {[1, 2, 3, 4, 5, 6].map(n => (
-              <span key={n} className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold ${
-                n <= doneThrough ? 'bg-emerald-600 text-white'
+              <span key={n} data-skipped={wasSkipped(n) ? 'yes' : undefined}
+                title={wasSkipped(n) ? (t('orchestrator.journey.skipped', { defaultValue: 'Pulado pela coordenação' }) as string) : undefined}
+                className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold ${
+                wasSkipped(n) ? 'border-[1.5px] border-dashed border-emerald-600/70 text-emerald-700/80 dark:text-emerald-300/80'
+                : n <= doneThrough ? 'bg-emerald-600 text-white'
                   : n === current ? 'border-[1.5px] border-emerald-600 text-emerald-700 dark:text-emerald-300'
                     : 'bg-muted text-muted-foreground/60'}`}>{n}</span>
             ))}

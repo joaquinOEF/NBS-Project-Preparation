@@ -1623,6 +1623,7 @@ export default function OrchestratorLandingPage() {
         onClose={() => setFilesMember(null)}
         onCloneTest={handleCloneTest}
         onSimulateE3={filesMember && sim.eligible.has(filesMember.id) ? (m) => void sim.start([m.id]) : undefined}
+        onRecordChanged={() => { void refresh(); }}
         // Taken off the card (ferramentas que se usam pouco): the confirm
         // dialogs are the same ones, opened from here.
         memberActions={filesMember && projectById.get(filesMember.id) ? {
