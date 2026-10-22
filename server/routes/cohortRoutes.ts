@@ -509,6 +509,22 @@ async function reapStaleRun(cohortId: string) {
   return { ...row, status: 'failed' as const, error };
 }
 
+
+/**
+ * Who left the network is not on the board, in the counts or on the map —
+ * listed apart so they can be restored (CohortSettings.leftNetwork).
+ */
+function splitLeftNetwork<M extends { id: string; orgName?: string | null; neighborhood?: string | null }>(
+  cohort: { settings: unknown },
+  all: M[],
+): { members: M[]; leftMembers: Array<{ id: string; orgName: string | null; neighborhood: string | null; at: string }> } {
+  const left = (cohort.settings as CohortSettings | null)?.leftNetwork ?? {};
+  return {
+    members: all.filter(m => !left[m.id]),
+    leftMembers: all.filter(m => left[m.id]).map(m => ({ id: m.id, orgName: m.orgName ?? null, neighborhood: m.neighborhood ?? null, at: left[m.id].at })),
+  };
+}
+
 export function registerCohortRoutes(app: Express): void {
   // Phase 3c-ii — gate the entire coordinator surface behind a coordinator
   // session. Every /api/cohort/* route is coordinator-facing (the CBO-facing
@@ -1233,8 +1249,8 @@ export function registerCohortRoutes(app: Express): void {
       cohort = c;
     }
     if (!cohort) cohort = await getOrCreateDefaultCohort();
-    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
-    res.json({ cohort, members, isAdmin: !coordinator?.cohortId });
+    const all = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
+    res.json({ cohort, ...splitLeftNetwork(cohort, all), isAdmin: !coordinator?.cohortId });
   }));
 
   // ──────────────────────────────────────────────────────────────────────
@@ -1306,8 +1322,8 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
     if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
-    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
-    res.json({ cohort, members });
+    const all = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
+    res.json({ cohort, ...splitLeftNetwork(cohort, all) });
   }));
 
   app.post('/api/cohort/default/reset', wrap(async (req, res) => {
@@ -1370,8 +1386,8 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
-    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
-    res.json({ cohort, members });
+    const all = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
+    res.json({ cohort, ...splitLeftNetwork(cohort, all) });
   }));
 
   // ──────────────────────────────────────────────────────────────────────
@@ -2565,6 +2581,36 @@ export function registerCohortRoutes(app: Express): void {
    * roster — a coordinator who loses sight of their own test org on the board
    * is worse off, not better.
    */
+  /**
+   * "Saiu da rede" — an organisation that left the network (22 Oct call). Not a
+   * delete: the record stays, and `left: false` restores it. Leaving also keeps
+   * it out of every analysis through the portfolio flag (pre-portfolio,
+   * synergies, the cohort counts other organisations' documents quote), and
+   * restoring puts that flag back as it was.
+   */
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/left-network', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const leave = req.body?.left;
+    if (typeof leave !== 'boolean') { res.status(400).json({ error: 'left must be a boolean' }); return; }
+    const [row] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (row?.settings ?? { workshops: [] }) as CohortSettings;
+    const leftNetwork = { ...(cur.leftNetwork ?? {}) };
+    if (leave) {
+      if (!leftNetwork[member.id]) {
+        const by = String(req.body?.by ?? '').trim().slice(0, 80);
+        leftNetwork[member.id] = { at: new Date().toISOString(), wasExcluded: !!member.excludeFromPortfolio, ...(by ? { by } : {}) };
+        await db.update(cohortMembers).set({ excludeFromPortfolio: true }).where(eq(cohortMembers.id, member.id));
+      }
+    } else if (leftNetwork[member.id]) {
+      await db.update(cohortMembers).set({ excludeFromPortfolio: leftNetwork[member.id].wasExcluded }).where(eq(cohortMembers.id, member.id));
+      delete leftNetwork[member.id];
+    }
+    await db.update(cohorts).set({ settings: { ...cur, leftNetwork } }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, left: leave, orgName: member.orgName });
+  }));
+
   app.patch('/api/cohort/:coordinatorSlug/member/:memberId/portfolio', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }

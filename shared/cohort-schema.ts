@@ -28,6 +28,14 @@ export type CohortSettings = {
   // cohort still gets EN, and vice-versa). Undefined = fall back to detection.
   language?: 'pt' | 'en';
   /**
+   * Organisations that LEFT the network ("Saiu da rede", 22 Oct call: SDV
+   * Reciclando (Centro SAMA) and the Instituto de Estudos Culturais e
+   * Ambientais). Off the board, the counts, the map and every analysis — the
+   * record is kept and can be restored. `wasExcluded` is the portfolio flag
+   * before leaving, put back on restore.
+   */
+  leftNetwork?: Record<string, { at: string; by?: string; wasExcluded: boolean }>;
+  /**
    * The pre-portfolio board's working draft (shared/preportfolio.ts): the
    * coordination's preferences and the arrangement as last saved. A draft, not
    * a decision — "confirmar" turns groups into projects. Kept in settings so

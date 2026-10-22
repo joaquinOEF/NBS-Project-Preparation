@@ -459,6 +459,15 @@
       "openTooltip": "View conversation + profile",
       "open": "View"
     },
+    "leftNetwork": {
+      "group": "Left the network ({{n}})",
+      "restore": "Restore",
+      "chip": "Left the network",
+      "tooltip": "The organisation left the network: off the board, the counts and the pre-portfolio. The record is kept and can be restored.",
+      "doneOut": "{{org}} left the network — the record is kept",
+      "doneBack": "{{org}} is back in the network",
+      "failed": "Could not update"
+    },
     "portfolioExclude": {
       "tooltip": "Keep this organization out of the synergy report (it stays on the board)",
       "on": "Out of portfolio",

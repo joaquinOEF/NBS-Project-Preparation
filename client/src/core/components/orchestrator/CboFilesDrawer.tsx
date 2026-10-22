@@ -7,7 +7,7 @@
 import { PrenotePanel } from './PrenotePanel';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2 } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2, UserMinus } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -63,6 +63,8 @@ export function CboFilesDrawer({
     onTogglePortfolio: () => void;
     onReset: () => void;
     onRemove: () => void;
+    /** "Saiu da rede": off the board and every analysis, record kept, restorable. */
+    onLeaveNetwork?: () => void;
   };
 }) {
   const { t } = useTranslation();
@@ -197,6 +199,17 @@ export function CboFilesDrawer({
                   ? t('orchestrator.portfolioExclude.off', { defaultValue: 'No portfólio' })
                   : t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })}
               </Button>
+              {memberActions.onLeaveNetwork && (
+                <Button
+                  variant="outline" size="sm"
+                  className="h-8 gap-1.5 px-2.5 text-xs"
+                  onClick={memberActions.onLeaveNetwork}
+                  title={t('orchestrator.leftNetwork.tooltip', { defaultValue: 'A organização saiu da rede: sai do quadro, das contagens e do pré-portfólio. O registro fica guardado e pode ser restaurado.' }) as string}
+                  data-testid={`button-left-network-${member.id}`}
+                >
+                  <UserMinus className="h-3.5 w-3.5" />{t('orchestrator.leftNetwork.chip', { defaultValue: 'Saiu da rede' })}
+                </Button>
+              )}
               <Button
                 variant="outline" size="sm"
                 className="h-8 gap-1.5 px-2.5 text-xs hover:bg-destructive/10 hover:text-destructive"

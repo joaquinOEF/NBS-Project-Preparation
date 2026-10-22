@@ -33,10 +33,14 @@ export interface ProvisionInput {
   language?: 'pt' | 'en' | null;
 }
 
+export interface LeftMember { id: string; orgName: string | null; neighborhood: string | null; at: string }
+
 export interface UseCohortResult {
   loading: boolean;
   cohort: Cohort | null;
   members: CohortMember[];
+  /** Organisations that left the network ("Saiu da rede") — off the board, restorable. */
+  leftMembers: LeftMember[];
   isAdmin: boolean;
   /** Every cohort (admin only — empty for a scoped coordinator). */
   allCohorts: CohortSummary[];
@@ -75,6 +79,7 @@ export interface UseCohortResult {
 export function useCohort(): UseCohortResult {
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [members, setMembers] = useState<CohortMember[]>([]);
+  const [leftMembers, setLeftMembers] = useState<LeftMember[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [allCohorts, setAllCohorts] = useState<CohortSummary[]>([]);
   const [projects, setProjects] = useState<CohortProject[]>([]);
@@ -100,6 +105,7 @@ export function useCohort(): UseCohortResult {
     const data = await r.json();
     setCohort(data.cohort);
     setMembers(data.members ?? []);
+    setLeftMembers(data.leftMembers ?? []);
     if (data.cohort?.coordinatorSlug) slugRef.current = data.cohort.coordinatorSlug;
   }, []);
 
@@ -127,6 +133,7 @@ export function useCohort(): UseCohortResult {
       const data = await r.json();
       setCohort(data.cohort);
       setMembers(data.members ?? []);
+      setLeftMembers(data.leftMembers ?? []);
       setIsAdmin(!!data.isAdmin);
       if (data.cohort?.coordinatorSlug) slugRef.current = data.cohort.coordinatorSlug;
       if (data.isAdmin) void refreshAllCohorts();
@@ -222,6 +229,7 @@ export function useCohort(): UseCohortResult {
       const data = await r.json();
       setCohort(data.cohort);
       setMembers(data.members ?? []);
+      setLeftMembers(data.leftMembers ?? []);
     } finally {
       setLoading(false);
     }
@@ -358,7 +366,7 @@ export function useCohort(): UseCohortResult {
   }, [refreshAllCohorts, switchCohort]);
 
   return {
-    loading, cohort, members, isAdmin, allCohorts,
+    loading, cohort, members, leftMembers, isAdmin, allCohorts,
     refresh, refreshAllCohorts, switchCohort, provisionCohort, openWorkshopPhase,
     resetCohort, resetMember, removeMember, invite, unlockPhase, closeWorkshopPhase, saveWorkshops, saveLanguage, deleteCohort,
     projects, refreshProjects, createProject, updateProject, deleteProject,
