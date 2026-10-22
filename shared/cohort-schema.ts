@@ -275,11 +275,11 @@ export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
     expectedOutput: 'A comparison of the solutions tested, with the organisation\'s reading of each and one scenario per page — the basis for the portfolio conversation. Project detailing (who builds, timeline, money) moves to Workshop 4.',
   },
   {
-    name: 'Workshop 4 — The pre-note',
+    name: 'Workshop 4 — The initial proposal',
     date: null,
     unlocksPhase: 4,
-    description: 'Each organisation turns the ONE solution chosen after the technical visit into a one-page pre-note: the problem, the solution, the expected impact with 2–4 indicators, a basic budget (works, studies, first-year upkeep, its own contribution) and partners. The page is drafted from what Workshops 1–3 already hold; the workshop asks only what is missing (at most five short questions) and ends on one check of the whole page.',
-    expectedOutput: 'A one-page pre-note per organisation, printable, that the coordination may review and adjust — the unit of the Rede\'s pre-portfolio.',
+    description: 'Each organisation turns the ONE solution chosen after the technical visit into a one-page initial proposal: the problem, the solution, the expected impact with 2–4 indicators, a basic budget (works, studies, first-year upkeep, its own contribution) and partners. The page is drafted from what Workshops 1–3 already hold; the workshop asks only what is missing (at most five short questions) and ends on one check of the whole page.',
+    expectedOutput: 'A one-page initial proposal per organisation, printable, that the coordination may review and adjust — the unit of the Rede\'s pre-portfolio.',
   },
   {
     name: 'Workshop 5 — Results & Evidence',

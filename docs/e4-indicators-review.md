@@ -1,8 +1,8 @@
-# Indicadores da pré-nota — folha de revisão
+# Indicadores da proposta inicial — folha de revisão
 
 <!-- Gerado por scripts/e4-indicators-review.ts a partir de shared/e4-indicators.ts. Não editar à mão. -->
 
-Cada pré-nota do Encontro 4 traz de 2 a 4 indicadores: **famílias atendidas**, **o que foi construído** (área ou unidades) e **um ou dois efeitos** que a própria organização escolhe na pergunta “O que vocês querem ver mudar?”. Esta folha é a lista inteira, por solução. Ela é revisada uma vez, aqui, e não nota por nota.
+Cada proposta inicial do Encontro 4 traz de 2 a 4 indicadores: **famílias atendidas**, **o que foi construído** (área ou unidades) e **um ou dois efeitos** que a própria organização escolhe na pergunta “O que vocês querem ver mudar?”. Esta folha é a lista inteira, por solução. Ela é revisada uma vez, aqui, e não nota por nota.
 
 **Situação: ainda não revisado.** Até a revisão, as notas imprimem os indicadores como “proposta técnica, a revisar”.
 

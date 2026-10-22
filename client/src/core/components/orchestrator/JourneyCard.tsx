@@ -87,7 +87,7 @@ export function nextStepOf(p: Pick<JourneyCardData, 'phase' | 'w3'>): NextStep {
   }
   if (!c.e3 && !c.tested) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 3 — testar as soluções', en: 'Finish Encontro 3 — test the solutions' } };
   if (!p.w3.visit && !c.e4) return { actor: 'coordination', who: 'visit', tone: 'amber', isVisit: true, text: { pt: 'Registrar a visita técnica', en: 'Record the technical visit' } };
-  if (!c.e4) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Fazer o Encontro 4 — a pré-nota', en: 'Do Encontro 4 — the pre-note' } };
+  if (!c.e4) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Fazer o Encontro 4 — a proposta inicial', en: 'Do Encontro 4 — the initial proposal' } };
   const st = p.w3.state;
   if (st === 'needs_site') return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: cap(p.w3.unblockedBy ?? 'marcar o lugar'), en: cap(p.w3.unblockedBy ?? 'mark the place') } };
   if (st === 'needs_permission' || st === 'needs_study') {

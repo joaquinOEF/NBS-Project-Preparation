@@ -65,7 +65,7 @@ export function PrenotePanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: 
     <div className="rounded-lg border border-border/70 bg-card px-3 py-2.5 space-y-2" data-testid="prenote-panel">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold">{t('cboView.prenote', { defaultValue: 'Pré-nota de projeto' })}</p>
+          <p className="text-[13px] font-semibold">{t('cboView.prenote', { defaultValue: 'Proposta inicial de projeto' })}</p>
           <p className="text-[11.5px] text-muted-foreground" data-testid="prenote-summary">
             {note.solution
               ? `${note.title} · ${missingCount

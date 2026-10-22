@@ -266,7 +266,7 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
   ) : null;
   const tray = board.tray.length > 0 ? (
     <div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-[12px]" data-testid="preportfolio-tray">
-      <span className="font-medium">{t('orchestrator.preportfolio.trayTitle', { defaultValue: 'Ainda sem pré-nota ({{n}})', n: board.tray.length })}</span>
+      <span className="font-medium">{t('orchestrator.preportfolio.trayTitle', { defaultValue: 'Ainda sem proposta inicial ({{n}})', n: board.tray.length })}</span>
       <span className="text-muted-foreground"> — {t('orchestrator.preportfolio.trayHint', { defaultValue: 'entram no pré-portfólio quando fecharem o Encontro 4' })}: </span>
       {board.tray.map(nameOf).join(', ')}
     </div>
@@ -279,10 +279,10 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
         <div>
           <h3 className="text-[15px] font-semibold">{t('orchestrator.preportfolio.createTitle', { defaultValue: 'Criar o pré-portfólio' })}</h3>
           <p className="max-w-[72ch] text-[12.5px] text-muted-foreground">
-            {t('orchestrator.preportfolio.createLede', { defaultValue: 'A plataforma agrupa as organizações com pré-nota em projetos coletivos, escreve por que cada grupo faz sentido e liga cada projeto aos planos da cidade. Roda uma vez e fica salvo; depois vocês movem, nomeiam e confirmam.' })}
+            {t('orchestrator.preportfolio.createLede', { defaultValue: 'A plataforma agrupa as organizações com proposta inicial em projetos coletivos, escreve por que cada grupo faz sentido e liga cada projeto aos planos da cidade. Roda uma vez e fica salvo; depois vocês movem, nomeiam e confirmam.' })}
           </p>
           <p className="mt-1 text-[12.5px]" data-testid="preportfolio-ready-count">
-            {t('orchestrator.preportfolio.readyCount', { defaultValue: '{{n}} organizações com pré-nota prontas para agrupar.', n: board.readyCount })}
+            {t('orchestrator.preportfolio.readyCount', { defaultValue: '{{n}} organizações com proposta inicial prontas para agrupar.', n: board.readyCount })}
           </p>
         </div>
         {options}
@@ -302,7 +302,7 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
         <div>
           <h3 className="text-[15px] font-semibold">{t('orchestrator.preportfolio.title', { defaultValue: 'Pré-portfólio' })}</h3>
           <p className="max-w-[70ch] text-[12.5px] text-muted-foreground">
-            {t('orchestrator.preportfolio.lede', { defaultValue: 'Projetos coletivos a partir das pré-notas. Mova as organizações entre os projetos; cada cartão se refaz na hora. O rascunho se salva sozinho.' })}
+            {t('orchestrator.preportfolio.lede', { defaultValue: 'Projetos coletivos a partir das propostas iniciais. Mova as organizações entre os projetos; cada cartão se refaz na hora. O rascunho se salva sozinho.' })}
           </p>
         </div>
         <span className="text-[11.5px] text-muted-foreground" data-testid="preportfolio-saving">
@@ -336,7 +336,7 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
       )}
       {board.changed.length > 0 && !board.generation?.running && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 dark:bg-amber-950/30 dark:text-amber-200" data-testid="preportfolio-changed">
-          {t('orchestrator.preportfolio.changed', { defaultValue: '{{n}} pré-nota(s) mudaram desde a geração: {{names}}.', n: board.changed.length, names: board.changed.map(nameOf).join(', ') })}
+          {t('orchestrator.preportfolio.changed', { defaultValue: '{{n}} proposta(s) inicial(is) mudaram desde a geração: {{names}}.', n: board.changed.length, names: board.changed.map(nameOf).join(', ') })}
           <button type="button" onClick={refresh} className="rounded-md bg-amber-700 px-2 py-0.5 text-[12px] font-semibold text-white" data-testid="preportfolio-refresh">
             {t('orchestrator.preportfolio.refresh', { defaultValue: 'Atualizar' })}
           </button>

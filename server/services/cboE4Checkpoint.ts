@@ -80,7 +80,7 @@ export const E4C = {
   nadaAinda: { pt: 'Nada por enquanto', en: 'Nothing for now' },
   podeFechar: { pt: 'Pode fechar ✓', en: 'Close it ✓' },
   mudarAlgo: { pt: 'Mudar algo', en: 'Change something' },
-  verPrenota: { pt: 'Ver a pré-nota', en: 'See the pre-note' },
+  verPrenota: { pt: 'Ver a proposta inicial', en: 'See the initial proposal' },
   pular: { pt: 'Pular', en: 'Skip' },
   issoEMais: { pt: 'Isso, e mais coisa', en: 'That, and more' },
   naoEBemIsso: { pt: 'Não é bem isso', en: 'Not quite' },
@@ -240,8 +240,8 @@ async function serveE4Inner(
         const visit = parseVisit(type('_visit_json'));
         if (visit && type('_e4_visit_declined') !== 'yes') {
           say(
-            `Hoje a gente monta a **pré-nota** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta. Primeiro, a solução.`,
-            `Today we put together your **pre-note**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing. First, the solution.`,
+            `Hoje a gente monta a **proposta inicial** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta. Primeiro, a solução.`,
+            `Today we put together your **initial proposal**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing. First, the solution.`,
           );
           ask(
             `Depois da visita técnica, a indicação foi: **${visitSummary(visit, L)}**. É essa?`,
@@ -259,14 +259,14 @@ async function serveE4Inner(
           .sort((a, b) => (a.reaction === 'faz-sentido' ? 0 : 1) - (b.reaction === 'faz-sentido' ? 0 : 1));
         if (!visit) {
           say(
-            `Hoje a gente monta a **pré-nota** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta.`,
-            `Today we put together your **pre-note**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing.`,
+            `Hoje a gente monta a **proposta inicial** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta.`,
+            `Today we put together your **initial proposal**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing.`,
           );
         }
         writeType({ _e4_solution_pending: 'pick' });
         ask(
-          ordered.length ? 'Qual solução vira a pré-nota?' : 'No Encontro 3 nenhuma solução foi testada. Qual vira a pré-nota?',
-          ordered.length ? 'Which solution becomes the pre-note?' : 'No solution was tested in Encontro 3. Which one becomes the pre-note?',
+          ordered.length ? 'Qual solução vira a proposta inicial?' : 'No Encontro 3 nenhuma solução foi testada. Qual vira a proposta inicial?',
+          ordered.length ? 'Which solution becomes the initial proposal?' : 'No solution was tested in Encontro 3. Which one becomes the initial proposal?',
           [
             ...ordered.slice(0, 4).map(t => ({
               pt: label(t.solutionId), en: label(t.solutionId),
@@ -305,8 +305,8 @@ async function serveE4Inner(
       case 'place': {
         writeType({ _e4_place_pending: 'yes' });
         ask(
-          'O lugar ainda não está marcado no mapa. Sem ele a pré-nota fica sem endereço — marcamos agora?',
-          'The place is not marked on the map yet. Without it the pre-note has no address — shall we mark it now?',
+          'O lugar ainda não está marcado no mapa. Sem ele a proposta inicial fica sem endereço — marcamos agora?',
+          'The place is not marked on the map yet. Without it the initial proposal has no address — shall we mark it now?',
           [
             { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
             { pt: E4C.seguirSemLugar.pt, en: E4C.seguirSemLugar.en, dPt: 'Fica nas pendências', dEn: 'It goes in the open items' },
@@ -334,11 +334,11 @@ async function serveE4Inner(
         const gaps = buildPrenote(input(), L).gaps.length;
         say(
           gaps
-            ? `Com o que vocês já contaram nos encontros, a pré-nota fica assim. O que está em laranja é o que falta — são ${gaps === 1 ? 'uma pergunta' : `${gaps} perguntas`} rápidas.`
-            : 'Com o que vocês já contaram nos encontros, a pré-nota já está completa:',
+            ? `Com o que vocês já contaram nos encontros, a proposta inicial fica assim. O que está em laranja é o que falta — são ${gaps === 1 ? 'uma pergunta' : `${gaps} perguntas`} rápidas.`
+            : 'Com o que vocês já contaram nos encontros, a proposta inicial já está completa:',
           gaps
-            ? `With what you already told us in the encontros, the pre-note looks like this. What is in orange is what is missing — ${gaps === 1 ? 'one quick question' : `${gaps} quick questions`}.`
-            : 'With what you already told us in the encontros, the pre-note is already complete:',
+            ? `With what you already told us in the encontros, the initial proposal looks like this. What is in orange is what is missing — ${gaps === 1 ? 'one quick question' : `${gaps} quick questions`}.`
+            : 'With what you already told us in the encontros, the initial proposal is already complete:',
         );
         showNote();
         return serve(detail === 'draft' ? 'draft-next' : `${detail}+draft`);
@@ -435,7 +435,7 @@ async function serveE4Inner(
       }
       case 'approve': {
         writeType({ _e4_gap_pending: '', _e4_approve_pending: 'yes' });
-        say('Pronto — a pré-nota completa:', 'Done — the complete pre-note:');
+        say('Pronto — a proposta inicial completa:', 'Done — the complete initial proposal:');
         showNote();
         ask('Está bom assim?', 'Is it right like this?', [
           { pt: E4C.podeFechar.pt, en: E4C.podeFechar.en, dPt: 'Vai pra coordenação e pro pré-portfólio', dEn: 'It goes to the coordination and the pre-portfolio' },
@@ -444,7 +444,7 @@ async function serveE4Inner(
         return finish(detail);
       }
       case 'done': {
-        say('Aqui está a pré-nota de vocês:', 'Here is your pre-note:');
+        say('Aqui está a proposta inicial de vocês:', 'Here is your initial proposal:');
         showNote();
         ask('E agora?', 'And now?', [
           { pt: E4C.mudarAlgo.pt, en: E4C.mudarAlgo.en },
@@ -460,8 +460,8 @@ async function serveE4Inner(
     writeType({ _e4_closed: 'yes', _e4_reopened: '', _e4_approve_pending: '' });
     deps.startAuthoring?.();
     say(
-      'Fechado ✓ A pré-nota foi pra coordenação. A equipe técnica pode revisar os números, e ela entra no pré-portfólio da Rede junto com as das outras organizações. Dá pra baixar em PDF no card acima.',
-      'Closed ✓ The pre-note has gone to the coordination. The technical team may review the figures, and it goes into the Rede\'s pre-portfolio with the other organisations\'. You can download it as PDF from the card above.',
+      'Fechado ✓ A proposta inicial foi pra coordenação. A equipe técnica pode revisar os números, e ela entra no pré-portfólio da Rede junto com as das outras organizações. Dá pra baixar em PDF no card acima.',
+      'Closed ✓ The initial proposal has gone to the coordination. The technical team may review the figures, and it goes into the Rede\'s pre-portfolio with the other organisations\'. You can download it as PDF from the card above.',
     );
     ask('E agora?', 'And now?', [
       { pt: E4C.mudarAlgo.pt, en: E4C.mudarAlgo.en },
@@ -521,7 +521,7 @@ async function serveE4Inner(
         // Several in one sentence ("jardins de chuva com biovaletas"): one
         // becomes the page, the rest stay in their words on the record.
         writeType({ project_notes: [type('project_notes'), raw.slice(0, 300)].filter(Boolean).join('\n'), _e4_solution_pending: 'pick' });
-        ask('Qual delas vira a pré-nota? As outras ficam anotadas.', 'Which one becomes the pre-note? The others stay noted.',
+        ask('Qual delas vira a proposta inicial? As outras ficam anotadas.', 'Which one becomes the initial proposal? The others stay noted.',
           [...named.slice(0, 4).map(id => ({ pt: label(id), en: label(id) })), { pt: E4C.outraSolucao.pt, en: E4C.outraSolucao.en, dPt: 'Escreve o nome aqui embaixo', dEn: 'Write its name below' }]);
         return finish('solution-several');
       }

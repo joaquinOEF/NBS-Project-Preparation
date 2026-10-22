@@ -17,8 +17,8 @@ function Inline({ text }: { text: string }) {
 }
 
 const STRINGS = {
-  pt: { label: 'Pré-nota de projeto', print: 'Baixar a pré-nota (PDF)', status: 'Situação', missing: 'Falta' },
-  en: { label: 'Project pre-note', print: 'Download the pre-note (PDF)', status: 'Status', missing: 'Missing' },
+  pt: { label: 'Proposta inicial de projeto', print: 'Baixar a proposta inicial (PDF)', status: 'Situação', missing: 'Falta' },
+  en: { label: 'Initial project proposal', print: 'Download the initial proposal (PDF)', status: 'Status', missing: 'Missing' },
 };
 
 export function CboPrenoteCard({ prenote, cboId, lang }: { prenote: Prenote; cboId: string; lang: 'pt' | 'en' }) {

@@ -105,7 +105,7 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
           onClick={() => void sim.start()}
           className="border-violet-300 text-violet-900 hover:bg-violet-100 dark:border-violet-800 dark:text-violet-200"
           title={t('orchestrator.simulation.startHint', {
-            defaultValue: 'A model plays each organisation from its own record through the real encontros it is missing — Encontro 3, then Encontro 4 (the pre-note). Uses a technical visit if one is recorded. The session is marked as simulated.',
+            defaultValue: 'A model plays each organisation from its own record through the real encontros it is missing — Encontro 3, then Encontro 4 (the initial proposal). Uses a technical visit if one is recorded. The session is marked as simulated.',
           }) as string}
           data-testid="button-simulate-e3-all"
         >

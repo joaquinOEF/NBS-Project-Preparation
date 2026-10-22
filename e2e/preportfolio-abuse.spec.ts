@@ -88,7 +88,7 @@ test.describe('off the happy path — the coordinator side', () => {
     const e = board.orgs.find((o: any) => o.memberId === empty.id);
     expect(e).toMatchObject({ solutionId: null, horizon: '1-ano' });
     const html = await (await page.request.get(`${base}/member/${empty.id}/document/prenota`)).text();
-    expect(html).toContain('Ainda não há uma solução para esta pré-nota');
+    expect(html).toContain('Ainda não há uma solução para esta proposta inicial');
     expect((await page.request.post(`${base}/preportfolio/narrative`, { data: { memberIds: [a.id, empty.id] } })).status()).toBe(200);
 
     await page.request.patch(`${base}/member/${b.id}/portfolio`, { data: { exclude: true } });

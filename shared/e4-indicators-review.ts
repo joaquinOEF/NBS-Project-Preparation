@@ -10,12 +10,12 @@ const cell = (s: string) => s.replace(/\|/g, '/').replace(/\n/g, ' ');
 
 export function reviewSheetMarkdown(): string {
   const out: string[] = [];
-  out.push('# Indicadores da pré-nota — folha de revisão');
+  out.push('# Indicadores da proposta inicial — folha de revisão');
   out.push('');
   out.push('<!-- Gerado por scripts/e4-indicators-review.ts a partir de shared/e4-indicators.ts. Não editar à mão. -->');
   out.push('');
   out.push(
-    'Cada pré-nota do Encontro 4 traz de 2 a 4 indicadores: **famílias atendidas**, **o que foi construído** ' +
+    'Cada proposta inicial do Encontro 4 traz de 2 a 4 indicadores: **famílias atendidas**, **o que foi construído** ' +
       '(área ou unidades) e **um ou dois efeitos** que a própria organização escolhe na pergunta ' +
       '“O que vocês querem ver mudar?”. Esta folha é a lista inteira, por solução. Ela é revisada uma vez, ' +
       'aqui, e não nota por nota.',

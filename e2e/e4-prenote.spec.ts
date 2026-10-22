@@ -134,7 +134,7 @@ test.describe('the pre-note — the coordinator side', () => {
     const base = `/api/cohort/${cohort.coordinatorSlug}/member/${m.id}`;
 
     const html = await (await page.request.get(`${base}/document/prenota`)).text();
-    expect(html).toContain('Pré-nota de projeto');
+    expect(html).toContain('Proposta inicial de projeto');
     expect(html).toContain('Jardins de chuva · Voluntários da Pátria 1039');
     expect(html).toContain('estimativa técnica');
     expect(html).toMatch(/Falta:<\/strong> dizer quem é atingido/);

@@ -61,12 +61,12 @@ test.describe('Encontro 4 reads a typed name', () => {
       ...Object.entries(CONCEITO_TYPE).map(([field, value]) => ({ sectionId: 'intervention_type', field, value })),
     ] });
     let s = await chat(page.request, cboId, 'Vamos começar o Encontro 4.', 'text');
-    expect(s.ask.question).toBe('Qual solução vira a pré-nota?');
+    expect(s.ask.question).toBe('Qual solução vira a proposta inicial?');
     expect(s.labels.slice(0, 2)).toEqual(['Jardins de chuva', 'Biovaletas']);
     // Typed, not tapped — and naming two.
     s = await chat(page.request, cboId, 'Jardins de chuva com biovaletas, na Praça Oliveira Rolim', 'text');
     expect(s.served, 'the encontro answers, not the model').toBe(true);
-    expect(s.ask.question).toMatch(/Qual delas vira a pré-nota/);
+    expect(s.ask.question).toMatch(/Qual delas vira a proposta inicial/);
     expect(s.labels.slice(0, 2)).toEqual(['Jardins de chuva', 'Biovaletas']);
     s = await chat(page.request, cboId, 'Biovaletas');
     expect(s.served).toBe(true);

@@ -338,11 +338,11 @@ async function answerFor(n: 3 | 4, state: CboState, cboId: string, ask: any, las
   const system = [
     n === 3
       ? `Você faz o papel de uma organização comunitária de Porto Alegre num encontro do COUGAR (Encontro 3: testar soluções baseadas na natureza para o lugar que ela marcou no Encontro 2).`
-      : `Você faz o papel de uma organização comunitária de Porto Alegre num encontro do COUGAR (Encontro 4: a pré-nota de uma página — a solução escolhida, quem é atingido, o que querem ver mudar, quem faz e quem cuida, o que a organização coloca, os parceiros).`,
+      : `Você faz o papel de uma organização comunitária de Porto Alegre num encontro do COUGAR (Encontro 4: a proposta inicial de uma página — a solução escolhida, quem é atingido, o que querem ver mudar, quem faz e quem cuida, o que a organização coloca, os parceiros).`,
     `Responda como ESTA organização responderia, a partir do registro dela abaixo: as palavras, o lugar, os problemas e o jeito dela. Não invente números grandes nem fatos que contradigam o registro; quando não souber, diga isso como uma pessoa diria.`,
     n === 3
       ? `Objetivo do encontro: testar ${TESTS_WANTED} soluções, uma de cada vez, e então ver a comparação. Já foram testadas ${tests}. ${tests >= TESTS_WANTED ? 'Agora vá para a comparação quando ela for oferecida.' : 'Quando oferecerem testar outra, aceite.'} Nunca escolha parar ou deixar para depois.`
-      : `Objetivo do encontro: confirmar o que o registro já diz e responder com poucas palavras só o que falta, até fechar a pré-nota ("Pode fechar ✓"). Confirme a solução proposta. Não peça para mudar nada nem reabrir depois de fechar. Se perguntarem algo que o registro não responde, diga com honestidade que ainda não sabem.`,
+      : `Objetivo do encontro: confirmar o que o registro já diz e responder com poucas palavras só o que falta, até fechar a proposta inicial ("Pode fechar ✓"). Confirme a solução proposta. Não peça para mudar nada nem reabrir depois de fechar. Se perguntarem algo que o registro não responde, diga com honestidade que ainda não sabem.`,
     `Se a pergunta pede um arquivo, foto ou documento, diga que não tem agora e siga.`,
     `Responda ${lang === 'en' ? 'in English' : 'em português do Brasil, coloquial'}. Em palavras: 1 a 3 frases, primeira pessoa do plural, sem listas.`,
     `REGISTRO DA ORGANIZAÇÃO:\n${recordDigest(state, cboId)}`,
