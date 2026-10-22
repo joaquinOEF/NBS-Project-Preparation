@@ -1,5 +1,7 @@
 import { FIELD_DESTINY } from './field-destiny';
 import { W3_QUESTIONS } from './w3-questions';
+import { LEGACY_FIELD_LABELS, PER_SOLUTION_SUFFIX } from './legacy-field-labels';
+import { getSolution, NBS_FAMILIAS } from './nbs-catalog';
 // Canonical catalog for the E1 org_profile enum fields.
 //
 // Field trip that motivated this (Ana, 2026-07-07): the agent extracted a news
@@ -545,7 +547,79 @@ export function cboFieldLabel(field: string, lang: 'pt' | 'en' = 'pt'): string {
   // Portuguese"). e2e/perfil-portuguese.spec.ts pins that none is left.
   const d = FIELD_DESTINY[field] as { labelPt?: string; labelEn?: string } | undefined;
   if (d?.labelPt) return lang === 'pt' ? d.labelPt : (d.labelEn ?? d.labelPt);
-  return field.replace(/_/g, ' ');
+  return knownLegacyLabel(field, lang) ?? field.replace(/_/g, ' ');
+}
+
+/** A name the model invented on an older record (shared/legacy-field-labels.ts), or null. */
+function knownLegacyLabel(field: string, lang: 'pt' | 'en'): string | null {
+  const legacy = LEGACY_FIELD_LABELS[field];
+  if (legacy) return legacy[lang];
+  for (const { suffix, pt, en } of PER_SOLUTION_SUFFIX) {
+    if (!field.endsWith(`_${suffix}`)) continue;
+    // The model sometimes wrote the solution in the singular ("biovaleta_hardest").
+    const slug = field.slice(0, -suffix.length - 1).replace(/_/g, '-');
+    const sol = getSolution(slug) ?? getSolution(`${slug}s`);
+    if (sol) return `${sol[lang].label} — ${lang === 'pt' ? pt : en}`;
+  }
+  return null;
+}
+
+/**
+ * The organisation's notes (`site_notes`, `project_notes`) as a reader should
+ * see them. A rerouted write is saved as `<Readable name>: <value>` — the
+ * model's English or accent-stripped name ("Local gov contact:", "Captacao
+ * agua da chuva verdict:") — and the model often wrote the same fact more than
+ * once, with and without the name, shorter and longer. Read at render time,
+ * so every record already written is fixed without touching it:
+ *   - a prefix that is a known name gets its label in the reader's language;
+ *   - a line whose content another line already says (same name, or no name)
+ *     is dropped — the longer, more complete one stays.
+ * Two different names with the same short answer ("o que mais pega: custo")
+ * are two facts and both stay.
+ */
+export function readableNotes(text: string, lang: 'pt' | 'en' = 'pt'): string {
+  const lines = String(text ?? '').split('\n').map(l => l.trim()).filter(Boolean);
+  const parsed = lines.map(line => {
+    const m = line.match(/^([^:.!?\n]{2,60}):\s+(.+)$/);
+    if (!m) return { line, prefix: null as string | null, body: line, label: null as string | null };
+    const key = norm(m[1]).replace(/ /g, '_');
+    const declared = (FIELD_DESTINY[key] as { labelPt?: string } | undefined)?.labelPt ? cboFieldLabel(key, lang) : null;
+    return { line, prefix: key, body: m[2], label: CBO_FIELD_LABELS[key]?.[lang] ?? knownLegacyLabel(key, lang) ?? declared };
+  });
+  const said = (i: number): boolean => {
+    const l = parsed[i];
+    const body = norm(l.body);
+    return parsed.some((o, j) => {
+      if (j === i) return false;
+      // Only a line under the SAME name, or a line with no name, can repeat another.
+      if (l.prefix && l.prefix !== o.prefix) return false;
+      const other = norm(o.body);
+      // Word for word: the named version wins, else the first one.
+      if (other === body) return (!l.prefix && !!o.prefix) || (!!l.prefix === !!o.prefix && j < i);
+      return body.length >= 12 && other.includes(body);
+    });
+  };
+  return parsed
+    .filter((_, i) => !said(i))
+    .map(l => (l.prefix && l.label ? `${l.label}: ${catalogIdsToLabels(l.body, lang)}` : catalogIdsToLabels(l.line, lang)))
+    .join('\n');
+}
+
+/** "cozinha-comunitaria-biodigestor, aguas-pluviais" as a person reads them — a solution's or família's own name. Anything else passes untouched. */
+function catalogIdsToLabels(text: string, lang: 'pt' | 'en'): string {
+  const name = (id: string): string | null => {
+    const sol = getSolution(id);
+    if (sol) return sol[lang].label;
+    const fam = NBS_FAMILIAS.find(f => f.id === id) as { pt?: { label?: string }; en?: { label?: string } } | undefined;
+    return fam?.[lang]?.label ?? null;
+  };
+  // A bare list of ids ("captacao-agua-da-chuva, compostagem"): every item, one-word ids too.
+  const items = text.split(',').map(x => x.trim());
+  // An id off the catalogue ("aquecedor-solar") is still a name the organisation chose: said in words.
+  const words = (x: string) => { const w = x.replace(/-/g, ' '); return w[0].toUpperCase() + w.slice(1); };
+  if (items.every(x => /^[a-z0-9-]+$/.test(x))) return items.map(x => name(x) ?? (x.includes('-') ? words(x) : x)).join(', ');
+  // In prose, only hyphenated ids — "fazer compostagem" stays as written.
+  return text.replace(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g, id => name(id) ?? id);
 }
 
 /**
@@ -617,6 +691,7 @@ export function cboDisplayValue(
   lang: 'pt' | 'en' = 'pt',
 ): string {
   if (typeof stored !== 'string' || !stored) return stored;
+  if (field === 'site_notes' || field === 'project_notes') return readableNotes(stored, lang);
   if (sectionId === 'org_profile') return orgProfileDisplayValue(field, stored, lang);
   // The written-question bank (shared/w3-questions.ts) stores its chip ids too —
   // "ate-2k" is "Até uns R$ 2 mil" to a person.
