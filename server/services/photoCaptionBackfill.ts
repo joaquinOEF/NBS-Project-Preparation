@@ -16,7 +16,7 @@ import { documents } from '@shared/document-schema';
 import { cboStates } from '@shared/cbo-db-schema';
 import { isPhotoCaption } from '@shared/photo-caption';
 import { captionImage } from './fileExtract';
-import { getObject, blobEnabled } from './blobStorage';
+import { getObject, blobAvailable } from './blobStorage';
 
 export interface CaptionBackfillSummary {
   photos: number;
@@ -61,7 +61,7 @@ export async function backfillPhotoCaptions(opts: { apply?: boolean; concurrency
 export async function runPhotoCaptionBackfillAtBoot(): Promise<void> {
   if (process.env.SKIP_PHOTO_CAPTION_BACKFILL === '1') { console.log('[photo-captions] pulado (SKIP_PHOTO_CAPTION_BACKFILL=1)'); return; }
   // Test and local servers: a fake model, or no object store to read originals from.
-  if (process.env.CBO_FAKE_MODEL === '1' || !blobEnabled()) { console.log('[photo-captions] pulado (sem armazenamento de originais ou modelo de teste)'); return; }
+  if (process.env.CBO_FAKE_MODEL === '1' || !(await blobAvailable())) { console.log('[photo-captions] pulado (sem armazenamento de originais ou modelo de teste)'); return; }
   if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) { console.log('[photo-captions] sem chave de visão — legendas antigas ficam ocultas no Perfil'); return; }
   try {
     const r = await backfillPhotoCaptions({ apply: true });

@@ -30,6 +30,7 @@
 // ============================================================================
 
 import { readableSource } from './source-label';
+import { readableSpeech } from './readable-speech';
 import { getSolution, type NbsSolution } from './nbs-catalog';
 import { sizeOf, testOf, type SolutionTest } from './w3-tests';
 import { testsOf, namesOutsideCatalogue } from './recorded-solutions';
@@ -344,7 +345,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
       pt ? 'Encontro 2' : 'Encontro 2',
     ));
   }
-  if (has(site.site_story)) problem.push(Q(site.site_story, pt ? 'a organização, Encontro 2' : 'the organisation, Encontro 2'));
+  if (has(site.site_story)) problem.push(Q(readableSpeech(site.site_story), pt ? 'a organização, Encontro 2' : 'the organisation, Encontro 2'));
   if (said(site.beneficiaries_note)) {
     problem.push(W(pt ? `Quem é atingido, segundo a organização: ${site.beneficiaries_note.trim()}.` : `Who is affected, according to the organisation: ${site.beneficiaries_note.trim()}.`, pt ? 'a organização, Encontro 4' : 'the organisation, Encontro 4'));
   }

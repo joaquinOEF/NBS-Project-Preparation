@@ -30,6 +30,17 @@ export function blobEnabled(): boolean {
   return clientPromise !== null; // best-effort hint; getClient resolves the real state
 }
 
+/**
+ * Whether originals can be read — resolving the client. ⚠️ `blobEnabled()` is
+ * only a hint and is false until the first object call: the photo-caption
+ * backfill asked it at boot, got false on every boot, and never ran in prod
+ * ("pulado (sem armazenamento de originais…)", 22 Oct 2026) — so photos stored
+ * before #569 kept their literal English descriptions.
+ */
+export async function blobAvailable(): Promise<boolean> {
+  return (await getClient()) !== null;
+}
+
 /** Org-scoped object key. Groups every original under the owning org. */
 export function blobKey(orgId: string | null, docId: string, filename: string): string {
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);

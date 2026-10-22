@@ -14,6 +14,7 @@
  *   - everything else    → the agent's extracted text (fetched on demand)
  *   - no original blob   → extracted text only, with a note
  */
+import { readableFilename } from '@shared/readable-filename';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -123,7 +124,7 @@ export function CboFilesView({
                 <Icon className="w-4 h-4" strokeWidth={1.75} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium truncate">{doc.filename}</span>
+                <span className="block text-sm font-medium truncate">{readableFilename(doc.filename)}</span>
                 <span className="block text-[11px] text-muted-foreground truncate">
                   {[
                     documentPurposeTag(doc.purpose, i18n.language?.startsWith('pt') ? 'pt' : 'en'),
@@ -187,7 +188,7 @@ function FilePreview({
           <ChevronLeft className="w-4 h-4 mr-1" />
           {t('files.back', { defaultValue: 'Files' })}
         </Button>
-        <span className="text-sm font-medium truncate flex-1">{doc.filename}</span>
+        <span className="text-sm font-medium truncate flex-1">{readableFilename(doc.filename)}</span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
@@ -228,7 +229,7 @@ function FilePreview({
             </a>
           </Button>
           <Button asChild variant="outline" size="sm" className="flex-1">
-            <a href={url} download={doc.filename} data-testid="file-download">
+            <a href={url} download={readableFilename(doc.filename)} data-testid="file-download">
               <Download className="w-4 h-4 mr-1.5" />
               {t('files.download', { defaultValue: 'Download' })}
             </a>
