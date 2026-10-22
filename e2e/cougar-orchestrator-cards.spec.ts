@@ -65,6 +65,39 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
       .screenshot({ path: 'test-results/orchestrator-card.png' });
   });
 
+  test('tested solutions are Encontro 3, even when the close never ran and no place is marked', async ({ page }) => {
+    // Ksa Rosa, prod 22 Oct 2026: four solutions tested on 30 Sep, "Pode
+    // fechar" pressed three times, but the chat model ran the close itself —
+    // no `_e3_closed`, no `_e2_closed` (no site). The board filed it under
+    // "Ainda nos Encontros 1–2" with "Terminar o Encontro 2".
+    test.setTimeout(120_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`Cards ${randomUUID().slice(0, 8)}`)).cohort;
+    await api.createCoordinator({ email: `cards-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const member = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3, 4] })).member;
+    await api.seedState(member.cboStateId, {
+      phase: 3,
+      language: 'pt',
+      sections: [
+        { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+        { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+        { sectionId: 'intervention_type', field: 'solution_tests_json', value: JSON.stringify([
+          { solutionId: 'captacao-agua-da-chuva', reaction: 'faz-sentido', testedAt: '2026-09-30T13:39:00Z' },
+          { solutionId: 'compostagem', reaction: 'faz-sentido', testedAt: '2026-09-30T13:41:00Z' },
+        ]) },
+      ],
+    });
+
+    await page.goto('/orchestrator');
+    await expect(page.getByTestId(`card-orchestrator-project-${member.id}`)).toBeVisible({ timeout: 30_000 });
+    // The coordination acts next — the visit — not the organisation.
+    await expect(page.getByTestId(`button-visit-${member.id}`)).toContainText('visita técnica');
+    await expect(page.getByTestId(`journey-next-${member.id}`)).toHaveCount(0);
+    await expect(page.getByTestId(`journey-dots-${member.id}`)).toHaveAttribute('aria-label', /2/);
+    await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${member.id}`)).toHaveCount(0);
+  });
+
   test('an org that has not started W2 shows no empty badges', async ({ page }) => {
     test.setTimeout(120_000);
     const api = new TestApi(page.request);

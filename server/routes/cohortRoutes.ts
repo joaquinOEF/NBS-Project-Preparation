@@ -328,11 +328,17 @@ export type MemberW3Signal = {
   tests: Array<{ id: string; reaction: string | null }>;
   /** Which encontros closed, by their own markers — the card's 1–6 dots and its "próximo passo". */
   closed: { e2: boolean; e3: boolean; e4: boolean };
+  /**
+   * A solution was TESTED in Encontro 3 and reacted to (`solution_tests_json`
+   * only — not a first-era `chosen_solutions` list). Encontro 3 done in
+   * substance even when its close never ran (Ksa Rosa, see JourneyCard).
+   */
+  testedInE3: boolean;
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
   solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false, visit: null,
-  tests: [], closed: { e2: false, e3: false, e4: false },
+  tests: [], closed: { e2: false, e3: false, e4: false }, testedInE3: false,
 };
 
 /** The dossier, computed from a member's live state. Since Encontro 3 ends at
@@ -361,11 +367,12 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     e4: encontroClosed({ sections, maturityScores: [] } as any, 4),
   };
   const tests = allTests.map(t => ({ id: t.solutionId, reaction: t.reaction ?? null }));
+  const testedInE3 = realTests.some(t => !!t.reaction);
   // ⚠️ No verdict before Encontro 3 closes. Computed from Encontro 2's tenure
   // alone, it told the coordination that Instituto de Estudos Culturais —
   // still in Encontro 2 — was "pronto pra orçar" (prod copy, 17 Oct 2026).
   // A recorded visit still shows: it is the coordination's own work.
-  if (!closed.e3 || (!solutions.length && !tested)) return { ...EMPTY_W3, visit, tests, closed };
+  if (!closed.e3 || (!solutions.length && !tested)) return { ...EMPTY_W3, visit, tests, closed, testedInE3 };
 
   const areaM2 = Number(site.site_area_m2) || 0;
   const impact = asRecord('impact_monitoring');
@@ -392,6 +399,7 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     visit,
     tests,
     closed,
+    testedInE3,
   };
 }
 
