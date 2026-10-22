@@ -26,6 +26,25 @@ return lands on the same question. Nothing waits on a person.
 A free question goes to the model (`knowledge/_skills/encontro-4.md`); the
 encontro then puts its own question back.
 
+### The coordination can answer some of it (22 Oct)
+
+"Levar ao Encontro 4" is a two-step view in the drawer: confirm, then **"O que
+ainda falta"** (`E4AnswersPanel`) — every question above, each marked optional,
+plus a context box and files. The same form sits in Documentos for any
+organisation in Encontro 4, so it can be filled after a call.
+`POST …/member/:id/e4-answers` writes the **same fields** the chat writes, so
+the chat never asks an answered question; blanks are asked there. Options live
+once, in `shared/e4-options.ts`, for both.
+
+What the coordination wrote is remembered as values (`_coord_answers_json`); an
+answer counts as the coordination's only while the record still holds that
+value (`answeredByCoordination`). The page says so on each line ("registrado
+pela coordenação") and per section; the one check becomes "A coordenação já
+adiantou N respostas… Confere tudo?" — "Corrigir uma" opens the change menu,
+which now also covers the place and the main problem. The organisation's
+correction replaces the value, and the mark goes with it (latest wins; the
+edit log keeps the earlier one).
+
 ## The page (`shared/e4-prenote.ts`)
 
 `buildPrenote()` — no model. One solution: E4's confirmation → the visit

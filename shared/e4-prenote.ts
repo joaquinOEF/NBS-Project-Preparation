@@ -47,6 +47,7 @@ import { noteIndicators, INDICATOR_MENU_REVIEW, type ResolvedIndicator } from '.
 import { buildConceptNote, applyStoredAuthoring, conceptNoteFacts, type ConceptSectionId, type Paragraph } from './concept-note';
 import type { W3Input } from './w3-dossier';
 import { FIELD_DESTINY } from './field-destiny';
+import { answeredByCoordination, COORD_LABEL, COORD_SOURCE, type CoordKey } from './e4-options';
 
 type Lang = 'pt' | 'en';
 type Rec = Record<string, string | undefined>;
@@ -73,7 +74,8 @@ export interface PrenoteInput {
 /** What Encontro 4 stores about the solution it confirmed. */
 export interface E4Solution {
   solutionId: string;
-  source: 'visita' | 'organizacao';
+  /** 'coordenacao': answered in the coordinator's "O que ainda falta" form (shared/e4-options.ts). */
+  source: 'visita' | 'organizacao' | 'coordenacao';
   areaM2?: number;
   units?: number;
 }
@@ -100,6 +102,11 @@ export interface PrenoteSection {
   missing: string | null;
   /** The coordination rewrote this section's text. */
   edited?: { by?: string; at: string };
+  /**
+   * Answers in this section the coordination gave for the organisation ("quem
+   * faz a obra"), named so the organisation's one check at the end can see them.
+   */
+  byCoordination?: string[];
 }
 
 export interface BudgetRow {
@@ -121,7 +128,7 @@ export interface PrenoteReview {
 
 export interface Prenote {
   /** Null when no solution can be named yet — the page says so and stops. */
-  solution: { id: string; label: string; source: 'visita' | 'organizacao' | 'teste'; areaM2?: number; units?: number } | null;
+  solution: { id: string; label: string; source: 'visita' | 'organizacao' | 'coordenacao' | 'teste'; areaM2?: number; units?: number } | null;
   title: string;
   orgName: string;
   place: string;
@@ -131,6 +138,8 @@ export interface Prenote {
   total: { low: number; high: number } | null;
   indicators: ResolvedIndicator[];
   gaps: PrenoteGap[];
+  /** The answers on the page the coordination gave, still standing — in Encontro 4's order. */
+  byCoordination: CoordKey[];
   review: PrenoteReview | null;
   /** "estimativa técnica" until a review stamp says otherwise. */
   status: string;
@@ -172,7 +181,7 @@ export function parseE4Solution(raw: string | undefined): E4Solution | null {
     if (!v || !getSolution(String(v.solutionId))) return null;
     return {
       solutionId: v.solutionId,
-      source: v.source === 'visita' ? 'visita' : 'organizacao',
+      source: v.source === 'visita' || v.source === 'coordenacao' ? v.source : 'organizacao',
       ...(Number(v.areaM2) > 0 ? { areaM2: Number(v.areaM2) } : {}),
       ...(Number(v.units) > 0 ? { units: Math.round(Number(v.units)) } : {}),
     };
@@ -314,11 +323,14 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   const review = parseReview(type._prenote_review_json);
   const status = review ? (review.status === 'revisada' ? L.reviewed(review.by, review.at) : L.waived) : L.estimate;
   const gaps = prenoteGaps(input);
+  const coord = answeredByCoordination({ site, type, ops });
+  // An answer the coordination gave is said as the coordination's, never put in the organisation's mouth.
+  const byCoord = (k: CoordKey, otherwise: string) => (coord.includes(k) ? COORD_SOURCE[lang] : otherwise);
 
   if (!sol) {
     return {
       solution: null, title: pt ? 'Proposta inicial' : 'Initial proposal', orgName, place, sections: [], budget: [], total: null,
-      indicators: [], gaps, review, status, indicatorsReviewed: !!INDICATOR_MENU_REVIEW, summary: [], photo: input.photos?.[0] ?? null,
+      indicators: [], gaps, byCoordination: coord, review, status, indicatorsReviewed: !!INDICATOR_MENU_REVIEW, summary: [], photo: input.photos?.[0] ?? null,
     };
   }
 
@@ -340,14 +352,19 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   const problem: PrenoteLine[] = [];
   if (worries.length) {
     problem.push(W(
-      pt ? `${place ? `Em ${place}, o` : 'O'} problema apontado pela organização é ${worries.join('; ')}.`
-        : `${place ? `At ${place}, the` : 'The'} problem the organisation names is ${worries.join('; ')}.`,
-      pt ? 'Encontro 2' : 'Encontro 2',
+      coord.includes('problem')
+        ? (pt ? `${place ? `Em ${place}, o` : 'O'} problema principal, no registro da coordenação, é ${worries.join('; ')}.`
+          : `${place ? `At ${place}, the` : 'The'} main problem, as the coordination recorded it, is ${worries.join('; ')}.`)
+        : (pt ? `${place ? `Em ${place}, o` : 'O'} problema apontado pela organização é ${worries.join('; ')}.`
+          : `${place ? `At ${place}, the` : 'The'} problem the organisation names is ${worries.join('; ')}.`),
+      coord.includes('problem') ? COORD_SOURCE[lang] : 'Encontro 2',
     ));
   }
   if (has(site.site_story)) problem.push(Q(readableSpeech(site.site_story), pt ? 'a organização, Encontro 2' : 'the organisation, Encontro 2'));
   if (said(site.beneficiaries_note)) {
-    problem.push(W(pt ? `Quem é atingido, segundo a organização: ${site.beneficiaries_note.trim()}.` : `Who is affected, according to the organisation: ${site.beneficiaries_note.trim()}.`, pt ? 'a organização, Encontro 4' : 'the organisation, Encontro 4'));
+    problem.push(coord.includes('beneficiarios')
+      ? W(pt ? `Quem é atingido, no registro da coordenação: ${site.beneficiaries_note.trim()}.` : `Who is affected, as the coordination recorded it: ${site.beneficiaries_note.trim()}.`, COORD_SOURCE[lang])
+      : W(pt ? `Quem é atingido, segundo a organização: ${site.beneficiaries_note.trim()}.` : `Who is affected, according to the organisation: ${site.beneficiaries_note.trim()}.`, pt ? 'a organização, Encontro 4' : 'the organisation, Encontro 4'));
   }
   sections.push({
     id: 'problema', title: L.problema, lines: problem,
@@ -363,14 +380,15 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   const from = {
     visita: pt ? 'indicada na visita técnica' : 'recommended by the technical visit',
     organizacao: pt ? 'escolhida pela organização, sem visita técnica registrada' : 'chosen by the organisation, with no technical visit recorded',
+    coordenacao: pt ? 'indicada pela coordenação' : 'recommended by the coordination',
     teste: pt ? 'a que fez sentido para a organização no Encontro 3, ainda sem visita técnica registrada' : 'the one that made sense to the organisation in Encontro 3, with no technical visit recorded yet',
   }[sol.source];
   const solution: PrenoteLine[] = [
-    W(`**${solLabel}**${sizeText ? ` · ${sizeText}` : ''} — ${from}.`, sol.source === 'visita' ? (pt ? 'visita técnica' : 'technical visit') : (pt ? 'Encontro 3' : 'Encontro 3')),
+    W(`**${solLabel}**${sizeText ? ` · ${sizeText}` : ''} — ${from}.`, sol.source === 'visita' ? (pt ? 'visita técnica' : 'technical visit') : sol.source === 'coordenacao' ? COORD_SOURCE[lang] : (pt ? 'Encontro 3' : 'Encontro 3')),
     W(pt ? s.pt.whatItIs : s.en.whatItIs, pt ? 'catálogo de soluções' : 'solution catalogue'),
   ];
   if (has(type.construction_model)) {
-    solution.push(W(pt ? `Execução: ${display('intervention_type', 'construction_model', type.construction_model)}.` : `Delivery: ${display('intervention_type', 'construction_model', type.construction_model)}.`, theirs));
+    solution.push(W(pt ? `Execução: ${display('intervention_type', 'construction_model', type.construction_model)}.` : `Delivery: ${display('intervention_type', 'construction_model', type.construction_model)}.`, byCoord('quem-faz-obra', theirs)));
   }
   // What they named in a first Encontro 3 that the catalogue does not hold —
   // not priced, not tested, but said, so it is not silently lost.
@@ -391,7 +409,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   const indicators = noteIndicators(sol.id, (type._e4_changes ?? '').split(',').map(x => x.trim()).filter(Boolean), site.site_worry, size, lang);
   const chosenChanges = indicators.filter(i => i.kind === 'efeito' && (type._e4_changes ?? '').split(',').includes(i.id));
   if (chosenChanges.length) {
-    impact.push(W(pt ? `O que a organização quer ver mudar: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.` : `What the organisation wants to see change: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.`, theirs));
+    impact.push(W(pt ? `O que a organização quer ver mudar: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.` : `What the organisation wants to see change: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.`, byCoord('mudancas', theirs)));
   }
   sections.push({
     id: 'impacto', title: L.impacto, lines: impact,
@@ -449,7 +467,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   budget.push({
     label: pt ? 'Contrapartida da organização' : "The organisation's contribution",
     value: has(type.e4_contribution) ? type.e4_contribution.trim() : (pt ? 'a definir' : 'to be defined'),
-    source: has(type.e4_contribution) ? theirs : (pt ? 'ainda não respondido' : 'not answered yet'),
+    source: has(type.e4_contribution) ? byCoord('contrapartida', theirs) : (pt ? 'ainda não respondido' : 'not answered yet'),
     kind: 'contrapartida',
   });
   const priced = budget.filter(b => b.low != null);
@@ -464,14 +482,14 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
 
   // ── 6 · Parceiros e autorizações ──────────────────────────────────────────
   const partners: PrenoteLine[] = [];
-  if (said(type.e4_partners)) partners.push(W(pt ? `Com quem a organização já conversou: ${type.e4_partners.trim()}.` : `Who the organisation has already talked to: ${type.e4_partners.trim()}.`, theirs));
+  if (said(type.e4_partners)) partners.push(W(pt ? `Com quem a organização já conversou: ${type.e4_partners.trim()}.` : `Who the organisation has already talked to: ${type.e4_partners.trim()}.`, byCoord('parceiros', theirs)));
   const appr = approvalRequirement(sol.id, site.land_tenure);
   if (appr) partners.push(W(pt ? `Precisa dizer sim: ${appr.bodies.map(b => b.name).join(', ')}${appr.instrumentPt ? ` (${appr.instrumentPt})` : ''}.` : `Must say yes: ${appr.bodies.map(b => b.name).join(', ')}${appr.instrumentEn ? ` (${appr.instrumentEn})` : ''}.`, pt ? 'ficha da solução e situação do terreno' : "the solution's ficha and the land tenure"));
   else partners.push(W(pt ? 'Pela ficha e pela situação do terreno, nenhuma autorização externa é exigida.' : "By the ficha and the land tenure, no outside approval is required.", pt ? 'ficha da solução' : "the solution's ficha"));
   // Who looks after it, when they said. When they have not, Pendências says so
   // in one line — the ficha's paragraph on upkeep is for the comparison, and
   // it would take a third of this page.
-  if (has(ops.who_maintains)) partners.push(W(pt ? `Quem cuida depois: ${MAINTAINER[ops.who_maintains]?.pt ?? display('operations_sustain', 'who_maintains', ops.who_maintains)}.` : `Who looks after it: ${MAINTAINER[ops.who_maintains]?.en ?? display('operations_sustain', 'who_maintains', ops.who_maintains)}.`, theirs));
+  if (has(ops.who_maintains)) partners.push(W(pt ? `Quem cuida depois: ${MAINTAINER[ops.who_maintains]?.pt ?? display('operations_sustain', 'who_maintains', ops.who_maintains)}.` : `Who looks after it: ${MAINTAINER[ops.who_maintains]?.en ?? display('operations_sustain', 'who_maintains', ops.who_maintains)}.`, byCoord('quem-cuida', theirs)));
   sections.push({
     id: 'parceiros', title: L.parceiros, lines: partners,
     missing: has(type.e4_partners) ? null : (pt ? 'Falta dizer com quem a organização já conversou.' : 'Still missing: who the organisation has already talked to.'),
@@ -550,10 +568,16 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
     sec.edited = { at: e.at, ...(e.by ? { by: e.by } : {}) };
   }
 
+  // What the coordination answered, named on the section it lands in.
+  for (const k of coord) {
+    const sec = sections.find(x => x.id === COORD_LABEL[k].section) ?? sections.find(x => x.id === 'solucao');
+    if (sec) sec.byCoordination = [...(sec.byCoordination ?? []), COORD_LABEL[k][lang]];
+  }
+
   return {
     solution: { ...sol, label: solLabel },
     title: `${solLabel}${has(site.site_name) ? ` · ${site.site_name}` : ''}`,
-    orgName, place, sections, budget, total, indicators, gaps, review, status,
+    orgName, place, sections, budget, total, indicators, gaps, byCoordination: coord, review, status,
     indicatorsReviewed: !!INDICATOR_MENU_REVIEW,
     summary: extra.summary,
     photo: input.photos?.[0] ?? null,

@@ -17,8 +17,8 @@ function Inline({ text }: { text: string }) {
 }
 
 const STRINGS = {
-  pt: { label: 'Proposta inicial de projeto', print: 'Baixar a proposta inicial (PDF)', status: 'Situação', missing: 'Falta' },
-  en: { label: 'Initial project proposal', print: 'Download the initial proposal (PDF)', status: 'Status', missing: 'Missing' },
+  pt: { label: 'Proposta inicial de projeto', print: 'Baixar a proposta inicial (PDF)', status: 'Situação', missing: 'Falta', byCoord: 'Registrado pela coordenação' },
+  en: { label: 'Initial project proposal', print: 'Download the initial proposal (PDF)', status: 'Status', missing: 'Missing', byCoord: 'Recorded by the coordination' },
 };
 
 export function CboPrenoteCard({ prenote, cboId, lang }: { prenote: Prenote; cboId: string; lang: 'pt' | 'en' }) {
@@ -63,6 +63,10 @@ export function CboPrenoteCard({ prenote, cboId, lang }: { prenote: Prenote; cbo
             {sec.id !== 'orcamento' && sec.lines.length > 3 && (
               <p className='m-0 text-[10.5px] italic text-muted-foreground'>{lang === 'pt' ? `+ ${sec.lines.length - 3} no PDF` : `+ ${sec.lines.length - 3} in the PDF`}</p>
             )}
+            {/* What the coordination answered for them — the organisation's to confirm at the one check. */}
+            {sec.byCoordination?.length ? (
+              <p className='m-0 mt-0.5 text-[11px] italic text-[#8a6d1c] dark:text-amber-300' data-testid={`prenote-card-bycoord-${sec.id}`}>{s.byCoord}: {sec.byCoordination.join(', ')}</p>
+            ) : null}
             {sec.missing && <p className='m-0 mt-0.5 font-medium text-amber-700 dark:text-amber-400' data-testid={`prenote-card-missing-${sec.id}`}>{sec.missing}</p>}
           </section>
         ))}

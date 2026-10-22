@@ -5,9 +5,10 @@
  *   reads are ownership-gated server-side. Snapshot on open + a manual refresh.
  */
 import { PrenotePanel } from './PrenotePanel';
+import { E4AnswersPanel } from './E4AnswersPanel';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2, UserMinus } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2, UserMinus, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -16,7 +17,7 @@ import { Button } from '@/core/components/ui/button';
 import { CboFilesView } from '@/core/components/cbo-files/CboFilesView';
 import { CboInviteView } from '@/core/components/orchestrator/CboInviteView';
 import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscript';
-import { CboProfileSummary, VisitPanel } from '@/core/components/orchestrator/CboProfileSummary';
+import { CboProfileSummary, VisitPanel, SkipToE4 } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
 import { getSolution } from '@shared/nbs-catalog';
 
@@ -60,7 +61,7 @@ export function CboFilesDrawer({
   onSimulateE3?: (member: FilesDrawerMember) => void;
   /** Something on the organisation's record changed from inside the drawer — reload the board. */
   onRecordChanged?: () => void;
-  /** Opened from the card's "levar ao Encontro 4": the confirmation waits in the visit tab. */
+  /** Opened from the card's "levar ao Encontro 4": the drawer opens on that step, confirmation first. */
   skipPrompt?: boolean;
   simulating?: boolean;
   /** The rarely-used per-organisation actions, moved here off the roster card. */
@@ -84,8 +85,24 @@ export function CboFilesDrawer({
   // A file attached in the visit tab belongs on the Arquivos list too.
   const [filesTick, setFilesTick] = useState(0);
 
+  // ⚠️ "Levar ao Encontro 4" is its own view, in two steps (22 Oct decision):
+  // confirm, then "O que ainda falta" — the coordination answers what it knows,
+  // all optional, and leaves the rest to the organisation's own Encontro 4.
+  // It used to be a box at the foot of the visit tab, and after it the only
+  // tool was the proposal's pencil, which closes no gap.
+  const [skipStep, setSkipStep] = useState<'confirm' | 'answers' | null>(null);
+  // The line under the name follows a skip at once — it read "Encontro 2" above "Encontro 4 aberto".
+  const [movedTo4, setMovedTo4] = useState(false);
+
   // Reset to the requested tab each time the drawer opens for a member.
-  useEffect(() => { if (member) setTab(initialTab); }, [member, initialTab]);
+  useEffect(() => {
+    if (!member) return;
+    setTab(initialTab);
+    setSkipStep(skipPrompt && (member.encontro ?? 0) < 4 ? 'confirm' : null);
+    setMovedTo4(false);
+  }, [member, initialTab, skipPrompt]);
+  const encontro = movedTo4 ? 4 : member?.encontro;
+  const leaveSkip = () => { setSkipStep(null); setTab('documentos'); setReloadKey(k => k + 1); };
 
   useEffect(() => {
     if (!member || !cohortSlug) return;
@@ -122,7 +139,7 @@ export function CboFilesDrawer({
           <div className="flex items-center gap-2">
             <div className="flex min-h-7 min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground" data-testid="cbo-drawer-context">
               {member?.neighborhood && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{member.neighborhood}</span>}
-              {member?.encontro ? <span>{member?.neighborhood ? '· ' : ''}{t('cboView.encontroN', { defaultValue: 'Encontro {{n}}', n: member.encontro })}</span> : null}
+              {encontro ? <span>{member?.neighborhood ? '· ' : ''}{t('cboView.encontroN', { defaultValue: 'Encontro {{n}}', n: encontro })}</span> : null}
               {member?.isTest && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/70 bg-amber-50 px-1.5 py-px text-[10.5px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300" data-testid="cbo-drawer-test-badge">
                   <FlaskConical className="h-3 w-3" />{t('cboView.testBadge', { defaultValue: 'Cópia de teste — fora do portfólio' })}
@@ -257,7 +274,34 @@ export function CboFilesDrawer({
           )}
         </div>
 
-        {member && cohortSlug && (
+        {member && cohortSlug && skipStep && (
+          <div className="flex-1 min-h-0 overflow-auto space-y-3 px-1 pb-4" data-testid="skip-e4-view">
+            <div className="flex items-center justify-between gap-2">
+              <button type="button" onClick={skipStep === 'answers' ? leaveSkip : () => setSkipStep(null)} data-testid="skip-e4-back"
+                className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="h-3.5 w-3.5" />{t('cboView.skipBack', { defaultValue: 'Voltar às abas' })}
+              </button>
+              <span className="text-[11px] text-muted-foreground" data-testid="skip-e4-steps">
+                {t('cboView.skipSteps', { defaultValue: 'Passo {{n}} de 2', n: skipStep === 'confirm' ? 1 : 2 })}
+              </span>
+            </div>
+            {skipStep === 'confirm' ? (
+              <SkipToE4 cohortSlug={cohortSlug} memberId={member.id} phase={member.encontro ?? 1} prompt
+                onDone={() => { setSkipStep('answers'); setMovedTo4(true); onRecordChanged?.(); }} />
+            ) : (
+              <>
+                <p className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-[12.5px] text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200" data-testid="skip-e4-done">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  {t('cboView.skipDone', { defaultValue: 'Encontro 4 aberto para {{org}}.', org: member.orgName })}
+                </p>
+                <E4AnswersPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} mode="skip"
+                  onSaved={() => onRecordChanged?.()} onLeave={leaveSkip} />
+              </>
+            )}
+          </div>
+        )}
+
+        {member && cohortSlug && !skipStep && (
           <Tabs value={tab} onValueChange={v => setTab(v as CboDrawerTab)} className="flex-1 min-h-0 flex flex-col">
             {/* Five labels in five equal columns overlapped ("Arquivos Conversa")
                 as soon as one was longer than its fifth. Each tab now takes the
@@ -291,7 +335,7 @@ export function CboFilesDrawer({
               <CboProfileSummary cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
             </TabsContent>
             <TabsContent value="visita" className="flex-1 min-h-0 overflow-auto mt-2">
-              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} onFilesChanged={() => setFilesTick(n => n + 1)} onRecordChanged={onRecordChanged} promptSkip={!!skipPrompt} />
+              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} onFilesChanged={() => setFilesTick(n => n + 1)} onRecordChanged={onRecordChanged} onSkipped={() => { setSkipStep('answers'); setMovedTo4(true); }} />
             </TabsContent>
             {/* ⚠️ What the ORGANISATION took away. Until now nobody on the
                 coordination side could read it: the portfolio exists to carry
@@ -303,6 +347,9 @@ export function CboFilesDrawer({
               <div className="space-y-2 px-1">
                 {/* Encontro 4's one page — computed from the record, reviewed
                     (optionally) and adjusted here. */}
+                {/* Encontro 4's questions the coordination can answer for them — any time, all optional. */}
+                <E4AnswersPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} mode="documents"
+                  onSaved={() => { setReloadKey(k => k + 1); onRecordChanged?.(); }} />
                 <PrenotePanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
                 <p className="text-[12px] leading-snug text-muted-foreground">
                   {t('cboView.documentsHint', {
