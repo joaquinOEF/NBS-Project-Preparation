@@ -47,3 +47,52 @@ test.describe('the Perfil is Portuguese', () => {
     expect(rows.find(r => r.field === 'teia_sprint')?.value).toBe('Não enviou proposta');
   });
 });
+
+// Prod, 22 Oct 2026 (Aline): Conceito Arte's Perfil still printed "heat hazard
+// score", "solution types", "design authors" — names the model invented on
+// records older than routeModelWrite — and its notes repeated one fact four
+// times under English names ("Local gov contact:"). Fixed on read: real
+// organisations will not redo their encontros.
+test.describe('older records print in Portuguese, once', () => {
+  const conceitoArte: any = { phase: 3, sections: {
+    intervention_site: { fields: {
+      bairro: F('Sarandi'),
+      design_authors: F('Arq. Maria Paloma Bernardi e Arq. Mariana Mincarone'),
+      heat_hazard_score: F('0.15'), flood_hazard_score: F('0.24'), landslide_hazard_score: F('0'),
+      site_notes: F([
+        'Local gov contact: Administração Regional do Sarandi conhece a praça e o histórico da organização',
+        'Administração Regional do Sarandi conhece a praça e o histórico da organização',
+        'Local gov contact: Administração Regional do Sarandi conhece a praça e o histórico da organização. Houve conversa sobre o projeto de jardins de chuva especificamente, com interesse demonstrado pela Administração Regional.',
+        'Local gov contact status: Conversa informal com a Administração Regional do Sarandi — interesse demonstrado, sem próximo passo formal combinado',
+      ].join('\n')),
+    } },
+    intervention_type: { fields: {
+      solution_types: F('Jardins de chuva, Biovaletas'),
+      project_notes: F(['Org role: Implementar no nosso site (Praça Oliveira Rolim)', 'Biovaleta hardest: Custo da execução', 'Captacao agua da chuva hardest: Custo da execução', 'Selected solutions: captacao-agua-da-chuva, compostagem, aquecedor-solar'].join('\n')),
+    } },
+  } };
+
+  test('no humanised key, no hazard score of ours, no fact said twice', () => {
+    const p = buildOrgProfile({ orgName: 'Conceito Arte', state: conceitoArte, lang: 'pt' } as any);
+    const rows = p.alsoRecorded.flatMap(s => s.rows);
+    const labels = rows.map(r => r.label);
+    expect(labels).toContain('Autoria do projeto');
+    expect(labels).toContain('Tipos de solução');
+    for (const l of labels) expect(l, l).not.toMatch(/^[a-z]+( [a-z0-9]+)+$/);
+    expect(rows.find(r => /hazard/.test(r.field))).toBeUndefined();
+
+    const site = rows.find(r => r.field === 'site_notes')!.value.split('\n');
+    expect(site).toEqual([
+      'Contato com o poder público local: Administração Regional do Sarandi conhece a praça e o histórico da organização. Houve conversa sobre o projeto de jardins de chuva especificamente, com interesse demonstrado pela Administração Regional.',
+      'Situação do contato com o poder público: Conversa informal com a Administração Regional do Sarandi — interesse demonstrado, sem próximo passo formal combinado',
+    ]);
+    const project = rows.find(r => r.field === 'project_notes')!.value.split('\n');
+    expect(project).toEqual([
+      'Papel da organização: Implementar no nosso site (Praça Oliveira Rolim)',
+      // Two solutions with the same answer are two facts — both stay.
+      'Biovaletas — o que mais pega: Custo da execução',
+      'Captação de água da chuva — o que mais pega: Custo da execução',
+      'Soluções escolhidas: Captação de água da chuva, Compostagem, Aquecedor solar',
+    ]);
+  });
+});

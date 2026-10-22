@@ -96,7 +96,11 @@ const PLACE_LONGER = ['prior_collaboration_detail', 'site_access', 'site_history
 // Our readings and our bookkeeping — never the organisation's answer, never on
 // its page: the verdict and capacity grade (ours), where a text came from
 // (`*_source`), which question an answer belongs to (`detail_question_id`).
-const OUR_READINGS = new Set(['site_knowledge_depth', 'project_verdict', 'project_capacity_grade', 'detail_question_id', 'intervention_scale_band']);
+const OUR_READINGS = new Set(['site_knowledge_depth', 'project_verdict', 'project_capacity_grade', 'detail_question_id', 'intervention_scale_band',
+  // The bairro's hazard ranks as the model copied them into older records
+  // (Conceito Arte: "heat hazard score 0.15") — ours, and printed already as
+  // the risk bars from `_bairro_*_pct`.
+  'heat_hazard_score', 'flood_hazard_score', 'landslide_hazard_score']);
 /** Yes/no answers stored as bare words. */
 const YES_NO: Record<string, { pt: string; en: string }> = {
   sim: { pt: 'Sim', en: 'Yes' }, yes: { pt: 'Sim', en: 'Yes' }, nao: { pt: 'Não', en: 'No' }, 'não': { pt: 'Não', en: 'No' }, no: { pt: 'Não', en: 'No' },
