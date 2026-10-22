@@ -152,7 +152,7 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     expect(s.labels).toEqual(['Fechar o Encontro 3 e seguir']);
     s = await step(r, cboId, 'Fechar o Encontro 3 e seguir');
     // No visit recorded: they pick, and the choice is marked as theirs.
-    expect(s.ask.question).toBe('Qual solução vira a pré-nota?');
+    expect(s.ask.question).toBe('Qual solução vira a proposta inicial?');
     expect(s.labels).toEqual(['Teto verde', 'Outra solução']);
     s = await step(r, cboId, 'Outra solução');
     s = await step(r, cboId, 'jardins de chuva', 'text');

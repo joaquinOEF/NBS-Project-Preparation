@@ -71,7 +71,7 @@ export function narrativeFacts(members: Array<{ orgName: string; prenote: Prenot
   return L.join('\n');
 }
 
-const SYSTEM = `Você escreve a página de um projeto coletivo num pré-portfólio de Soluções baseadas na Natureza de base comunitária em Porto Alegre. Várias organizações comunitárias foram agrupadas num projeto pela coordenação. Você recebe as pré-notas de cada uma e explica, como uma consultora experiente, por que faz sentido elas estarem juntas.
+const SYSTEM = `Você escreve a página de um projeto coletivo num pré-portfólio de Soluções baseadas na Natureza de base comunitária em Porto Alegre. Várias organizações comunitárias foram agrupadas num projeto pela coordenação. Você recebe as propostas iniciais de cada uma e explica, como uma consultora experiente, por que faz sentido elas estarem juntas.
 
 Regras:
 - Use SOMENTE os fatos fornecidos. Nada de dado, nome, instituição ou número que não esteja ali.

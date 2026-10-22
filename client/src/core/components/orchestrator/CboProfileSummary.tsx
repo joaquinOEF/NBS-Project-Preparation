@@ -237,7 +237,7 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
         </label>
       </div>
       <p className="text-[11.5px] leading-snug text-muted-foreground">
-        {t('cboView.visitFilesHint', { defaultValue: 'O relatório da visita, fotos, um croqui. Cada arquivo é lido e o que importa vai para a comparação, a pré-nota, o relatório de sinergias e o pré-portfólio — sempre como da coordenação. Arraste para cá ou anexe.' })}
+        {t('cboView.visitFilesHint', { defaultValue: 'O relatório da visita, fotos, um croqui. Cada arquivo é lido e o que importa vai para a comparação, a proposta inicial, o relatório de sinergias e o pré-portfólio — sempre como da coordenação. Arraste para cá ou anexe.' })}
       </p>
       {files === null ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

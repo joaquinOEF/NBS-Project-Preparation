@@ -60,7 +60,7 @@ export function planLinksKey(facts: string, corpusVersion: string): string {
   return `${createHash('sha1').update(facts).digest('hex').slice(0, 12)}@${corpusVersion}`;
 }
 
-const SYSTEM = `Você cruza um projeto comunitário de Solução baseada na Natureza em Porto Alegre com os planos, projetos e iniciativas da cidade. Você recebe a pré-nota de uma organização e uma lista de documentos, cada um com um id.
+const SYSTEM = `Você cruza um projeto comunitário de Solução baseada na Natureza em Porto Alegre com os planos, projetos e iniciativas da cidade. Você recebe a proposta inicial de uma organização e uma lista de documentos, cada um com um id.
 
 Devolva até 4 conexões REAIS e específicas, as mais fortes. Para cada uma:
 - docId: o id exato do documento.

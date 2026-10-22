@@ -315,7 +315,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
 
   if (!sol) {
     return {
-      solution: null, title: pt ? 'Pré-nota' : 'Pre-note', orgName, place, sections: [], budget: [], total: null,
+      solution: null, title: pt ? 'Proposta inicial' : 'Initial proposal', orgName, place, sections: [], budget: [], total: null,
       indicators: [], gaps, review, status, indicatorsReviewed: !!INDICATOR_MENU_REVIEW, summary: [], photo: input.photos?.[0] ?? null,
     };
   }

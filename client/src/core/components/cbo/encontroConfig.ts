@@ -102,22 +102,22 @@ const E2: Record<Path, Record<Lang, EncontroBase>> = {
 // solution, chosen after the technical visit.
 const E4: Record<Lang, EncontroBase> = {
   pt: {
-    title: 'A pré-nota',
+    title: 'A proposta inicial',
     lead: 'Hoje a solução escolhida vira uma página: o problema, a solução, o que ela muda, como medir, quanto custa e com quem.',
     bullets: [
       'Confirmar a solução, o tamanho e o problema',
-      'Ver a pré-nota montada com o que vocês já contaram',
+      'Ver a proposta inicial montada com o que vocês já contaram',
       'Responder só o que falta — no máximo cinco perguntas rápidas',
     ],
     timeEstimate: '15–20 min · Salva sozinho',
     cta: 'Começar',
   },
   en: {
-    title: 'The pre-note',
+    title: 'The initial proposal',
     lead: 'Today the chosen solution becomes one page: the problem, the solution, what it changes, how to measure it, what it costs and who with.',
     bullets: [
       'Confirm the solution, the size and the problem',
-      'See the pre-note built from what you already told us',
+      'See the initial proposal built from what you already told us',
       'Answer only what is missing — at most five quick questions',
     ],
     timeEstimate: '15–20 min · Saves automatically',

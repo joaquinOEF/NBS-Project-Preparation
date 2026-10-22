@@ -17,7 +17,7 @@ import { esc, md, printShell } from './printShell';
 
 const T = {
   pt: {
-    docLabel: 'Pré-nota de projeto',
+    docLabel: 'Proposta inicial de projeto',
     audience: 'Uma página por organização — base para o pré-portfólio da Rede',
     draft: 'RASCUNHO — para validar e ajustar',
     status: 'Situação',
@@ -27,14 +27,14 @@ const T = {
     missing: 'Falta',
     edited: 'ajustado pela coordenação',
     item: 'Item', value: 'Valor', from: 'Fonte',
-    noSolution: 'Ainda não há uma solução para esta pré-nota: nenhuma visita técnica registrada e nenhuma solução marcada como “faz sentido” no Encontro 3.',
-    foot: 'Pré-nota gerada a partir dos Encontros 1 a 4, das fichas técnicas das soluções, da lista de indicadores da Rede e, quando registrada, da visita técnica. Valores são estimativas de projeto sobre preços publicados, não cotações.',
+    noSolution: 'Ainda não há uma solução para esta proposta inicial: nenhuma visita técnica registrada e nenhuma solução marcada como “faz sentido” no Encontro 3.',
+    foot: 'Proposta inicial gerada a partir dos Encontros 1 a 4, das fichas técnicas das soluções, da lista de indicadores da Rede e, quando registrada, da visita técnica. Valores são estimativas de projeto sobre preços publicados, não cotações.',
     indicatorsNote: 'Indicadores da lista proposta para a Rede, ainda a revisar pela equipe técnica.',
     printed: 'Gerado em',
     print: 'Imprimir ou salvar em PDF',
   },
   en: {
-    docLabel: 'Project pre-note',
+    docLabel: 'Initial project proposal',
     audience: "One page per organisation — the basis for the Rede's pre-portfolio",
     draft: 'DRAFT — to validate and adjust',
     status: 'Status',
@@ -44,8 +44,8 @@ const T = {
     missing: 'Missing',
     edited: 'adjusted by the coordination',
     item: 'Item', value: 'Value', from: 'Source',
-    noSolution: 'There is no solution for this pre-note yet: no technical visit recorded and no solution marked “makes sense” in Encontro 3.',
-    foot: "Pre-note generated from Encontros 1 to 4, the solutions' technical fichas, the Rede's indicator list and, when recorded, the technical visit. Figures are design estimates over published prices, not quotes.",
+    noSolution: 'There is no solution for this initial proposal yet: no technical visit recorded and no solution marked “makes sense” in Encontro 3.',
+    foot: "Initial proposal generated from Encontros 1 to 4, the solutions' technical fichas, the Rede's indicator list and, when recorded, the technical visit. Figures are design estimates over published prices, not quotes.",
     indicatorsNote: "Indicators from the list proposed for the Rede, still to be reviewed by the technical team.",
     printed: 'Generated on',
     print: 'Print or save as PDF',

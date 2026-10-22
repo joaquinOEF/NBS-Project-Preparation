@@ -137,7 +137,7 @@ export function renderPreportfolioHtml(input: {
     audience: 'Para a Rede, a coordenação e os parceiros — um primeiro arranjo dos projetos, antes da estruturação financeira',
     verdict: null,
     bodyHtml: cover + pages,
-    foot: 'Gerado a partir das pré-notas de cada organização (Encontro 4), das fichas técnicas das soluções e do arranjo feito pela coordenação. Valores são estimativas de projeto sobre preços publicados, não cotações; a soma deixa de fora o que ainda não tem valor.',
+    foot: 'Gerado a partir das propostas iniciais de cada organização (Encontro 4), das fichas técnicas das soluções e do arranjo feito pela coordenação. Valores são estimativas de projeto sobre preços publicados, não cotações; a soma deixa de fora o que ainda não tem valor.',
     printed: 'Gerado em',
     printButton: 'Imprimir ou salvar em PDF',
     lineHeight: '1.45',
