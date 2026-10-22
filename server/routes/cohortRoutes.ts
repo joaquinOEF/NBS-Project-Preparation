@@ -2672,11 +2672,19 @@ export function registerCohortRoutes(app: Express): void {
     if (from < 1) { res.status(409).json({ error: 'Encontro 1 not started' }); return; }
 
     const skipped2 = !encontroClosed(state, 2);
-    const skipped3 = !encontroClosed(state, 3);
+    // ⚠️ Tested in Encontro 3 is Encontro 3 DONE in substance (Ksa Rosa: the
+    // model ran the close itself, so the marker is missing) — closed as it
+    // stands, exactly as Encontro 4's own "Fechar o Encontro 3 e seguir" does,
+    // never recorded as skipped.
+    const typeFields = ((state.sections as any)?.intervention_type?.fields ?? {}) as Record<string, { value?: unknown }>;
+    const testedInE3 = parseTests(String(typeFields.solution_tests_json?.value ?? '')).some(t => !!t.reaction);
+    const closeE3 = !encontroClosed(state, 3) && testedInE3;
+    const skipped3 = !encontroClosed(state, 3) && !testedInE3;
     const by = String(req.body?.by ?? '').trim().slice(0, 80);
     if (skipped2) writeSectionFields(id, state, 'intervention_site', { _e2_skipped: 'yes' }, () => {}, 'coordinator');
     writeSectionFields(id, state, 'intervention_type', {
       ...(skipped3 ? { _e3_skipped: 'yes' } : {}),
+      ...(closeE3 ? { _e3_closed: 'yes', _e3_closed_by: 'coordination' } : {}),
       _skip_json: JSON.stringify({ from, at: new Date().toISOString(), ...(by ? { by } : {}) }),
     }, () => {}, 'coordinator');
 
@@ -2686,7 +2694,7 @@ export function registerCohortRoutes(app: Express): void {
     const moved = await advanceCboPhase(id, 4);
     if (!moved.ok) { res.status(409).json({ error: `could not open Encontro 4 (${moved.reason})` }); return; }
     console.log(`[skip-to-e4] ${member.id}: from Encontro ${from}${skipped2 ? ', E2 skipped' : ''}${skipped3 ? ', E3 skipped' : ''}`);
-    res.json({ ok: true, phase: 4, skipped: { e2: skipped2, e3: skipped3 } });
+    res.json({ ok: true, phase: 4, skipped: { e2: skipped2, e3: skipped3 }, closedE3: closeE3 });
   }));
 
   app.post('/api/cohort/:coordinatorSlug/member/:memberId/reset', wrap(async (req, res) => {

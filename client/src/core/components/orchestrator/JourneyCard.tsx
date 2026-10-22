@@ -132,13 +132,19 @@ const VERDICT_EN: Record<string, string> = {
 };
 
 export function JourneyCard({
-  p, selected, onHover, onOpen, onOpenTab, tierControl,
+  p, selected, onHover, onOpen, onOpenTab, onSkipToE4, tierControl,
 }: {
   p: JourneyCardData;
   selected: boolean;
   onHover: (id: string | null) => void;
   onOpen: () => void;
   onOpenTab: (tab: 'arquivos' | 'perfil' | 'visita') => void;
+  /**
+   * Encontro 4 is open for the cohort and this organisation is still in 1–3:
+   * the coordination can take it straight there (22 Oct call). Opens the visit
+   * tab with the confirmation waiting — the visit is where the solution is set.
+   */
+  onSkipToE4?: () => void;
   /** The coordinator's tier override, when one is set — kept, quietly. */
   tierControl?: React.ReactNode;
 }) {
@@ -231,6 +237,16 @@ export function JourneyCard({
             </div>
             <div className="text-[12px] font-semibold leading-snug">{pt ? next.text.pt : next.text.en}</div>
           </div>
+          {onSkipToE4 && (
+            <button
+              type="button"
+              className="-mt-1 self-start text-[11px] font-medium text-emerald-700 hover:underline dark:text-emerald-300"
+              onClick={e => { e.stopPropagation(); onSkipToE4(); }}
+              data-testid={`button-skip-e4-${p.id}`}
+            >
+              {t('orchestrator.journey.skipE4', { defaultValue: 'Ou levar direto ao Encontro 4 →' })}
+            </button>
+          )}
 
           {/* What they tested, and how it landed */}
           {tests.length > 0 && (

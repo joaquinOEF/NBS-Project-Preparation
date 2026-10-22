@@ -116,3 +116,42 @@ test.describe('Levar ao Encontro 4', () => {
     expect(res.status()).toBe(409);
   });
 });
+
+test.describe('Levar ao Encontro 4 — from the card', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('with Encontro 4 open, a card still in 1–3 offers it; a tested Encontro 3 is closed as it stands, not skipped', async ({ page }) => {
+    test.setTimeout(120_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Pular card ${tag}`)).cohort;
+    await api.createCoordinator({ email: `skipcard-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    // Ksa Rosa's shape: tested, the close never written.
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3] })).member;
+    await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+      { sectionId: 'intervention_type', field: 'solution_tests_json', value: JSON.stringify([{ solutionId: 'compostagem', reaction: 'faz-sentido', testedAt: '2026-09-30T13:41:00Z' }]) },
+    ] });
+
+    // Encontro 4 not open yet: no skip on the card.
+    await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
+    await expect(page.getByTestId(`card-orchestrator-project-${m.id}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`button-skip-e4-${m.id}`)).toHaveCount(0);
+
+    // Opened: the card offers it, and the visit tab opens with the confirmation waiting.
+    expect((await page.request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 4, openedAt: '2026-10-29' } })).ok()).toBe(true);
+    await page.reload();
+    await page.getByTestId(`button-skip-e4-${m.id}`).click({ timeout: 30_000 });
+    await expect(page.getByTestId('cbo-tab-visita')).toHaveAttribute('data-state', 'active');
+    await page.getByTestId('visit-skip-e4-confirm').click();
+    await expect(page.getByTestId('visit-skip-e4')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId(`button-skip-e4-${m.id}`)).toHaveCount(0, { timeout: 15_000 });
+
+    const type = await fields(page.request, m.cboStateId, 'intervention_type');
+    expect(type._e3_closed, 'tested = done in substance: closed as it stands').toBe('yes');
+    expect(type._e3_closed_by).toBe('coordination');
+    expect(type._e3_skipped ?? '').toBe('');
+  });
+});
