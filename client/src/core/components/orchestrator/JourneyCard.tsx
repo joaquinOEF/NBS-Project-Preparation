@@ -37,6 +37,8 @@ export interface JourneyCardData {
     visit: { solutionId: string; summary: string } | null;
     tests?: Array<{ id: string; reaction: string | null }>;
     closed?: { e2: boolean; e3: boolean; e4: boolean };
+    /** A solution tested in Encontro 3 and reacted to — Encontro 3 done in substance. */
+    testedInE3?: boolean;
   };
 }
 
@@ -53,20 +55,37 @@ export interface NextStep {
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
+/**
+ * Which encontros count as done, for the dots and the next step alike.
+ *
+ * The furthest encontro closed decides — an organisation that closed 3 or 4
+ * without closing 2 (no site marked) is not sent back to "Terminar o Encontro
+ * 2"; what it needs is a place, and the card says "Location pending".
+ *
+ * ⚠️ A solution TESTED, with a reaction, is Encontro 3 done in substance. The
+ * real Ksa Rosa tested four solutions on 30 Sep and pressed "Pode fechar"
+ * three times, but the chat model ran the close itself, so `_e3_closed` was
+ * never written — and the board filed it under "Ainda nos Encontros 1–2"
+ * (prod, 22 Oct 2026). Nothing waits on that marker: the visit is chosen
+ * from the tested solutions, and Encontro 4 closes an open Encontro 3 as it
+ * stands. The dot for 3 stays open until the marker exists.
+ */
+export function journeyClosed(p: Pick<JourneyCardData, 'w3'>): { e2: boolean; e3: boolean; e4: boolean; tested: boolean } {
+  const raw = p.w3.closed ?? { e2: false, e3: false, e4: false };
+  const tested = !!p.w3.testedInE3;
+  return { e4: raw.e4, e3: raw.e3 || raw.e4, e2: raw.e2 || raw.e3 || raw.e4 || tested, tested };
+}
+
 /** The one rule: the next thing that has to happen for this organisation, and who does it. */
 export function nextStepOf(p: Pick<JourneyCardData, 'phase' | 'w3'>): NextStep {
-  const raw = p.w3.closed ?? { e2: false, e3: false, e4: false };
-  // The furthest encontro closed decides — Ksa Rosa never closed Encontro 2
-  // (no site marked) yet finished 3 and 4; sending it back to "Terminar o
-  // Encontro 2" hid what it actually needs: a place, even an approximate one.
-  const c = { e4: raw.e4, e3: raw.e3 || raw.e4, e2: raw.e2 || raw.e3 || raw.e4 };
+  const c = journeyClosed(p);
   if (!c.e2) {
     const n = Math.max(1, Math.min(2, p.phase));
     return n === 1
       ? { actor: 'early', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 1', en: 'Finish Encontro 1' } }
       : { actor: 'early', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 2 — marcar o lugar', en: 'Finish Encontro 2 — mark the place' } };
   }
-  if (!c.e3) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 3 — testar as soluções', en: 'Finish Encontro 3 — test the solutions' } };
+  if (!c.e3 && !c.tested) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 3 — testar as soluções', en: 'Finish Encontro 3 — test the solutions' } };
   if (!p.w3.visit && !c.e4) return { actor: 'coordination', who: 'visit', tone: 'amber', isVisit: true, text: { pt: 'Registrar a visita técnica', en: 'Record the technical visit' } };
   if (!c.e4) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Fazer o Encontro 4 — a pré-nota', en: 'Do Encontro 4 — the pre-note' } };
   const st = p.w3.state;
@@ -116,7 +135,7 @@ export function JourneyCard({
   const pt = !i18n.language?.startsWith('en');
   const next = nextStepOf(p);
   const { Icon, cls } = worryIcon(p.worry);
-  const c = p.w3.closed ?? { e2: false, e3: false, e4: false };
+  const c = journeyClosed(p);
   const doneThrough = c.e4 ? 4 : c.e3 ? 3 : c.e2 ? 2 : p.phase >= 2 ? 1 : 0;
   const current = Math.min(6, doneThrough + 1);
   // Not in the catalogue ("aquecedor-solar"): said as words, never as an id.
