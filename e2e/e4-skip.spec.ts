@@ -101,7 +101,16 @@ test.describe('Levar ao Encontro 4', () => {
     s = await step(r, m.cboStateId, 'Pode seguir');
     expect(s.events.some(e => e.type === 'show_prenote'), 'the draft follows').toBe(true);
 
+    // The gaps: a sentence typed at the indicators question is kept, then the menu once more.
+    s = await step(r, m.cboStateId, 'Umas 40 famílias da praça.', 'text');
+    expect(s.ask.question).toMatch(/o que vocês mais querem ver mudar/);
+    s = await step(r, m.cboStateId, 'Que a praça pare de alagar quando chove.', 'text');
+    expect(s.ask.question).toBe('E qual destes mede melhor essa mudança?');
+    s = await step(r, m.cboStateId, 'Todas essas');
+    expect(s.ask.question).toMatch(/Quem faria a obra/);
+
     type = await fields(page.request, m.cboStateId, 'intervention_type');
+    expect(type.project_notes).toContain('O que querem ver mudar: Que a praça pare de alagar');
     expect(type.project_notes, 'what they told goes where every pass reads it').toContain('já plantou mudas com 30 famílias');
     expect((await fields(page.request, m.cboStateId, 'intervention_site')).site_worry).toBe('alagamento');
   });

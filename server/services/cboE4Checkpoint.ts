@@ -688,6 +688,29 @@ async function serveE4Inner(
       say('Anotado — entra no problema, nas palavras de vocês.', 'Noted — it goes into the problem, in your words.');
       return serve('problem-said');
     }
+    // "O que querem ver mudar" is a fixed menu of indicators — but a sentence
+    // typed there is an answer too. It went to the model and was lost
+    // ("Entendi. Vamos continuar.", walkthrough 22 Oct). Their words are kept
+    // in the notes; the question comes back once to pick what measures it.
+    if (gap === 'mudancas') {
+      const sol = prenoteSolution(input());
+      const chips = sol ? impactChips(sol.id, site('site_worry'), { ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}), ...(sol.units ? { units: sol.units } : {}) }, L) : [];
+      const isChip = is(E4C.todas) || chips.some(c => deps.normChip(c.label) === msg);
+      // A doubt ("o que é contrapartida?") still goes to the model, and the step comes back.
+      if (!isChip && !raw.includes('?')) {
+        deps.writeFields(TYPE, { project_notes: [type('project_notes'), `O que querem ver mudar: ${raw.slice(0, 400)}`].filter(Boolean).join('\n') });
+        say('Anotado ✓ — fica nas palavras de vocês.', 'Noted ✓ — in your own words.');
+        ask(
+          chips.length ? 'E qual destes mede melhor essa mudança?' : 'Anotado.',
+          chips.length ? 'And which of these measures that change best?' : 'Noted.',
+          chips.length
+            ? [...chips.map(c => ({ pt: c.label, en: c.label })), ...(chips.length > 1 ? [{ pt: E4C.todas.pt, en: E4C.todas.en }] : [])]
+            : [{ pt: E4C.podeSeguir.pt, en: E4C.podeSeguir.en }],
+        );
+        if (!chips.length) writeType({ _e4_changes: 'nota', _e4_gap_pending: '' });
+        return finish('mudancas-said');
+      }
+    }
     if (gap === 'beneficiarios' && !is(E4C.naoSei)) {
       deps.writeFields(SITE, { beneficiaries_note: raw.slice(0, 400) });
       writeType({ _e4_gap_pending: '' });
