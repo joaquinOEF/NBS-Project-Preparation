@@ -492,6 +492,15 @@
       "visitDone": "Visita ✓ {{what}}",
       "visitPending": "Registrar visita técnica"
     },
+    "leftNetwork": {
+      "group": "Saíram da rede ({{n}})",
+      "restore": "Restaurar",
+      "chip": "Saiu da rede",
+      "tooltip": "A organização saiu da rede: sai do quadro, das contagens e do pré-portfólio. O registro fica guardado e pode ser restaurado.",
+      "doneOut": "{{org}} saiu da rede — o registro fica guardado",
+      "doneBack": "{{org}} voltou para a rede",
+      "failed": "Não foi possível atualizar"
+    },
     "portfolioExclude": {
       "tooltip": "Deixar esta organização fora do relatório de sinergias (ela continua no quadro)",
       "on": "Fora do portfólio",

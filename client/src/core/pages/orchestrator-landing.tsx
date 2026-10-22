@@ -1103,7 +1103,7 @@ export default function OrchestratorLandingPage() {
   };
 
   const {
-    cohort, members, isAdmin, allCohorts,
+    cohort, members, leftMembers, isAdmin, allCohorts,
     invite, unlockPhase, openWorkshopPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh, refreshProjects,
     projects: cohortProjects, createProject, updateProject, deleteProject,
@@ -1164,6 +1164,20 @@ export default function OrchestratorLandingPage() {
    * In or out of the portfolio analysis. Reversible, and never destructive —
    * the member stays on the board either way.
    */
+  /** "Saiu da rede" and back — reversible; the server keeps them out of every analysis meanwhile. */
+  const handleLeftNetwork = async (memberId: string, orgName: string, left: boolean) => {
+    if (!cohort?.coordinatorSlug) return;
+    const r = await fetch(`/api/cohort/${cohort.coordinatorSlug}/member/${memberId}/left-network`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ left }),
+    });
+    if (!r.ok) { toast({ title: t('orchestrator.leftNetwork.failed', { defaultValue: 'Não foi possível atualizar' }) }); return; }
+    if (left) setFilesMember(null);
+    toast({ title: left
+      ? t('orchestrator.leftNetwork.doneOut', { defaultValue: '{{org}} saiu da rede — o registro fica guardado', org: orgName })
+      : t('orchestrator.leftNetwork.doneBack', { defaultValue: '{{org}} voltou para a rede', org: orgName }) });
+    await refresh();
+  };
+
   const handleTogglePortfolio = async (p: CboDemoProject) => {
     if (!cohort?.coordinatorSlug) return;
     const exclude = !p.excludeFromPortfolio;
@@ -1630,6 +1644,7 @@ export default function OrchestratorLandingPage() {
           onTogglePortfolio: () => handleTogglePortfolio(projectById.get(filesMember.id)!),
           onReset: () => { const p = projectById.get(filesMember.id)!; setFilesMember(null); setMemberResetTarget(p); },
           onRemove: () => { const p = projectById.get(filesMember.id)!; setFilesMember(null); setMemberRemoveTarget(p); },
+          onLeaveNetwork: () => { void handleLeftNetwork(filesMember.id, filesMember.orgName ?? '', true); },
         } : undefined}
         simulating={!!filesMember && sim.busy.has(filesMember.id)}
       />
@@ -2144,6 +2159,24 @@ export default function OrchestratorLandingPage() {
                     </div>
                   </section>
                 ))}
+                {/* Who left the network: off the board and every count, kept and restorable. */}
+                {leftMembers.length > 0 && (
+                  <details className="rounded-lg border border-dashed border-foreground/15 px-3 py-2 text-xs text-muted-foreground" data-testid="roster-left-network">
+                    <summary className="cursor-pointer select-none">
+                      {t('orchestrator.leftNetwork.group', { defaultValue: 'Saíram da rede ({{n}})', n: leftMembers.length })}
+                    </summary>
+                    <ul className="mt-2 space-y-1">
+                      {leftMembers.map(l => (
+                        <li key={l.id} className="flex items-center justify-between gap-2">
+                          <span>{l.orgName}{l.neighborhood ? ` · ${l.neighborhood}` : ''}</span>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={() => void handleLeftNetwork(l.id, l.orgName ?? '', false)} data-testid={`button-restore-network-${l.id}`}>
+                            {t('orchestrator.leftNetwork.restore', { defaultValue: 'Restaurar' })}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
             );
           })()}
