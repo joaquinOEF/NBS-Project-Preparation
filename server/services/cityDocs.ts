@@ -37,8 +37,13 @@ export interface CityHit extends CityPassage { score: number }
 
 interface Index {
   passages: CityPassage[];
-  /** term → [passage index, term frequency] */
-  postings: Map<string, Array<[number, number]>>;
+  /**
+   * term → passage index and term frequency, interleaved [i, tf, i, tf, …].
+   * Flat typed arrays, not [i, tf] pairs: a million two-element arrays were
+   * ~170 MB of heap and, on the deployment's small machine, minutes of
+   * garbage collection at boot (prod crash, 22 Oct 2026).
+   */
+  postings: Map<string, Uint32Array>;
   lengths: Float32Array;
   avgLen: number;
   version: string;
@@ -59,8 +64,13 @@ export function tokens(text: string): string[] {
     .map(t => (t.length > 4 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t));
 }
 
-function load(): Index {
-  if (index) return index;
+/**
+ * Builds the index, pausing (`yield`) between files and every few hundred
+ * passages. `load()` runs it straight through for a caller that needs it now;
+ * the boot warm-up runs it a slice per event-loop turn, so the server keeps
+ * answering requests and database pings while it builds.
+ */
+function* build(): Generator<void, Index> {
   const passages: CityPassage[] = [];
   const dir = path.join(root(), 'docs');
   const manifestPath = path.join(root(), 'manifest.json');
@@ -77,24 +87,59 @@ function load(): Index {
         perPage.set(c.page, n);
         passages.push({ id: `${doc.id}@p${c.page}#${n}`, docId: doc.id, title: doc.title, owner: doc.owner, kind: doc.kind, page: c.page, ...(c.ctx ? { ctx: c.ctx } : {}), text: c.text, source: doc.source });
       }
+      yield;
     }
   }
-  const postings = new Map<string, Array<[number, number]>>();
+  const building = new Map<string, number[]>();
   const lengths = new Float32Array(passages.length);
-  passages.forEach((p, i) => {
+  for (let i = 0; i < passages.length; i++) {
+    if (i % 400 === 399) yield;
+    const p = passages[i];
     const toks = tokens(`${p.title} ${p.ctx ?? ''} ${p.text}`);
     lengths[i] = toks.length;
     const tf = new Map<string, number>();
     for (const t of toks) tf.set(t, (tf.get(t) ?? 0) + 1);
     for (const [t, n] of Array.from(tf.entries())) {
-      let list = postings.get(t);
-      if (!list) postings.set(t, (list = []));
-      list.push([i, n]);
+      let list = building.get(t);
+      if (!list) building.set(t, (list = []));
+      list.push(i, n);
     }
-  });
+  }
+  const postings = new Map<string, Uint32Array>();
+  let done = 0;
+  for (const [t, list] of Array.from(building.entries())) {
+    postings.set(t, Uint32Array.from(list));
+    if (++done % 20000 === 0) yield;
+  }
   const avgLen = passages.length ? lengths.reduce((a, b) => a + b, 0) / passages.length : 0;
-  index = { passages, postings, lengths, avgLen, version };
-  return index;
+  return { passages, postings, lengths, avgLen, version };
+}
+
+function load(): Index {
+  if (index) return index;
+  const it = build();
+  let r = it.next();
+  while (!r.done) r = it.next();
+  return (index = r.value);
+}
+
+/**
+ * The boot warm-up: the same build, one slice per event-loop turn. Building
+ * in one go blocked the deployment's loop for over two minutes; Postgres
+ * dropped the idle connections meanwhile and the server crashed (22 Oct 2026).
+ */
+export async function warmCityDocs(): Promise<number> {
+  if (!index) {
+    const it = build();
+    let r = it.next();
+    while (!r.done) {
+      await new Promise<void>(res => setImmediate(res));
+      if (index) break; // a request needed it first and built it whole
+      r = it.next();
+    }
+    if (!index && r.done) index = r.value;
+  }
+  return index!.passages.length;
 }
 
 /** Test seam: forget the index (a re-import in the same process). */
@@ -125,8 +170,10 @@ export function searchCityDocs(query: string, opts: { k?: number; perDoc?: numbe
   for (const t of Array.from(new Set(tokens(query)))) {
     const list = ix.postings.get(t);
     if (!list) continue;
-    const idf = Math.log(1 + (N - list.length + 0.5) / (list.length + 0.5));
-    for (const [i, tf] of list) {
+    const df = list.length / 2;
+    const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
+    for (let j = 0; j < list.length; j += 2) {
+      const i = list[j], tf = list[j + 1];
       const s = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * ix.lengths[i] / ix.avgLen));
       scores.set(i, (scores.get(i) ?? 0) + s);
     }

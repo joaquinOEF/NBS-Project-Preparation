@@ -44,8 +44,8 @@ let cache: Loaded[] | null = null;
 
 const layersDir = () => path.join(process.cwd(), 'knowledge', 'porto-alegre', 'city', 'layers');
 
-function load(): Loaded[] {
-  if (cache) return cache;
+/** One layer per `yield` — see `build()` in cityDocs.ts for why. */
+function* build(): Generator<void, Loaded[]> {
   const out: Loaded[] = [];
   for (const layer of CITY_LAYERS) {
     const file = path.join(layersDir(), `${layer.id}.geojson.gz`);
@@ -54,9 +54,30 @@ function load(): Loaded[] {
     try { gj = JSON.parse(gunzipSync(readFileSync(file)).toString('utf8')); }
     catch (err) { console.warn(`[site-context] ${layer.id} unreadable: ${(err as Error).message}`); continue; }
     out.push({ layer, features: (gj.features ?? []).map((f: any, i: number) => ({ f, i, bbox: turf.bbox(f) as [number, number, number, number] })) });
+    yield;
   }
-  cache = out;
   return out;
+}
+
+function load(): Loaded[] {
+  if (cache) return cache;
+  const it = build();
+  let r = it.next();
+  while (!r.done) r = it.next();
+  return (cache = r.value);
+}
+
+/** The boot warm-up: the same build, one layer per event-loop turn. */
+export async function warmSiteContext(): Promise<void> {
+  if (cache) return;
+  const it = build();
+  let r = it.next();
+  while (!r.done) {
+    await new Promise<void>(res => setImmediate(res));
+    if (cache) return;
+    r = it.next();
+  }
+  if (!cache) cache = r.value;
 }
 
 /** Test seam: forget the loaded layers (a re-import in the same process). */

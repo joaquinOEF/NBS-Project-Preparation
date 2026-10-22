@@ -3,8 +3,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import path from 'node:path';
 import * as turf from '@turf/turf';
-import { siteFacts, sitePoint, cityMapFor } from '../server/services/siteContext';
-import { searchCityDocs, cityPassageCount, tokens } from '../server/services/cityDocs';
+import { siteFacts, sitePoint, cityMapFor, resetSiteContext, warmSiteContext } from '../server/services/siteContext';
+import { searchCityDocs, cityPassageCount, tokens, resetCityDocs, warmCityDocs } from '../server/services/cityDocs';
 import { loadPlanCorpus, parseCsv } from '../server/services/planCorpus';
 import { seedQueries, verifyLinks } from '../server/services/planLinks';
 import { CITY_LAYERS } from '../shared/city-layers';
@@ -136,6 +136,29 @@ test.describe('the map lines reach the documents', () => {
     const org = n.sections.find(s => s.id === 'organizacao')!;
     const bullets = org.paragraphs.filter(p => p.kind === 'bullet');
     expect(bullets.map(b => b.sources[0])).toEqual(cityMap.map(x => x.source));
+  });
+});
+
+// Prod crashed on 22 Oct 2026: the boot warm-up built all of this in one go,
+// blocking the deployment's event loop for 137 s while Postgres dropped the
+// idle connections. The warm-up now builds a slice per turn — and must build
+// exactly what the one-go build does.
+test.describe('the boot warm-up builds the same base without holding the server', () => {
+  test('sliced and whole builds give the same search and the same map facts', async () => {
+    const q = 'parque linear Arroio Dilúvio';
+    const wholeHits = searchCityDocs(q, { k: 5 }).map(h => [h.id, h.score]);
+    const wholeFacts = siteFacts(-30.03, -51.22);
+    resetCityDocs();
+    resetSiteContext();
+    let last = Date.now(), worst = 0;
+    const iv = setInterval(() => { const n = Date.now(); worst = Math.max(worst, n - last); last = n; }, 5);
+    expect(await warmCityDocs()).toBe(cityPassageCount());
+    await warmSiteContext();
+    clearInterval(iv);
+    expect(searchCityDocs(q, { k: 5 }).map(h => [h.id, h.score])).toEqual(wholeHits);
+    expect(siteFacts(-30.03, -51.22)).toEqual(wholeFacts);
+    // One go was ~1.4 s here; no single slice should come near it.
+    expect(worst).toBeLessThan(700);
   });
 });
 
