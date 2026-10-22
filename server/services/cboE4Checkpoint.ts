@@ -67,7 +67,11 @@ const OPS = 'operations_sustain';
 
 /** The message the "Começar Encontro 4" button sends, and the resume chip. */
 export const E4_ENTRY = /^\s*(vamos come[çc]ar o encontro 4|let'?s start encontro 4)\b/i;
-export const E4_RESUME = /^\s*(continuar da fase 4|continue from phase 4|continuar\.?|continue\.?)\s*$/i;
+export const E4_RESUME = /^\s*(continuar da fase 4|continue from phase 4|continuar|continue)\.?\s*$/i;
+// ⚠️ The resume card sends "Continuar da Fase 4." — WITH the full stop. The
+// old pattern ended right after the number, so the line fell to the model
+// ("Como deseja prosseguir?") instead of the encontro's own question
+// (screenshots of a skipped org's first open, 22 Oct 2026).
 
 /** The chips Encontro 4 speaks. */
 export const E4C = {

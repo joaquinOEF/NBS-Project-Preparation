@@ -247,7 +247,11 @@ const E3_ENTRY = /^\s*(vamos come[çc]ar o encontro 3|let'?s start encontro 3)\b
  * that parked at the comparison and came back the next day got a free
  * conversation instead of its own next beat.
  */
-const E3_RESUME = /^\s*(continuar da fase 3|continue from phase 3|continuar\.?|continue\.?)\s*$/i;
+const E3_RESUME = /^\s*(continuar da fase 3|continue from phase 3|continuar|continue)\.?\s*$/i;
+// ⚠️ The resume card sends "Continuar da Fase 3." — WITH the full stop. The
+// old pattern ended right after the number, so the line fell to the model
+// ("Como deseja prosseguir?") instead of the encontro's own question
+// (screenshots of a skipped org's first open, 22 Oct 2026).
 
 /**
  * The traced ring, as [lat, lng] pairs, out of the map payload's `[footprint]`

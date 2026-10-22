@@ -75,7 +75,9 @@ test.describe('Levar ao Encontro 4', () => {
 
     // The organisation, on its phone.
     const r = page.request;
-    let s = await step(r, m.cboStateId, 'Vamos começar o Encontro 4.', 'text');
+    // The first open after a skip goes through the resume card, which sends
+    // "Continuar da Fase 4." — with the full stop. It is the encontro's line.
+    let s = await step(r, m.cboStateId, 'Continuar da Fase 4.', 'text');
     expect(s.ask.question, 'not offered a close of an encontro it never reached').not.toMatch(/Fechamos o Encontro 3/);
     expect(s.ask.question).toMatch(/Jardins de chuva/);
     s = await step(r, m.cboStateId, 'É essa ✓');
