@@ -162,6 +162,11 @@ export function PrenotePanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: 
                     {s.lines.slice(0, 3).map((l, i) => (
                       <p key={i} className="text-[11.5px] leading-snug text-muted-foreground line-clamp-2">{l.text.replace(/\*\*/g, '')}</p>
                     ))}
+                    {s.byCoordination?.length ? (
+                      <p className="text-[11px] text-amber-700" data-testid={`prenote-bycoord-${s.id}`}>
+                        {t('cboView.prenoteByCoord', { defaultValue: 'Registrado pela coordenação: {{what}}', what: s.byCoordination.join(', ') })}
+                      </p>
+                    ) : null}
                     {s.missing && <p className="text-[11.5px] text-amber-700" data-testid={`prenote-missing-${s.id}`}>{s.missing}</p>}
                   </>
                 )}

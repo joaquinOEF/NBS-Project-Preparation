@@ -187,7 +187,11 @@ const VISIT_FILE_ACCEPT = '.pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,
  * the comparison, the concept note, the pre-note, the synergy report and the
  * pre-portfolio — always named as the coordination's, never the organisation's.
  */
-function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; memberId: string; onChanged?: () => void }) {
+export function VisitFiles({ cohortSlug, memberId, onChanged, title, hint }: {
+  cohortSlug: string; memberId: string; onChanged?: () => void;
+  /** The same locker, offered elsewhere (the "O que ainda falta" form) under its own words. */
+  title?: string; hint?: string;
+}) {
   const { t } = useTranslation();
   const base = `/api/cohort/${cohortSlug}/member/${memberId}`;
   const [files, setFiles] = useState<DocumentMeta[] | null>(null);
@@ -230,7 +234,7 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('cboView.visitFiles', { defaultValue: 'Arquivos da visita' })}
+          {title ?? t('cboView.visitFiles', { defaultValue: 'Arquivos da visita' })}
         </span>
         <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium hover:bg-muted/50">
           <Paperclip className="h-3 w-3" />
@@ -240,7 +244,7 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
         </label>
       </div>
       <p className="text-[11.5px] leading-snug text-muted-foreground">
-        {t('cboView.visitFilesHint', { defaultValue: 'O relatório da visita, fotos, um croqui. Cada arquivo é lido e o que importa vai para a comparação, a proposta inicial, o relatório de sinergias e o pré-portfólio — sempre como da coordenação. Arraste para cá ou anexe.' })}
+        {hint ?? t('cboView.visitFilesHint', { defaultValue: 'O relatório da visita, fotos, um croqui. Cada arquivo é lido e o que importa vai para a comparação, a proposta inicial, o relatório de sinergias e o pré-portfólio — sempre como da coordenação. Arraste para cá ou anexe.' })}
       </p>
       {files === null ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -279,7 +283,11 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
  * so its card stops saying "Registrar a visita técnica" (it used to, until a
  * page reload).
  */
-export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, onRecordChanged, promptSkip }: { cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void; onRecordChanged?: () => void; promptSkip?: boolean }) {
+export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, onRecordChanged, promptSkip, onSkipped }: {
+  cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void; onRecordChanged?: () => void; promptSkip?: boolean;
+  /** Taken to Encontro 4 from this tab: the drawer moves on to "O que ainda falta". */
+  onSkipped?: () => void;
+}) {
   const { t } = useTranslation();
   const [fields, setFields] = useState<Record<string, { value?: unknown } | undefined> | null>(null);
   const [phase, setPhase] = useState<number | null>(null);
@@ -304,7 +312,7 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, on
       <VisitEditor key={`${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} fields={fields} onSaved={onRecordChanged} />
       <VisitFiles key={`files-${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} onChanged={() => { onFilesChanged?.(); onRecordChanged?.(); }} />
       {phase !== null && phase >= 1 && phase < 4 && (
-        <SkipToE4 cohortSlug={cohortSlug} memberId={memberId} phase={phase} prompt={!!promptSkip} onDone={() => { setPhase(4); onRecordChanged?.(); }} />
+        <SkipToE4 cohortSlug={cohortSlug} memberId={memberId} phase={phase} prompt={!!promptSkip} onDone={() => { setPhase(4); onRecordChanged?.(); onSkipped?.(); }} />
       )}
     </div>
   );
@@ -317,7 +325,7 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, on
  * organisation's Encontro 4 asks what they would have given (the place, the
  * problem, and anything else — in words or files).
  */
-function SkipToE4({ cohortSlug, memberId, phase, prompt, onDone }: { cohortSlug: string; memberId: string; phase: number; prompt?: boolean; onDone: () => void }) {
+export function SkipToE4({ cohortSlug, memberId, phase, prompt, onDone }: { cohortSlug: string; memberId: string; phase: number; prompt?: boolean; onDone: () => void }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   // Opened from the card: the confirmation is already waiting, in view.
@@ -340,7 +348,7 @@ function SkipToE4({ cohortSlug, memberId, phase, prompt, onDone }: { cohortSlug:
       <p className="text-[13px] font-semibold">{t('cboView.skipE4Title', { defaultValue: 'Levar ao Encontro 4' })}</p>
       <p className="mt-1 text-xs text-muted-foreground">
         {t('cboView.skipE4Hint', {
-          defaultValue: 'A organização está no Encontro {{phase}}. Se a solução já foi combinada na visita, ela pode ir direto para a proposta inicial: o Encontro 4 pergunta o lugar, o problema e o que mais quiserem contar ou anexar. Fica registrado que o encontro foi pulado.',
+          defaultValue: 'A organização está no Encontro {{phase}}. Ela pode ir direto para a proposta inicial. Depois de confirmar, vocês podem responder o que já sabem — tudo opcional — e o que ficar em branco a organização responde no Encontro 4 dela. Fica registrado que o encontro foi pulado.',
           phase,
         })}
       </p>

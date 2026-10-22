@@ -57,6 +57,11 @@ test.describe('Levar ao Encontro 4', () => {
     await expect(page.getByTestId('visit-skip-e4')).toContainText('Encontro 2');
     await page.getByTestId('visit-skip-e4-button').click();
     await page.getByTestId('visit-skip-e4-confirm').click();
+    // Step 2: what is still missing, all optional — this org's coordination leaves it all to them.
+    await expect(page.getByTestId('skip-e4-steps')).toHaveText('Passo 2 de 2');
+    await expect(page.getByTestId('e4-answers-optional')).toContainText('Tudo aqui é opcional');
+    await page.getByTestId('e4-answers-leave').click();
+    await expect(page.getByTestId('cbo-tab-documentos')).toHaveAttribute('data-state', 'active');
     await expect(page.getByTestId('visit-skip-e4')).toHaveCount(0);
 
     // The board behind the drawer moved without a reload: 2 and 3 passed (dashed), not done.
@@ -154,9 +159,13 @@ test.describe('Levar ao Encontro 4 — from the card', () => {
     expect((await page.request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 4, openedAt: '2026-10-29' } })).ok()).toBe(true);
     await page.reload();
     await page.getByTestId(`button-skip-e4-${m.id}`).click({ timeout: 30_000 });
-    await expect(page.getByTestId('cbo-tab-visita')).toHaveAttribute('data-state', 'active');
+    // Its own view, confirmation first (22 Oct decision), then what is still missing.
+    await expect(page.getByTestId('skip-e4-steps')).toHaveText('Passo 1 de 2');
     await page.getByTestId('visit-skip-e4-confirm').click();
-    await expect(page.getByTestId('visit-skip-e4')).toHaveCount(0);
+    await expect(page.getByTestId('skip-e4-done')).toContainText('Encontro 4 aberto para Ksa Rosa');
+    await expect(page.getByTestId('e4-answers-skip')).toBeVisible();
+    await page.getByTestId('e4-answers-leave').click();
+    await expect(page.getByTestId('skip-e4-view')).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.getByTestId(`button-skip-e4-${m.id}`)).toHaveCount(0, { timeout: 15_000 });
 
@@ -164,6 +173,135 @@ test.describe('Levar ao Encontro 4 — from the card', () => {
     expect(type._e3_closed, 'tested = done in substance: closed as it stands').toBe('yes');
     expect(type._e3_closed_by).toBe('coordination');
     expect(type._e3_skipped ?? '').toBe('');
+  });
+});
+
+test.describe('Levar ao Encontro 4 — the coordination answers some, the organisation the rest', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('answered in the drawer = not asked in the chat; marked on the page; confirmed in one check; a correction takes the mark away', async ({ page }) => {
+    test.setTimeout(240_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Lacunas ${tag}`)).cohort;
+    await api.createCoordinator({ email: `gaps-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Periferia Feminista', neighborhood: 'Restinga', withSession: true, unlockedPhases: [1, 2] })).member;
+    await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [
+      { sectionId: 'org_profile', field: 'org_name', value: 'Periferia Feminista' },
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Restinga' },
+    ] });
+    expect((await page.request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 4, openedAt: '2026-10-29' } })).ok()).toBe(true);
+
+    // ── The coordination: skip from the card, answer what it knows ──────────
+    await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
+    await page.getByTestId(`button-skip-e4-${m.id}`).click({ timeout: 30_000 });
+    await page.getByTestId('visit-skip-e4-confirm').click();
+    const form = page.getByTestId('e4-answers-skip');
+    await expect(form).toBeVisible();
+    // Skipped from Encontro 2: everything is open, and each item says it is optional.
+    await expect(form.getByText('opcional', { exact: true })).toHaveCount(11);
+    await page.getByTestId('e4a-input-solution').selectOption('jardins-de-chuva');
+    await page.getByTestId('e4a-input-size').fill('120');
+    await page.getByTestId('e4a-map').click({ position: { x: 150, y: 90 } });
+    await expect(page.getByTestId('e4a-pin')).toBeVisible();
+    await page.getByTestId('e4a-input-sitename').fill('Pátio da sede');
+    await page.getByTestId('e4a-problem-heat').click();
+    await page.getByTestId('e4a-input-beneficiarios').fill('Umas 40 famílias e as crianças da creche');
+    await page.getByTestId('e4a-build-mutirao').click();
+    await page.getByTestId('e4a-input-context').fill('Na visita vimos que o pátio não tem nenhuma sombra.');
+    await page.getByTestId('e4-answers-save').click();
+    await expect(page.getByTestId('e4-answers-saved')).toBeVisible();
+    // Saved answers fold into what was answered, marked as the coordination's.
+    await expect(page.getByTestId('e4a-answered-beneficiarios')).toContainText('Umas 40 famílias');
+    await expect(page.getByTestId('e4a-item-quem-faz-obra')).toContainText('registrado pela coordenação');
+    await expect(page.getByTestId('e4-answers-leave')).toHaveText('Deixar o resto para a organização');
+    await page.getByTestId('e4-answers-leave').click();
+
+    // In Documentos: the proposal names what the coordination answered, and the form stays for later.
+    await expect(page.getByTestId('prenote-bycoord-problema')).toContainText('quem é atingido');
+    await expect(page.getByTestId('prenote-bycoord-solucao')).toContainText('quem faz a obra');
+    await expect(page.getByTestId('e4-answers-documents')).toContainText('O que ainda falta (4)');
+
+    let type = await fields(page.request, m.cboStateId, 'intervention_type');
+    const site = await fields(page.request, m.cboStateId, 'intervention_site');
+    expect(JSON.parse(type._e4_solution_json)).toMatchObject({ solutionId: 'jardins-de-chuva', source: 'coordenacao', areaM2: 120 });
+    expect(type.construction_model).toBe('mutirao');
+    expect(type.project_notes).toContain('Da coordenação: Na visita vimos');
+    expect(site.beneficiaries_note).toBe('Umas 40 famílias e as crianças da creche');
+    expect(site.site_worry).toBe('heat');
+    expect(site._site_lat).not.toBe('');
+    expect(site.site_name).toBe('Pátio da sede');
+
+    // ── The organisation: only what was left ─────────────────────────────────
+    const r = page.request;
+    let s = await step(r, m.cboStateId, 'Continuar da Fase 4.', 'text');
+    const asked: string[] = [s.ask.question];
+    // Solution, size, place and problem were answered: straight to their context.
+    expect(s.ask.question).toBe('Querem acrescentar algo?');
+    s = await step(r, m.cboStateId, 'Pode seguir');
+    asked.push(s.ask.question);
+    const draft = s.events.find(e => e.type === 'show_prenote')?.prenote;
+    expect(draft?.byCoordination).toEqual(['solution', 'size', 'place', 'problem', 'beneficiarios', 'quem-faz-obra']);
+    // Who is affected was answered: the first gap is what they want to see change.
+    expect(s.ask.question).toMatch(/o que vocês mais querem ver mudar/);
+    s = await step(r, m.cboStateId, 'Todas essas');
+    asked.push(s.ask.question);
+    // Who builds was answered: who looks after it comes next.
+    expect(s.ask.question).toMatch(/quem cuida no dia a dia/);
+    s = await step(r, m.cboStateId, 'A própria organização');
+    s = await step(r, m.cboStateId, 'Nada por enquanto');
+    s = await step(r, m.cboStateId, 'Ninguém ainda');
+    asked.push(s.ask.question);
+    expect(asked.join(' | '), 'never asked what the coordination answered').not.toMatch(/Quem faria a obra|quem sofre mais|tamanho|marcado no mapa|problema principal/);
+
+    // ── One check, naming what the coordination answered ────────────────────
+    expect(s.ask.question).toBe('Confere tudo?');
+    expect(s.labels).toEqual(['Está certo ✓', 'Corrigir uma']);
+    const said = s.events.filter(e => e.type === 'chat').map(e => e.content).join(' ');
+    expect(said).toContain('A coordenação já adiantou 6 respostas');
+    expect(said).toContain('quem faz a obra');
+
+    // A correction: latest answer wins, and the mark goes with the old value.
+    s = await step(r, m.cboStateId, 'Corrigir uma');
+    expect(s.labels).toContain('O lugar no mapa');
+    expect(s.labels).toContain('O problema principal');
+    s = await step(r, m.cboStateId, 'Quem faz e quem cuida');
+    expect(s.ask.question).toMatch(/Quem faria a obra/);
+    s = await step(r, m.cboStateId, 'Empresa contratada');
+    s = await step(r, m.cboStateId, 'A própria organização');
+    expect(s.ask.question).toBe('Confere tudo?');
+    const after = s.events.filter(e => e.type === 'chat').map(e => e.content).join(' ');
+    expect(after).toContain('A coordenação já adiantou 5 respostas');
+    expect(after).not.toContain('quem faz a obra');
+    s = await step(r, m.cboStateId, 'Está certo ✓');
+    type = await fields(page.request, m.cboStateId, 'intervention_type');
+    expect(type._e4_closed).toBe('yes');
+    expect(type.construction_model).toBe('contratada');
+
+    // The printed page says whose answer each line is.
+    const html = await (await page.request.get(`/api/cbo/${m.cboStateId}/prenote?lang=pt`)).text();
+    expect(html).toContain('registrado pela coordenação');
+    expect(html).toContain('indicada pela coordenação');
+  });
+
+  test('the answers route refuses an organisation not yet in Encontro 4, and ignores options it does not know', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Lacunas2 ${tag}`)).cohort;
+    await api.createCoordinator({ email: `gaps2-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ainda no 2', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2] })).member;
+    await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [{ sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' }] });
+    const url = `/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/e4-answers`;
+    expect((await page.request.post(url, { data: { answers: { beneficiarios: 'x' } } })).status()).toBe(409);
+    await api.seedState(m.cboStateId, { phase: 4, language: 'pt', sections: [] });
+    expect((await page.request.post(url, { data: { answers: { solutionId: 'nao-existe' } } })).status()).toBe(400);
+    const ok = await (await page.request.post(url, { data: { answers: { quemFaz: 'robos', quemCuida: 'nos', problem: 'other' } } })).json();
+    expect(ok.values['quem-faz-obra']).toBe('');
+    expect(ok.values['quem-cuida']).toBe('nos');
+    expect(ok.values.problem).toBe('');
+    expect(ok.byCoordination).toEqual(['quem-cuida']);
   });
 });
 

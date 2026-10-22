@@ -64,7 +64,12 @@ import { renderComparisonHtml, renderScenarioHtml } from '../services/comparison
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
-import { buildPrenote, prenoteInputFromSections, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
+import { buildPrenote, prenoteInputFromSections, prenoteSolution, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
+import { BUILD, MAINTAIN, COORD_KEYS, COORD_ANSWERS_FIELD, parseCoordAnswers, answeredByCoordination, type CoordKey } from '@shared/e4-options';
+import { getSolution, NBS_SOLUTIONS, orderSolutionsByMechanism } from '@shared/nbs-catalog';
+import { SOLUTION_COSTS } from '@shared/w3-sizing';
+import { WORRY_SUBTYPES } from '@shared/site-knowledge';
+import { PENDING_FIELD } from '@shared/pending-question';
 import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
 import { prenoteInputFor } from '../services/prenoteContext';
 import { renderPrenoteHtml } from '../services/prenotePrint';
@@ -2695,6 +2700,164 @@ export function registerCohortRoutes(app: Express): void {
     if (!moved.ok) { res.status(409).json({ error: `could not open Encontro 4 (${moved.reason})` }); return; }
     console.log(`[skip-to-e4] ${member.id}: from Encontro ${from}${skipped2 ? ', E2 skipped' : ''}${skipped3 ? ', E3 skipped' : ''}`);
     res.json({ ok: true, phase: 4, skipped: { e2: skipped2, e3: skipped3 }, closedE3: closeE3 });
+  }));
+
+  /**
+   * "O que ainda falta" — Encontro 4's questions, answered by the coordination
+   * (22 Oct decision). After "Levar ao Encontro 4" the coordinator usually
+   * knows some answers from the visit or a call; until now the only place to
+   * put them was the pencil on the proposal, which rewrites text and closes
+   * nothing. Every answer here is optional and written to the SAME fields the
+   * organisation's chat writes, so the chat simply does not ask it; what is
+   * left blank is asked there. The values written are remembered
+   * (`_coord_answers_json`) so the page and the chat's final check can say
+   * which answers are the coordination's (shared/e4-options.ts).
+   */
+  const e4AnswersView = (state: CboState) => {
+    const input = prenoteInputFromSections(state.sections);
+    const { site, type } = input;
+    const ops = input.ops ?? {};
+    const sol = prenoteSolution(input);
+    const values: Record<CoordKey, string> = {
+      solution: sol?.id ?? '',
+      size: String(sol?.areaM2 ?? sol?.units ?? ''),
+      place: (site._site_lat || site.site_lat) ? `${site._site_lat || site.site_lat},${site._site_lng || site.site_lng}` : '',
+      problem: site.site_worry ?? '',
+      beneficiarios: site.beneficiaries_note ?? '',
+      mudancas: type._e4_changes ?? '',
+      'quem-faz-obra': type.construction_model ?? '',
+      'quem-cuida': ops.who_maintains ?? '',
+      contrapartida: type.e4_contribution ?? '',
+      parceiros: type.e4_partners ?? '',
+    };
+    // A problem told in their own words in Encontro 2 is answered, even without a worry picked.
+    const open = COORD_KEYS.filter(k => !values[k].trim() && !(k === 'problem' && (site.site_story ?? '').trim()));
+    const visit = parseVisit(type._visit_json);
+    const tested = testsOf(type).map(t => t.solutionId).filter(id => getSolution(id));
+    const worries = (site.site_worry ?? '').split(',').map(w => w.trim()).filter(Boolean);
+    const interest = (site.nbs_interest ?? '').split(',').map(x => x.trim()).filter(Boolean);
+    const pool = interest.length ? NBS_SOLUTIONS.filter(x => interest.includes(x.familiaId)) : NBS_SOLUTIONS;
+    const suggested = Array.from(new Set([
+      ...(visit ? [visit.solutionId] : []), ...tested,
+      ...orderSolutionsByMechanism(pool.length ? pool : NBS_SOLUTIONS, worries).slice(0, 4).map(x => x.id),
+    ]));
+    return {
+      phase: state.phase ?? 0,
+      skipped: !!type._skip_json,
+      closed: type._e4_closed === 'yes',
+      values,
+      siteName: site.site_name ?? '',
+      solutionSource: sol?.source ?? null,
+      open,
+      byCoordination: answeredByCoordination({ site, type, ops }),
+      suggested,
+    };
+  };
+  const memberState = async (req: any, res: any) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return null; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return null; }
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) {
+      const persisted = await loadCboFromDb(member.cboStateId);
+      if (persisted) {
+        setCboState(member.cboStateId, persisted.state);
+        for (const msg of persisted.messages) addCboMessage(member.cboStateId, msg);
+        state = persisted.state;
+      }
+    }
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return null; }
+    return { member, state, id: member.cboStateId };
+  };
+
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/e4-answers', wrap(async (req, res) => {
+    const got = await memberState(req, res);
+    if (!got) return;
+    res.json(e4AnswersView(got.state));
+  }));
+
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/e4-answers', wrap(async (req, res) => {
+    const got = await memberState(req, res);
+    if (!got) return;
+    const { state, id } = got;
+    if ((state.phase ?? 0) < 4) { res.status(409).json({ error: 'Encontro 4 is not open for this organisation' }); return; }
+    const a = (req.body?.answers ?? {}) as Record<string, unknown>;
+    const str = (x: unknown, max = 400) => (typeof x === 'string' ? x.trim().slice(0, max) : '');
+    const input = prenoteInputFromSections(state.sections);
+    const type = input.type;
+    const siteW: Record<string, string> = {};
+    const typeW: Record<string, string> = {};
+    const opsW: Record<string, string> = {};
+    const written: Partial<Record<CoordKey, string>> = {};
+
+    // The solution and its size — one record, as Encontro 4 keeps it.
+    const solId = str(a.solutionId, 80);
+    if (solId && !getSolution(solId)) { res.status(400).json({ error: 'unknown solution' }); return; }
+    const size = Number(a.size) > 0 ? Math.round(Number(a.size)) : 0;
+    const cur = prenoteSolution(input);
+    const target = solId || cur?.id;
+    if (target && (solId || size)) {
+      const byUnits = SOLUTION_COSTS[target]?.basis === 'unit';
+      const keep = !solId || solId === cur?.id ? (byUnits ? cur?.units : cur?.areaM2) : undefined;
+      const amount = size || keep;
+      const visit = parseVisit(type._visit_json);
+      // The visit's own recommendation keeps its name ("indicada na visita técnica").
+      const source = visit?.solutionId === target ? 'visita' : solId ? 'coordenacao' : (cur?.source === 'coordenacao' ? 'coordenacao' : 'organizacao');
+      typeW._e4_solution_json = JSON.stringify({ solutionId: target, source, ...(amount ? (byUnits ? { units: amount } : { areaM2: amount }) : {}) });
+      typeW._e4_solution_pending = '';
+      if (size) { typeW._e4_size_ok = 'yes'; typeW._e4_size_ask = ''; written.size = String(size); }
+      else if (solId && solId !== cur?.id) typeW._e4_size_ok = '';
+      if (solId) written.solution = solId;
+    }
+    // The place, pinned on the drawer's map.
+    const lat = Number(a.lat), lng = Number(a.lng);
+    if (a.lat != null && a.lng != null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      siteW._site_lat = lat.toFixed(6);
+      siteW._site_lng = lng.toFixed(6);
+      typeW._e4_place_skipped = '';
+      written.place = `${siteW._site_lat},${siteW._site_lng}`;
+    }
+    const siteName = str(a.siteName, 120);
+    if (siteName) siteW.site_name = siteName;
+    const problem = str(a.problem, 40);
+    if (problem && WORRY_SUBTYPES.some(w => w.id === problem && w.id !== 'other')) {
+      siteW.site_worry = problem;
+      typeW._e4_problem_ok = 'yes';
+      written.problem = problem;
+    }
+    // Context is the coordination's note, not an answer: it is read by every pass and marked as theirs.
+    const context = str(a.context, 1500);
+    if (context) typeW.project_notes = [type.project_notes, `Da coordenação: ${context}`].filter(Boolean).join('\n');
+    const beneficiarios = str(a.beneficiarios);
+    if (beneficiarios) { siteW.beneficiaries_note = beneficiarios; written.beneficiarios = beneficiarios; }
+    const mudancas = Array.isArray(a.mudancas) ? a.mudancas.map(x => str(x, 60)).filter(x => /^[a-z0-9-]+$/.test(x)) : [];
+    if (mudancas.length) { typeW._e4_changes = mudancas.join(','); written.mudancas = typeW._e4_changes; }
+    const quemFaz = str(a.quemFaz, 40);
+    if (BUILD.some(b => b.id === quemFaz)) { typeW.construction_model = quemFaz; written['quem-faz-obra'] = quemFaz; }
+    const quemCuida = str(a.quemCuida, 40);
+    if (MAINTAIN.some(m => m.id === quemCuida)) { opsW.who_maintains = quemCuida; written['quem-cuida'] = quemCuida; }
+    const contrapartida = str(a.contrapartida);
+    if (contrapartida) { typeW.e4_contribution = contrapartida; written.contrapartida = contrapartida; }
+    const parceiros = str(a.parceiros);
+    if (parceiros) { typeW.e4_partners = parceiros; written.parceiros = parceiros; }
+
+    if (!Object.keys(written).length && !context && !siteName) { res.json({ ok: true, ...e4AnswersView(state) }); return; }
+
+    const prev = parseCoordAnswers(type[COORD_ANSWERS_FIELD]);
+    const by = str(req.body?.by, 80);
+    typeW[COORD_ANSWERS_FIELD] = JSON.stringify({ values: { ...prev.values, ...written }, at: new Date().toISOString(), ...(by ? { by } : prev.by ? { by: prev.by } : {}) });
+    // ⚠️ The organisation's chat may be waiting on a question just answered
+    // here; a return re-asks EXACTLY what was on screen (reemitPending). The
+    // pending question is dropped so the return re-derives the next step.
+    if (type._e4_opened === 'yes') Object.assign(typeW, { [PENDING_FIELD]: '', _e4_gap_pending: '', _e4_problem_pending: '', _e4_problem_pick: '', _e4_place_pending: '', _e4_size_pending: '' });
+
+    if (Object.keys(siteW).length) writeSectionFields(id, state, 'intervention_site', siteW, () => {}, 'coordinator');
+    if (Object.keys(opsW).length) writeSectionFields(id, state, 'operations_sustain', opsW, () => {}, 'coordinator');
+    writeSectionFields(id, state, 'intervention_type', typeW, () => {}, 'coordinator');
+    await flushNow(id);
+    if (context) void rereadFiles(id);
+    console.log(`[e4-answers] ${got.member.id}: ${Object.keys(written).join(', ') || '-'}${context ? ' +context' : ''}`);
+    res.json({ ok: true, ...e4AnswersView(state) });
   }));
 
   app.post('/api/cohort/:coordinatorSlug/member/:memberId/reset', wrap(async (req, res) => {

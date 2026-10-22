@@ -34,6 +34,7 @@ import { WHO, type WhoId } from '@shared/w3-criteria';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { parseVisit, visitSummary } from '@shared/e4-visit';
 import { impactChips } from '@shared/e4-indicators';
+import { BUILD, MAINTAIN, CONTRIBUTION, PARTNERS, COORD_LABEL } from '@shared/e4-options';
 import {
   buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER, recordedContribution, recordedPartners,
   type E4Solution, type PrenoteInput,
@@ -97,11 +98,16 @@ export const E4C = {
   soIsso: { pt: 'Só isso', en: "That's all" },
   anexar: { pt: '📎 Anexar arquivos', en: '📎 Attach files' },
   podeSeguir: { pt: 'Pode seguir', en: 'Carry on' },
+  estaCerto: { pt: 'Está certo ✓', en: "That's right ✓" },
+  corrigirUma: { pt: 'Corrigir uma', en: 'Correct one' },
 } as const;
 
 /** "Mudar algo" → which part. Each clears the answers behind it and asks again. */
 const CHANGE = {
   solucao: { pt: 'A solução ou o tamanho', en: 'The solution or the size' },
+  // The two the coordination's form can answer and the chat otherwise only confirms.
+  lugar: { pt: 'O lugar no mapa', en: 'The place on the map' },
+  problemaPrincipal: { pt: 'O problema principal', en: 'The main problem' },
   problema: { pt: 'Quem é atingido', en: 'Who is affected' },
   impacto: { pt: 'O que querem ver mudar', en: 'What should change' },
   quemFaz: { pt: 'Quem faz e quem cuida', en: 'Who builds and who looks after it' },
@@ -109,31 +115,7 @@ const CHANGE = {
   parceiros: { pt: 'Com quem já conversaram', en: 'Who they have talked to' },
 } as const;
 
-const CONTRIBUTION = [
-  { pt: 'Mão de obra, em mutirão', en: 'Labour, as a mutirão' },
-  { pt: 'O espaço', en: 'The space' },
-  { pt: 'Material ou mudas', en: 'Materials or seedlings' },
-  { pt: 'Um parceiro que apoia', en: 'A partner who supports it' },
-] as const;
-const PARTNERS = [
-  { pt: 'A escola', en: 'The school' },
-  { pt: 'A associação de moradores', en: "The residents' association" },
-  { pt: 'A prefeitura ou uma secretaria', en: 'The city or a secretariat' },
-] as const;
-const BUILD = [
-  { id: 'mutirao', pt: 'Nós, em mutirão', en: 'Us, as a mutirão' },
-  { id: 'mista', pt: 'Mutirão com apoio técnico', en: 'Mutirão with technical support' },
-  { id: 'contratada', pt: 'Empresa contratada', en: 'A hired contractor' },
-  { id: 'parceria', pt: 'Parceria com universidade ou ONG', en: 'A university or NGO partnership' },
-  { id: 'indefinido', pt: 'Ainda não sabemos', en: "We don't know yet" },
-] as const;
-const MAINTAIN = [
-  { id: 'nos', pt: 'A própria organização', en: 'The organisation itself' },
-  { id: 'voluntarios', pt: 'Voluntários da comunidade', en: 'Community volunteers' },
-  { id: 'parceria-prefeitura', pt: 'Parceria com a prefeitura', en: 'A partnership with the city' },
-  { id: 'contratada', pt: 'Empresa contratada', en: 'A hired contractor' },
-  { id: 'indefinido', pt: 'Ainda não sabemos', en: "We don't know yet" },
-] as const;
+// The options are shared with the coordinator's form (shared/e4-options.ts).
 /**
  * A typed answer to "quem faria a obra?" / "quem cuida?" read as one of the
  * menu's options — only when the words say it plainly; null otherwise (the
@@ -514,6 +496,25 @@ async function serveE4Inner(
       }
       case 'approve': {
         writeType({ _e4_gap_pending: '', _e4_approve_pending: 'yes' });
+        // ⚠️ Answers the coordination gave for them (the "O que ainda falta"
+        // form, after "Levar ao Encontro 4") were never asked here. They are
+        // marked on the page, and this one check is where the organisation
+        // owns them — one tap, not one question per answer (22 Oct decision).
+        const note = buildPrenote(input(), L);
+        if (note.byCoordination.length) {
+          const n = note.byCoordination.length;
+          const names = note.byCoordination.map(k => COORD_LABEL[k][L]).join(', ');
+          say(
+            `Pronto — a proposta inicial completa. A coordenação já adiantou ${n === 1 ? 'uma resposta' : `${n} respostas`} (${names}) — ${n === 1 ? 'está marcada' : 'estão marcadas'} na proposta como registradas pela coordenação.`,
+            `Done — the complete initial proposal. The coordination already gave ${n === 1 ? 'one answer' : `${n} answers`} (${names}) — marked on the proposal as recorded by the coordination.`,
+          );
+          pushEvent({ type: 'show_prenote', prenote: note } as any);
+          ask('Confere tudo?', 'Does it all check out?', [
+            { pt: E4C.estaCerto.pt, en: E4C.estaCerto.en, dPt: 'Vai pra coordenação e pro pré-portfólio', dEn: 'It goes to the coordination and the pre-portfolio' },
+            { pt: E4C.corrigirUma.pt, en: E4C.corrigirUma.en },
+          ]);
+          return finish(detail);
+        }
         say('Pronto — a proposta inicial completa:', 'Done — the complete initial proposal:');
         showNote();
         ask('Está bom assim?', 'Is it right like this?', [
@@ -938,14 +939,14 @@ async function serveE4Inner(
     }
   }
 
-  if (type('_e4_approve_pending') === 'yes' && is(E4C.podeFechar)) return close();
+  if (type('_e4_approve_pending') === 'yes' && (is(E4C.podeFechar) || is(E4C.estaCerto))) return close();
 
   if (is(E4C.verPrenota)) {
     showNote();
     ask('E agora?', 'And now?', [{ pt: E4C.mudarAlgo.pt, en: E4C.mudarAlgo.en }, { pt: E4C.verPrenota.pt, en: E4C.verPrenota.en }]);
     return finish('show-again');
   }
-  if (is(E4C.mudarAlgo)) {
+  if (is(E4C.mudarAlgo) || is(E4C.corrigirUma)) {
     writeType({ _e4_change_pending: 'yes' });
     ask('O que vocês querem mudar?', 'What do you want to change?', Object.values(CHANGE).map(c => ({ pt: c.pt, en: c.en })));
     return finish('change');
@@ -955,6 +956,8 @@ async function serveE4Inner(
     if (which) {
       const reopen = { _e4_change_pending: '', _e4_reopened: type('_e4_closed') === 'yes' ? 'yes' : '' };
       if (which === 'solucao') writeType({ ...reopen, _e4_solution_json: '', _e4_size_ok: '', _e4_visit_declined: '' });
+      if (which === 'lugar') { deps.writeFields(SITE, { _site_lat: '', _site_lng: '', site_lat: '', site_lng: '' }); writeType({ _e4_place_skipped: '' }); }
+      if (which === 'problemaPrincipal') writeType({ _e4_problem_ok: '' });
       if (which === 'problema') deps.writeFields(SITE, { beneficiaries_note: '' });
       if (which === 'impacto') writeType({ _e4_changes: '' });
       if (which === 'quemFaz') { writeType({ construction_model: '', _e4_who_declined: 'yes' }); deps.writeFields(OPS, { who_maintains: '' }); }
