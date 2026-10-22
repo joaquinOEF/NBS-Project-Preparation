@@ -45,6 +45,7 @@ export function CboFilesDrawer({
   onCloneTest,
   onSimulateE3,
   onRecordChanged,
+  skipPrompt,
   simulating = false,
   memberActions,
 }: {
@@ -59,6 +60,8 @@ export function CboFilesDrawer({
   onSimulateE3?: (member: FilesDrawerMember) => void;
   /** Something on the organisation's record changed from inside the drawer — reload the board. */
   onRecordChanged?: () => void;
+  /** Opened from the card's "levar ao Encontro 4": the confirmation waits in the visit tab. */
+  skipPrompt?: boolean;
   simulating?: boolean;
   /** The rarely-used per-organisation actions, moved here off the roster card. */
   memberActions?: {
@@ -288,7 +291,7 @@ export function CboFilesDrawer({
               <CboProfileSummary cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
             </TabsContent>
             <TabsContent value="visita" className="flex-1 min-h-0 overflow-auto mt-2">
-              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} onFilesChanged={() => setFilesTick(n => n + 1)} onRecordChanged={onRecordChanged} />
+              <VisitPanel cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} onFilesChanged={() => setFilesTick(n => n + 1)} onRecordChanged={onRecordChanged} promptSkip={!!skipPrompt} />
             </TabsContent>
             {/* ⚠️ What the ORGANISATION took away. Until now nobody on the
                 coordination side could read it: the portfolio exists to carry

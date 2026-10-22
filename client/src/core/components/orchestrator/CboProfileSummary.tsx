@@ -4,7 +4,7 @@
  * snapshot-on-open (re-fetches on `reloadKey`).
  */
 import { HEALTH_LABEL, type HealthEntry, type HealthKind } from '@shared/session-health';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
 import { Loader2, FileText, Check, Paperclip, X } from 'lucide-react';
@@ -278,7 +278,7 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
  * so its card stops saying "Registrar a visita técnica" (it used to, until a
  * page reload).
  */
-export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, onRecordChanged }: { cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void; onRecordChanged?: () => void }) {
+export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, onRecordChanged, promptSkip }: { cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void; onRecordChanged?: () => void; promptSkip?: boolean }) {
   const { t } = useTranslation();
   const [fields, setFields] = useState<Record<string, { value?: unknown } | undefined> | null>(null);
   const [phase, setPhase] = useState<number | null>(null);
@@ -303,7 +303,7 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, on
       <VisitEditor key={`${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} fields={fields} onSaved={onRecordChanged} />
       <VisitFiles key={`files-${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} onChanged={() => { onFilesChanged?.(); onRecordChanged?.(); }} />
       {phase !== null && phase >= 1 && phase < 4 && (
-        <SkipToE4 cohortSlug={cohortSlug} memberId={memberId} phase={phase} onDone={() => { setPhase(4); onRecordChanged?.(); }} />
+        <SkipToE4 cohortSlug={cohortSlug} memberId={memberId} phase={phase} prompt={!!promptSkip} onDone={() => { setPhase(4); onRecordChanged?.(); }} />
       )}
     </div>
   );
@@ -316,10 +316,13 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, on
  * organisation's Encontro 4 asks what they would have given (the place, the
  * problem, and anything else — in words or files).
  */
-function SkipToE4({ cohortSlug, memberId, phase, onDone }: { cohortSlug: string; memberId: string; phase: number; onDone: () => void }) {
+function SkipToE4({ cohortSlug, memberId, phase, prompt, onDone }: { cohortSlug: string; memberId: string; phase: number; prompt?: boolean; onDone: () => void }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  // Opened from the card: the confirmation is already waiting, in view.
+  const [confirming, setConfirming] = useState(!!prompt);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (prompt) boxRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [prompt]);
   const [error, setError] = useState<string | null>(null);
   const go = async () => {
     setBusy(true); setError(null);
@@ -332,7 +335,7 @@ function SkipToE4({ cohortSlug, memberId, phase, onDone }: { cohortSlug: string;
     } finally { setBusy(false); setConfirming(false); }
   };
   return (
-    <div className="rounded-lg border border-dashed border-foreground/15 p-3" data-testid="visit-skip-e4">
+    <div ref={boxRef} className={`rounded-lg border border-dashed p-3 ${prompt ? 'border-emerald-500/70 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-foreground/15'}`} data-testid="visit-skip-e4">
       <p className="text-[13px] font-semibold">{t('cboView.skipE4Title', { defaultValue: 'Levar ao Encontro 4' })}</p>
       <p className="mt-1 text-xs text-muted-foreground">
         {t('cboView.skipE4Hint', {

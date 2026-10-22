@@ -525,6 +525,7 @@
       "outOfAnalysis": "out of analysis",
       "dotsAria": "Encontros done: {{n}} of 6",
       "skipped": "Skipped by the coordination",
+      "skipE4": "Or take straight to Encontro 4 →",
       "encontros": "Encontros",
       "statusReady": "Status",
       "next": "Next step · {{who}}",

@@ -558,6 +558,7 @@
       "outOfAnalysis": "fora da análise",
       "dotsAria": "Encontros feitos: {{n}} de 6",
       "skipped": "Pulado pela coordenação",
+      "skipE4": "Ou levar direto ao Encontro 4 →",
       "encontros": "Encontros",
       "statusReady": "Situação",
       "next": "Próximo passo · {{who}}",

@@ -1332,7 +1332,9 @@ export default function OrchestratorLandingPage() {
   // Open the unified per-CBO panel. The invite link/message now lives in the
   // panel's Convite tab, so clicking a CBO card opens here (not the share modal).
   // The share modal is kept only for the just-created new-invite moment.
-  const openCbo = (p: CboDemoProject, tab: CboDrawerTab) => {
+  const [skipPrompt, setSkipPrompt] = useState(false);
+  const openCbo = (p: CboDemoProject, tab: CboDrawerTab, opts?: { skipPrompt?: boolean }) => {
+    setSkipPrompt(!!opts?.skipPrompt);
     const member = memberById.get(p.id);
     const inviteUrl = member ? memberInviteUrl(member) : '';
     setFilesMember({
@@ -1498,6 +1500,8 @@ export default function OrchestratorLandingPage() {
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
   const cohortOpenMax = Math.max(1, ...workshops.filter(w => !!w.openedAt).map(w => Number(w.unlocksPhase) || 1));
   const liveEncontro = workshops.some(w => !!w.openedAt) ? cohortOpenMax : null;
+  // Encontro 4 open for the cohort: a card still in 1–3 offers the skip.
+  const e4Open = workshops.some(w => !!w.openedAt && Number(w.unlocksPhase) === 4);
 
   // ── Test copies (docs/test-orgs.md) ───────────────────────────────────────
   // A copy of a real record, landed at the end of Encontro 2, with its own
@@ -1638,6 +1642,7 @@ export default function OrchestratorLandingPage() {
         onCloneTest={handleCloneTest}
         onSimulateE3={filesMember && sim.eligible.has(filesMember.id) ? (m) => void sim.start([m.id]) : undefined}
         onRecordChanged={() => { void refresh(); }}
+        skipPrompt={skipPrompt}
         // Taken off the card (ferramentas que se usam pouco): the confirm
         // dialogs are the same ones, opened from here.
         memberActions={filesMember && projectById.get(filesMember.id) ? {
@@ -2117,6 +2122,8 @@ export default function OrchestratorLandingPage() {
                               onHover={setSelectedId}
                               onOpen={() => openCbo(p, 'convite')}
                               onOpenTab={tab => openCbo(p, tab)}
+                              onSkipToE4={e4Open && (Number(memberById.get(p.id)?.snapshotPhase ?? 1) || 1) < 4 && !(p.w3 as any)?.closed?.e4
+                                ? () => openCbo(p, 'visita', { skipPrompt: true }) : undefined}
                               tierControl={p.maturityTier ? (
                                 <select
                                   value={p.maturityTier}
