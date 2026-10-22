@@ -582,7 +582,8 @@ async function serveE4Inner(
     if (w && w.id !== 'other') {
       deps.writeFields(SITE, { site_worry: w.id });
       writeType({ _e4_problem_ok: 'yes', _e4_problem_pending: '', _e4_problem_pick: '' });
-      say(`${isPt ? w.pt : w.en} ✓`, `${isPt ? w.pt : w.en} ✓`);
+      // No "🌡️ Calor ✓" line: the tapped chip already shows it, and the next
+      // step's message ran on into it in one bubble ("Calor ✓Antes de montar…").
       return serve('problem-picked');
     }
     if (w) {
