@@ -125,3 +125,32 @@ test('the initial proposal quotes the notes in Portuguese, once', () => {
   expect(text.split('conhece a praça e o histórico da organização').length - 1, 'said once').toBe(1);
   expect(text).toContain('Biovaletas — o que mais pega: Custo da execução');
 });
+
+// The 22 Oct scan of every Portuguese screen.
+test.describe('what the documents cite and repeat, as a reader sees it', () => {
+  test('a ficha is cited by name, never by its key', async () => {
+    const { readableSource } = await import('../shared/source-label');
+    expect(readableSource('ficha jardins-de-chuva · comoFunciona')).toBe('ficha técnica — Jardins de chuva · como funciona');
+    expect(readableSource('ficha biovaletas · quemPrecisaDizerSim', 'en')).toMatch(/^technical sheet — .+ · who must approve$/);
+    expect(readableSource('visita técnica da coordenação')).toBe('visita técnica da coordenação');
+  });
+
+  test('the proposal prints no ficha key', () => {
+    const state: any = { phase: 4, sections: {
+      intervention_site: { fields: { bairro: F('Floresta'), site_worry: F('alagamento') } },
+      intervention_type: { fields: { _e3_closed: F('yes'), _e4_solution_json: F(JSON.stringify({ solutionId: 'jardins-de-chuva', source: 'visita', areaM2: 140 })) } },
+    } };
+    const text = JSON.stringify(buildPrenote(prenoteInputFromSections(state.sections), 'pt'));
+    expect(text).not.toMatch(/comoFunciona|quemPrecisaDizerSim|quantoCusta|quemCuidaDepois|ficha jardins-de-chuva/);
+  });
+
+  test('what was said appears once on the card', async () => {
+    const { conversationLines } = await import('../shared/w3-document-notes');
+    const lines = conversationLines([
+      'Local gov contact: Administração Regional do Sarandi conhece a praça',
+      'Administração Regional do Sarandi conhece a praça',
+      'Local gov contact: Administração Regional do Sarandi conhece a praça. Houve conversa sobre jardins.',
+    ].join('\n'), '');
+    expect(lines.map(l => l.textPt)).toEqual(['Administração Regional do Sarandi conhece a praça. Houve conversa sobre jardins.']);
+  });
+});

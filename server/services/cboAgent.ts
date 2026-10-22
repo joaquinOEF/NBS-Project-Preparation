@@ -2061,7 +2061,10 @@ function writeFieldsSilently(cboId: string, state: CboState, sectionId: string, 
 
 /** Where Encontro 2's pending question lives (its flow flags are in this section too). */
 const E2_PENDING_SECTION = 'intervention_site';
-const E2_ENTRY_LINE = /^(vamos come\u00e7ar o encontro 2\.?|let'?s start encontro 2\.?)$/i;
+// The resume card's "Continuar da Fase 2." is the same door: a first open gets
+// the templated Turn 1, a return gets the question that was on screen — not a
+// model turn asking "Como deseja prosseguir?" (probe of every encontro, 22 Oct).
+const E2_ENTRY_LINE = /^(vamos come\u00e7ar o encontro 2|let'?s start encontro 2|continuar da fase 2|continue from phase 2)\.?$/i;
 
 /**
  * ⚠️ AN ANSWER IS READ — Encontro 2 behind the same contract as Encontro 3

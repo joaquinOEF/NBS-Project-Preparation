@@ -448,7 +448,8 @@ export function CboProfileSummary({
           .filter(([, v]) => v !== null);
         return (
           <div key={sec.id}>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.title}</h4>
+            {/* The schema's title is English ("2. Where We Work"); the org's own page already reads cbo.sections. */}
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{t(`cbo.sections.${sec.id}`, { defaultValue: section.title })}</h4>
             {rows.length === 0 ? (
               <p className="text-xs text-muted-foreground/70 italic">{t('cboView.empty', { defaultValue: '—' })}</p>
             ) : (

@@ -248,6 +248,7 @@ const E3_ENTRY = /^\s*(vamos come[çc]ar o encontro 3|let'?s start encontro 3)\b
  * conversation instead of its own next beat.
  */
 const E3_RESUME = /^\s*(continuar da fase 3|continue from phase 3|continuar|continue)\.?\s*$/i;
+const E3_RESUME_CARD = /^\s*(continuar da fase 3|continue from phase 3)\.?\s*$/i;
 // ⚠️ The resume card sends "Continuar da Fase 3." — WITH the full stop. The
 // old pattern ended right after the number, so the line fell to the model
 // ("Como deseja prosseguir?") instead of the encontro's own question
@@ -2442,7 +2443,11 @@ async function serveE3Inner(
   // machine owns the linear journey from its entry onward, and stands aside
   // before it.
   if (!type('_e3_opened')) {
-    if (E3_ENTRY.test(raw)) return openW3();
+    // The resume card's own line opens it too ("Continuar da Fase 3." — an
+    // organisation whose Encontro 3 was unlocked but never started, opening
+    // its link). Only the explicit form: a bare "Continuar" may be the older
+    // selector's chip.
+    if (E3_ENTRY.test(raw) || E3_RESUME_CARD.test(raw)) return openW3();
     return false;
   }
   // ⚠️ An upload while the door is open. At phase 3 an upload turn routes to

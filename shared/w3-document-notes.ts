@@ -25,6 +25,8 @@
 // and both printed pages get the notes with no plumbing.
 // ============================================================================
 
+import { readableNotes } from './cbo-field-catalog';
+
 /** 'dito' is never the model's: it marks a line the organisation SAID, placed by the platform (see notesFromInput). */
 export type NoteStance = 'a-favor' | 'contra' | 'condicao' | 'dito';
 
@@ -149,7 +151,9 @@ export function studyProposal(notes: DocumentNote[], studyId: string, solutionId
  * line is not repeated.
  */
 export function conversationLines(siteNotes: string | undefined, projectNotes: string | undefined): DocumentNote[] {
-  const lines = `${siteNotes ?? ''}\n${projectNotes ?? ''}`.split('\n').map(l => l.trim()).filter(l => l.length >= 12);
+  // Each fact once (readableNotes): the model often noted the same thing two
+  // or three times, and every copy became a "dito" line on the card.
+  const lines = `${readableNotes(siteNotes ?? '')}\n${readableNotes(projectNotes ?? '')}`.split('\n').map(l => l.trim()).filter(l => l.length >= 12);
   return lines.map(line => {
     // "Ipês to preserve: Os dois ipês ficam." — the label was the model's; the sentence is theirs.
     const m = /^[^:]{2,40}:\s+(.{20,})$/.exec(line);

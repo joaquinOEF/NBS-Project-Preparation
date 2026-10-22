@@ -29,6 +29,7 @@
 //   · Written register: third person, a nota técnica (docs/document-register.md).
 // ============================================================================
 
+import { readableSource } from './source-label';
 import { getSolution, type NbsSolution } from './nbs-catalog';
 import { sizeOf, testOf, type SolutionTest } from './w3-tests';
 import { testsOf, namesOutsideCatalogue } from './recorded-solutions';
@@ -591,7 +592,7 @@ function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solutio
   const line = (p: Paragraph): PrenoteLine => ({
     text: p.kind === 'bullet' ? `• ${p.text}` : p.text,
     kind: p.kind === 'quote' ? 'quote' : p.kind === 'figure' ? 'figure' : 'written',
-    source: p.sources.join(' · '),
+    source: p.sources.map(x => readableSource(x, lang)).join(' · '),
   });
   // A paragraph from the record itself — an answer, a question asked in the room, a file.
   // Answers the pre-note already prints in its own words — not twice.

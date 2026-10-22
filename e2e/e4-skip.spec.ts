@@ -166,3 +166,36 @@ test.describe('Levar ao Encontro 4 — from the card', () => {
     expect(type._e3_skipped ?? '').toBe('');
   });
 });
+
+test.describe('a typed "quem faria / quem cuida" is read only when it says it plainly', () => {
+  test('typedChoice', async () => {
+    const { typedChoice } = await import('../server/services/cboE4Checkpoint');
+    expect(typedChoice('quem-faz-obra', 'Mutirão com o apoio de um engenheiro')).toBe('mista');
+    expect(typedChoice('quem-faz-obra', 'a gente mesmo, em mutirão')).toBe('mutirao');
+    expect(typedChoice('quem-faz-obra', 'uma empresa contratada pela prefeitura')).toBe('contratada');
+    expect(typedChoice('quem-faz-obra', 'os alunos da UFRGS')).toBe('parceria');
+    expect(typedChoice('quem-faz-obra', 'ainda não sabemos quem')).toBe('indefinido');
+    expect(typedChoice('quem-faz-obra', 'A gente acha que sim, é isso mesmo')).toBeNull();
+    expect(typedChoice('quem-cuida', 'os voluntários da comunidade')).toBe('voluntarios');
+    expect(typedChoice('quem-cuida', 'a própria organização cuida')).toBe('nos');
+    expect(typedChoice('quem-cuida', 'o DMAE deveria cuidar')).toBe('parceria-prefeitura');
+    expect(typedChoice('quem-cuida', 'depende do inverno')).toBeNull();
+  });
+});
+
+test.describe('every encontro answers its own resume card', () => {
+  for (const [phase, sections, pattern] of [
+    [2, [{ sectionId: 'org_profile', field: 'org_name', value: 'X' }], /E2 (entry|return)/],
+    [3, [{ sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' }, { sectionId: 'intervention_site', field: '_e2_closed', value: 'yes' }], /E3 checkpoint/],
+    [4, [{ sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' }, { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' }], /E4 checkpoint/],
+  ] as const) {
+    test(`"Continuar da Fase ${phase}." opens Encontro ${phase}, not the model`, async ({ page }) => {
+      const api = new TestApi(page.request);
+      test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+      const { cboId } = await api.newSession();
+      await api.seedState(cboId, { phase, language: 'pt', sections: sections as any });
+      const events = await chat(page.request, cboId, `Continuar da Fase ${phase}.`, 'system');
+      expect(String(events.filter(e => e.type === 'done').pop()?.summary ?? '')).toMatch(pattern);
+    });
+  }
+});
