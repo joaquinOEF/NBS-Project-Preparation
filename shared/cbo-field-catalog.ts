@@ -372,7 +372,14 @@ const E2_FAMILIAS: CboEnumOption[] = [
 
 /** The three hazards, as stored by the priority ranking and the worry chips. */
 const E2_HAZARDS: CboEnumOption[] = [
-  { id: 'flood', pt: 'Alagamento', en: 'Flooding', aliases: ['inundação', 'enchente'] },
+  // ⚠️ Encontro 2's own three flood worries first. Only the family existed
+  // here, with "inundação" as an alias of it, so a river that overtops printed
+  // as "Alagamento" — "Alagamento, Alagamento, Calor" on Desabafa's,
+  // Vitória's and the Cooperativa's Perfil (Aline, 22 Oct 2026).
+  { id: 'alagamento', pt: 'Alagamento', en: 'Ponding' },
+  { id: 'inundacao', pt: 'Inundação', en: 'River flooding', aliases: ['inundação'] },
+  { id: 'enxurrada', pt: 'Enxurrada', en: 'Flash flood' },
+  { id: 'flood', pt: 'Alagamento', en: 'Flooding', aliases: ['enchente'] },
   { id: 'heat', pt: 'Calor', en: 'Heat' },
   { id: 'landslide', pt: 'Deslizamento', en: 'Landslide', aliases: ['barranco', 'encosta'] },
   { id: 'other', pt: 'Outra coisa', en: 'Something else' },
@@ -599,10 +606,27 @@ export function readableNotes(text: string, lang: 'pt' | 'en' = 'pt'): string {
       return body.length >= 12 && other.includes(body);
     });
   };
-  return parsed
-    .filter((_, i) => !said(i))
-    .map(l => (l.prefix && l.label ? `${l.label}: ${catalogIdsToLabels(l.body, lang)}` : catalogIdsToLabels(l.line, lang)))
-    .join('\n');
+  // ⚠️ Then each SENTENCE once. Desabafa's notes opened three lines with the
+  // same sentence, each going on differently ("arrumar as repetições" —
+  // Aline, 22 Oct): the later copies of a sentence already said are dropped,
+  // and a line left empty goes with them.
+  const sentences = (t: string) => t.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const l of parsed.filter((_, i) => !said(i))) {
+    const body = l.prefix && l.label ? l.body : l.line;
+    const kept = sentences(body).filter(x => {
+      const k = norm(x);
+      if (k.length < 20) return true;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    if (!kept.length) continue;
+    const text = catalogIdsToLabels(kept.join(' '), lang);
+    out.push(l.prefix && l.label ? `${l.label}: ${text}` : text);
+  }
+  return out.join('\n');
 }
 
 /** "cozinha-comunitaria-biodigestor, aguas-pluviais" as a person reads them — a solution's or família's own name. Anything else passes untouched. */
@@ -707,7 +731,8 @@ export function cboDisplayValue(
     );
     return hit ? (lang === 'pt' ? hit.pt : hit.en) : raw;
   };
-  return stored.split(',').map(part => label(part.trim())).filter(Boolean).join(', ');
+  // A label said once — two stored ids can read the same ("flood" and "alagamento").
+  return Array.from(new Set(stored.split(',').map(part => label(part.trim())).filter(Boolean))).join(', ');
 }
 
 /**
@@ -836,7 +861,7 @@ export function isCanonicalCboFieldValue(sectionId: string, field: string, value
 /** The labels a manual editor should offer for section+field, in one language.
  *  Empty when the field is free text. */
 export function cboFieldOptionLabels(sectionId: string, field: string, lang: 'pt' | 'en' = 'pt'): string[] {
-  return (cboFieldEnumOptions(sectionId, field) ?? []).map(o => (lang === 'pt' ? o.pt : o.en));
+  return Array.from(new Set((cboFieldEnumOptions(sectionId, field) ?? []).map(o => (lang === 'pt' ? o.pt : o.en))));
 }
 
 /** Multi-select fields store several values in one string. */

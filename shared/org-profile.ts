@@ -25,6 +25,10 @@
 // renders it). Written register on the page: docs/document-register.md.
 // ============================================================================
 
+import { LEGACY_GROUPS } from './legacy-field-labels';
+import { getSolution } from './nbs-catalog';
+import { DECISIVE_DETAIL } from './w3-detail-questions';
+import { readableSpeech } from './readable-speech';
 import { parseVisit, visitSummary } from './e4-visit';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from './cbo-schema';
 import { cboFieldLabel, cboDisplayValue } from './cbo-field-catalog';
@@ -143,6 +147,8 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
   };
   const facts = (sec: string, keys: string[]) => keys.map(k => fact(sec, k)).filter((f): f is ProfileFact => !!f);
   for (const k of HEADER_FIELDS) { placed.add(`org_profile.${k}`); placed.add(`intervention_site.${k}`); }
+  // The map pin under an older name — the map and its coordinates already print it.
+  placed.add('intervention_site.site_lat'); placed.add('intervention_site.site_lng');
 
   const ORG = 'org_profile', SITE = 'intervention_site', TYPE = 'intervention_type';
   const contactName = raw(ORG, 'contact_name');
@@ -158,7 +164,8 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
   const pct = (k: string) => { const n = parseInt(raw(SITE, k), 10); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; };
   const flood = pct('_bairro_flood_pct'), heat = pct('_bairro_heat_pct'), landslide = pct('_bairro_landslide_pct');
   const placeFacts = facts(SITE, PLACE_FACTS);
-  const story = raw(SITE, 'site_story') || null;
+  // Speech noise off a transcribed quote (shared/readable-speech.ts).
+  const story = raw(SITE, 'site_story') ? readableSpeech(raw(SITE, 'site_story')) : null;
   const hasPlace = !!(siteName || hasCoords || story || placeFacts.length);
   const areaM2 = Number(raw(SITE, 'site_area_m2')) || null;
 
@@ -170,6 +177,8 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
   const technicalNote = (typeRec.technical_note ?? '').trim() || null;
   const visitChoice = parseVisit(typeRec._visit_json);
   let tested: ProfileScenario[] = [];
+  /** Which tested solution an effect figure belongs to — "Efeito esperado" is the first liked one's. */
+  let effectOwner: { label: string; headline: string } | null = null;
   if (tests.length) {
     const w3Input: W3Input = {
       site: siteRec,
@@ -178,7 +187,11 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
       ...(areaM2 ? { areaM2 } : {}),
       w3: typeRec,
     };
-    tested = buildComparison(w3Input, tests, lang, technicalNote).columns.map(c => ({
+    const cmp = buildComparison(w3Input, tests, lang, technicalNote);
+    // The writer's own rule (cboE3Checkpoint): the first liked test with a figure for this place.
+    const owner = cmp.columns.find(c => tests.find(t => t.solutionId === c.solutionId)?.reaction === 'faz-sentido' && c.card.effect?.siteSpecific && c.card.effect.headline);
+    if (owner?.card.effect.headline) effectOwner = { label: owner.label, headline: owner.card.effect.headline };
+    tested = cmp.columns.map(c => ({
       solutionId: c.solutionId,
       label: c.label,
       familia: c.familia,
@@ -190,12 +203,20 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
     }));
   }
 
-  const orgFacts = facts(ORG, FACT_FIELDS);
+  // ⚠️ "Experiência com SbN: Ainda não" printed above their own "Já
+  // organizamos uma horta comunitária…" (Desabafa — Aline, 22 Oct 2026:
+  // "conflitante"). Their description is the better answer; a "no" that it
+  // contradicts is left off rather than reworded for them.
+  const nbsDetail = raw(ORG, 'nbs_experience_detail');
+  const orgFacts = facts(ORG, FACT_FIELDS).filter(f =>
+    !(f.field === 'nbs_experience' && nbsDetail && /^(ainda n[aã]o|n[aã]o|nenhuma|not yet|no|none)\b/i.test(f.value)));
   const about = facts(ORG, ABOUT_FIELDS);
   const longer = facts(SITE, PLACE_LONGER);
 
   // ── nothing silently missing ─────────────────────────────────────────────
   const alsoRecorded: OrgProfile['alsoRecorded'] = [];
+  const grouped = new Map<string, ProfileFact[]>();
+  const groupOf = (k: string) => LEGACY_GROUPS.find(g => g.fields.includes(k));
   for (const sec of CBO_SECTIONS) {
     const rows: ProfileFact[] = [];
     for (const k of Object.keys(sections[sec.id]?.fields ?? {})) {
@@ -204,9 +225,47 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
       if (/_json$/.test(k) || /_source$/.test(k)) continue;
       const value = shown(sec.id, k);
       if (!value) continue;
+      // ⚠️ A chip's answer without its question ("Detalhe decisivo da solução:
+      // Um cômodo ou uma parte" — Desabafa, Aline 22 Oct: "não dá pra entender").
+      // The question's own written note carries it, under the solution's name.
+      if (k === 'detail_answer') {
+        const qid = raw(sec.id, 'detail_question_id');
+        const hit = Object.entries(DECISIVE_DETAIL).find(([, q]) => q.id === qid);
+        if (hit) {
+          const [solutionId, q] = hit;
+          const sol = getSolution(solutionId);
+          const note = (lang === 'pt' ? q.notePt : q.noteEn).replace('{answer}', value.charAt(0).toLowerCase() + value.slice(1));
+          rows.push({ field: k, label: `${cboFieldLabel(k, lang)}${sol ? ` — ${sol[lang].label}` : ''}`, value: note });
+          continue;
+        }
+      }
+      // ⚠️ "Efeito esperado" is the figure of ONE tested solution (the first
+      // liked one with a number for this place) — printed unlabelled it read as
+      // the whole project's ("pq só o efeito da cisterna?" — Aline, Desabafa).
+      // Its CURRENT sentence, as the comparison prints it: the stored one is
+      // whatever the card said on the day ("Com 1, 16.000 litros…").
+      if (k === 'expected_impact' && effectOwner) {
+        rows.push({ field: k, label: `${cboFieldLabel(k, lang)} — ${effectOwner.label}`, value: effectOwner.headline });
+        continue;
+      }
+      // A bare amount stored under a "_brl" name prints as money ("31273.07" → "R$ 31.273,07").
+      if (/_brl$/.test(k) && /^\d+(\.\d+)?$/.test(value)) {
+        const brl = Number(value).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { style: 'currency', currency: 'BRL' });
+        const g0 = groupOf(k);
+        const row = { field: k, label: cboFieldLabel(k, lang).replace(/\s*\(R\$\)$/, ''), value: brl };
+        if (g0) { grouped.set(g0.id, [...(grouped.get(g0.id) ?? []), row]); continue; }
+        rows.push(row); continue;
+      }
+      const g = groupOf(k);
+      if (g) { grouped.set(g.id, [...(grouped.get(g.id) ?? []), { field: k, label: cboFieldLabel(k, lang), value }]); continue; }
       rows.push({ field: k, label: cboFieldLabel(k, lang), value });
     }
     if (rows.length) alsoRecorded.push({ sectionId: sec.id, title: SECTION_TITLE[sec.id]?.[lang] ?? sec.title, rows });
+  }
+  // The older records' loose names, in titled blocks (shared/legacy-field-labels.ts), in the block's own order.
+  for (const g of LEGACY_GROUPS) {
+    const rows = grouped.get(g.id);
+    if (rows?.length) alsoRecorded.push({ sectionId: g.id, title: g[lang], rows: rows.sort((a, b) => g.fields.indexOf(a.field) - g.fields.indexOf(b.field)) });
   }
 
   const docs = input.docs ?? [];

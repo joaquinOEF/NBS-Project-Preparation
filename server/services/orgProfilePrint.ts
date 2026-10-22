@@ -9,6 +9,7 @@
 //
 // Register: docs/document-register.md — third person, a source line, no design
 // rationale on the page.
+import { readableFilename } from '@shared/readable-filename';
 import { staticMapTiles, type OrgProfile } from '@shared/org-profile';
 import { esc, md } from './printShell';
 
@@ -117,7 +118,7 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
 
   ${p.photos.length ? `<section class="photos">
     <h2>${esc(t.photos)}</h2>
-    <div class="photogrid">${p.photos.map(ph => `<figure><img alt="${esc(ph.filename)}" src="${esc(o.photoUrl(ph.docId))}" onerror="this.closest('figure').remove()"><figcaption>${esc(ph.caption ?? ph.filename)}</figcaption></figure>`).join('')}</div>
+    <div class="photogrid">${p.photos.map(ph => `<figure><img alt="${esc(ph.filename)}" src="${esc(o.photoUrl(ph.docId))}" onerror="this.closest('figure').remove()">${ph.caption ? `<figcaption>${esc(ph.caption)}</figcaption>` : ''}</figure>`).join('')}</div>
   </section>` : ''}
 
   ${p.tested.length ? `<section class="tested">
@@ -135,7 +136,7 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
     ${p.alsoRecorded.map(g => `<h4>${esc(g.title)}</h4><dl class="rows">${g.rows.map(r => `<div><dt>${esc(r.label)}</dt><dd>${md(r.value)}</dd></div>`).join('')}</dl>`).join('')}
   </section>` : ''}
 
-  ${p.documents.length ? `<p class="files"><strong>${esc(t.files)}:</strong> ${esc(p.documents.join(' · '))}</p>` : ''}
+  ${p.documents.length ? `<p class="files"><strong>${esc(t.files)}:</strong> ${esc(p.documents.map(readableFilename).join(' · '))}</p>` : ''}
 
   <footer>
     ${reached.length ? `<p class="src">${esc(t.source)}: ${esc([t.answers(reached), p.place?.risks ? t.srcRisk : null, p.tested.length ? t.srcFichas : null, p.technicalNote || p.visit ? t.srcTech : null].filter(Boolean).join(' · '))}</p>` : ''}
@@ -185,7 +186,7 @@ const CSS = `
   .facts.two { grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
   .fact { padding: 6px 10px 6px 0; border-bottom: 1px solid #e7ece8; break-inside: avoid; }
   dt { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7b71; }
-  dd { margin: 1px 0 0; font-size: 13px; font-weight: 600; }
+  dd { margin: 1px 0 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
   .long { break-inside: avoid; max-width: 72ch; }
   .placegrid { display: grid; grid-template-columns: 64mm 1fr; gap: 14px; align-items: start; break-inside: avoid; }
   .placegrid.nomap { grid-template-columns: 1fr; }
@@ -217,7 +218,7 @@ const CSS = `
   .rows { margin: 0; columns: 2; column-gap: 18px; }
   .rows > div { break-inside: avoid; padding: 3px 0; border-bottom: 1px solid #eef1ee; }
   .rows dd { font-weight: 400; font-size: 12px; }
-  .files { font-size: 11.5px; color: #5c665f; margin-top: 10px; }
+  .files { font-size: 11.5px; color: #5c665f; margin-top: 10px; overflow-wrap: anywhere; }
   .notes { break-before: page; break-inside: avoid; }
   .notes h4 { margin: 12px 0 0; font-size: 12.5px; color: #3b463f; }
   .notes .when { margin: 10px 0 2px; font-size: 12px; color: #5c665f; letter-spacing: .01em; }
