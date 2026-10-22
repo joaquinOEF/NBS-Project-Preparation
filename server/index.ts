@@ -121,15 +121,18 @@ app.use((req, res, next) => {
         .catch(err => console.error('[photo-captions] boot hook failed:', err?.message || err));
 
       // The city context base (knowledge/porto-alegre/city) is ~1.5 s of
-      // parsing the first time it is read. Paid here, after the server is
-      // listening, so no organisation's turn or coordinator's board waits on
-      // it. A missing or broken file costs its own lines, never the boot.
+      // parsing on a laptop — and was 137 s on the deployment's machine, with
+      // the event loop blocked the whole time: Postgres dropped the idle
+      // connections and the server crashed (22 Oct 2026). So it is built a
+      // slice per event-loop turn, after the server is listening; a request
+      // that needs it sooner builds it whole. A missing or broken file costs
+      // its own lines, never the boot.
       setTimeout(() => {
         void Promise.all([import('./services/cityDocs'), import('./services/siteContext')])
-          .then(([docs, site]) => {
+          .then(async ([docs, site]) => {
             const t0 = Date.now();
-            const n = docs.cityPassageCount();
-            site.siteFacts(-30.03, -51.22);
+            const n = await docs.warmCityDocs();
+            await site.warmSiteContext();
             console.log(`[city] base carregada: ${n} trechos e as camadas do mapa em ${Date.now() - t0}ms`);
           })
           .catch(err => console.error('[city] warm-up failed:', err?.message || err));
