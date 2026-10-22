@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { FIELD_DESTINY } from '../shared/field-destiny';
 import { cboFieldLabel } from '../shared/cbo-field-catalog';
 import { buildOrgProfile } from '../shared/org-profile';
+import { buildPrenote, prenoteInputFromSections } from '../shared/e4-prenote';
 
 // THE PERFIL THEY PRINT IS IN PORTUGUESE — all of it (Vila Flores, 24 Sept).
 //
@@ -95,4 +96,32 @@ test.describe('older records print in Portuguese, once', () => {
       'Soluções escolhidas: Captação de água da chuva, Compostagem, Aquecedor solar',
     ]);
   });
+});
+
+// The same notes on the proposta inicial (22 Oct 2026, screenshots after #601):
+// the Perfil was fixed and the proposal still printed "Local gov contact:"
+// three times — it builds its lines in concept-note's collectedFields.
+test('the initial proposal quotes the notes in Portuguese, once', () => {
+  const state: any = { phase: 3, sections: {
+    intervention_site: { fields: {
+      bairro: F('Sarandi'),
+      site_notes: F([
+        'Local gov contact: Administração Regional do Sarandi conhece a praça e o histórico da organização',
+        'Administração Regional do Sarandi conhece a praça e o histórico da organização',
+        'Local gov contact: Administração Regional do Sarandi conhece a praça e o histórico da organização. Houve conversa sobre o projeto de jardins de chuva.',
+      ].join('\n')),
+    } },
+    intervention_type: { fields: {
+      _e3_closed: F('yes'),
+      solution_tests_json: F(JSON.stringify([{ solutionId: 'jardins-de-chuva', reaction: 'faz-sentido', areaM2: 246, testedAt: '2026-09-29T20:00:00Z' }])),
+      project_notes: F('Biovaleta hardest: Custo da execução\nSelected solutions: jardins-de-chuva, biovaletas'),
+    } },
+  } };
+  const note = buildPrenote(prenoteInputFromSections(state.sections), 'pt');
+  const text = JSON.stringify(note);
+  expect(text).not.toContain('Local gov contact');
+  expect(text).not.toContain('hardest');
+  expect(text).toContain('Contato com o poder público local: Administração Regional do Sarandi conhece a praça e o histórico da organização. Houve conversa');
+  expect(text.split('conhece a praça e o histórico da organização').length - 1, 'said once').toBe(1);
+  expect(text).toContain('Biovaletas — o que mais pega: Custo da execução');
 });

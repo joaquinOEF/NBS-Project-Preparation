@@ -55,7 +55,7 @@ import { benefitFor } from './w3-benefits';
 import { studyCostLine } from './w3-studies';
 import { scaleStatement, type ScaleStatement } from './w3-scale';
 import { buildRoadmap, reportLabel, type RoadmapStep } from './w3-roadmap';
-import { cboFieldEnumOptions } from './cbo-field-catalog';
+import { cboFieldEnumOptions, readableNotes } from './cbo-field-catalog';
 import { siteLabel } from './site-name';
 
 type Lang = 'pt' | 'en';
@@ -272,7 +272,12 @@ function collectedFields(all: Record<string, string | undefined>, lang: Lang): C
     // reads as though somebody had told us something. It stays in the record
     // and stays off the document.
     if (!value || value.toLowerCase() === 'null' || (d.skipIf && d.skipIf.test(value))) continue;
-    out.push({ field, labelPt: d.labelPt, labelEn: d.labelEn, value, feeds: d.feeds });
+    // ⚠️ The notes as a reader sees them — Portuguese names, a fact said once
+    // (readableNotes). The proposta inicial printed "Local gov contact: …"
+    // three times for Conceito Arte (22 Oct 2026) after the Perfil was fixed:
+    // every page that quotes the notes goes through here.
+    const shown = field === 'site_notes' || field === 'project_notes' ? readableNotes(value, lang) : value;
+    out.push({ field, labelPt: d.labelPt, labelEn: d.labelEn, value: shown, feeds: d.feeds });
   }
   return out;
 }
