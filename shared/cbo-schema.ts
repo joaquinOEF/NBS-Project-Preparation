@@ -118,6 +118,20 @@ const PHASES_SCORED_AT_CLOSE = new Set([1]);
  */
 export const E2_CLOSE_MARKERS = ['_e2_closed', '_collab_done', '_role_done'] as const;
 
+/**
+ * Encontro 2 or 3 SKIPPED by the coordination ("Levar ao Encontro 4", decided
+ * in the 22 Oct call): the organisation settled its solution with Vila Flores
+ * at the visit and goes straight to Encontro 4, which asks what a skipped
+ * encontro would have given it (the place, the problem, their own context).
+ * Not a close — nothing was scored, nothing was tested — so `encontroClosed`
+ * stays false and the board says "pulado", not "feito".
+ */
+export function encontroSkipped(state: Pick<CboState, 'sections'>, phase: 2 | 3): boolean {
+  const sec = phase === 2 ? 'intervention_site' : 'intervention_type';
+  const f = (state.sections as any)?.[sec]?.fields ?? {};
+  return String(f[`_e${phase}_skipped`]?.value ?? '').trim() === 'yes';
+}
+
 export function encontroClosed(
   state: Pick<CboState, 'sections' | 'maturityScores'>,
   phase: number,

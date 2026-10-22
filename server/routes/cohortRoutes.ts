@@ -39,12 +39,12 @@ import { simulationEnabled, simEligibility, simulatedEncontros, simulationRuns, 
 import { createDocument, deleteDocument, getOrgIdForCboState } from '../services/documentPersistence';
 import { buildOrgProfile } from '@shared/org-profile';
 import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
-import { addCboMessage, flushNow, rereadFiles } from '../services/cboAgent';
+import { addCboMessage, flushNow, rereadFiles, advanceCboPhase } from '../services/cboAgent';
 import { upload, uploadErrorHandler, storeDocument, UPLOAD_RUNS_DIR } from './uploadRoutes';
 import { saveAndParseUpload } from '../services/fileParser';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
-import { cboSectionsFilledCount, shownMaturity, encontroClosed, type CboState } from '@shared/cbo-schema';
+import { cboSectionsFilledCount, shownMaturity, encontroClosed, encontroSkipped, type CboState } from '@shared/cbo-schema';
 import {
   buildDossier,
   portfolioState,
@@ -334,11 +334,13 @@ export type MemberW3Signal = {
    * substance even when its close never ran (Ksa Rosa, see JourneyCard).
    */
   testedInE3: boolean;
+  /** Which the coordination skipped ("Levar ao Encontro 4") — passed, not done. */
+  skipped: { e2: boolean; e3: boolean };
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
   solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false, visit: null,
-  tests: [], closed: { e2: false, e3: false, e4: false }, testedInE3: false,
+  tests: [], closed: { e2: false, e3: false, e4: false }, testedInE3: false, skipped: { e2: false, e3: false },
 };
 
 /** The dossier, computed from a member's live state. Since Encontro 3 ends at
@@ -368,11 +370,12 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
   };
   const tests = allTests.map(t => ({ id: t.solutionId, reaction: t.reaction ?? null }));
   const testedInE3 = realTests.some(t => !!t.reaction);
+  const skipped = { e2: encontroSkipped({ sections } as any, 2), e3: encontroSkipped({ sections } as any, 3) };
   // ⚠️ No verdict before Encontro 3 closes. Computed from Encontro 2's tenure
   // alone, it told the coordination that Instituto de Estudos Culturais —
   // still in Encontro 2 — was "pronto pra orçar" (prod copy, 17 Oct 2026).
   // A recorded visit still shows: it is the coordination's own work.
-  if (!closed.e3 || (!solutions.length && !tested)) return { ...EMPTY_W3, visit, tests, closed, testedInE3 };
+  if (!closed.e3 || (!solutions.length && !tested)) return { ...EMPTY_W3, visit, tests, closed, testedInE3, skipped };
 
   const areaM2 = Number(site.site_area_m2) || 0;
   const impact = asRecord('impact_monitoring');
@@ -400,6 +403,7 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     tests,
     closed,
     testedInE3,
+    skipped,
   };
 }
 
@@ -2639,6 +2643,52 @@ export function registerCohortRoutes(app: Express): void {
   // support-request history, and uploaded org documents are deliberately
   // kept. Guarded by the :coordinatorSlug app.param ownership check like
   // every cohort route.
+  /**
+   * "Levar ao Encontro 4" (22 Oct call): an organisation still in Encontro 2
+   * or 3 that settled its solution with Vila Flores at the visit goes straight
+   * to the initial proposal. What it skips is RECORDED (`_e2_skipped`,
+   * `_e3_skipped`, `_skip_json` with who and when) — never written as closed:
+   * nothing was tested or scored. Encontro 4 then asks what the skipped
+   * encontros would have given it: the place on the map, the problem, and
+   * anything else they want to tell or attach (cboE4Checkpoint, 'contexto').
+   */
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/skip-to-e4', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    const id = member.cboStateId;
+    let state = getCboState(id) ?? null;
+    if (!state) {
+      const persisted = await loadCboFromDb(id);
+      if (persisted) {
+        setCboState(id, persisted.state);
+        for (const msg of persisted.messages) addCboMessage(id, msg);
+        state = persisted.state;
+      }
+    }
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    const from = state.phase ?? 0;
+    if (from >= 4) { res.status(409).json({ error: 'already in Encontro 4', phase: from }); return; }
+    if (from < 1) { res.status(409).json({ error: 'Encontro 1 not started' }); return; }
+
+    const skipped2 = !encontroClosed(state, 2);
+    const skipped3 = !encontroClosed(state, 3);
+    const by = String(req.body?.by ?? '').trim().slice(0, 80);
+    if (skipped2) writeSectionFields(id, state, 'intervention_site', { _e2_skipped: 'yes' }, () => {}, 'coordinator');
+    writeSectionFields(id, state, 'intervention_type', {
+      ...(skipped3 ? { _e3_skipped: 'yes' } : {}),
+      _skip_json: JSON.stringify({ from, at: new Date().toISOString(), ...(by ? { by } : {}) }),
+    }, () => {}, 'coordinator');
+
+    // Encontro 4 must be open for THIS organisation, whatever the cohort's rail says.
+    const unlocked = Array.from(new Set([1, 2, 3, 4, ...((member.unlockedPhases as number[] | null) ?? [])])).sort((a, b) => a - b);
+    await db.update(cohortMembers).set({ unlockedPhases: unlocked }).where(eq(cohortMembers.id, member.id));
+    const moved = await advanceCboPhase(id, 4);
+    if (!moved.ok) { res.status(409).json({ error: `could not open Encontro 4 (${moved.reason})` }); return; }
+    console.log(`[skip-to-e4] ${member.id}: from Encontro ${from}${skipped2 ? ', E2 skipped' : ''}${skipped3 ? ', E3 skipped' : ''}`);
+    res.json({ ok: true, phase: 4, skipped: { e2: skipped2, e3: skipped3 } });
+  }));
+
   app.post('/api/cohort/:coordinatorSlug/member/:memberId/reset', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }

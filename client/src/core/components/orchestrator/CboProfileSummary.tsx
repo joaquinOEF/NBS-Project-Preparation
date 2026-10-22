@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
 import { Loader2, FileText, Check, Paperclip, X } from 'lucide-react';
+import { Button } from '@/core/components/ui/button';
 import type { DocumentMeta } from '@shared/document-schema';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
 import { parseVisit, visitOptions, visitSummary, sizedByUnits } from '@shared/e4-visit';
@@ -24,7 +25,7 @@ type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMa
  * "sem visita". Anyone on the coordinator side can record or change it.
  * Saved through PATCH …/visit into the organisation's own record.
  */
-function VisitEditor({ cohortSlug, memberId, fields }: { cohortSlug: string; memberId: string; fields: Record<string, { value?: unknown } | undefined> }) {
+function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: string; memberId: string; fields: Record<string, { value?: unknown } | undefined>; onSaved?: () => void }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const str = (k: string) => String(fields?.[k]?.value ?? '');
@@ -59,6 +60,7 @@ function VisitEditor({ cohortSlug, memberId, fields }: { cohortSlug: string; mem
     if (!r?.ok) { setFailed(true); return; }
     const data = await r.json().catch(() => ({}));
     setSaved({ visit: data.visit ?? null, note: note.trim() });
+    onSaved?.();
   };
 
   return (
@@ -270,16 +272,27 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
   );
 }
 
-export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged }: { cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void }) {
+/**
+ * `onRecordChanged`: the visit was saved, a visit file changed or the
+ * organisation was taken to Encontro 4 — the board behind the drawer reloads,
+ * so its card stops saying "Registrar a visita técnica" (it used to, until a
+ * page reload).
+ */
+export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, onRecordChanged }: { cohortSlug: string; memberId: string; reloadKey: number; onFilesChanged?: () => void; onRecordChanged?: () => void }) {
   const { t } = useTranslation();
   const [fields, setFields] = useState<Record<string, { value?: unknown } | undefined> | null>(null);
+  const [phase, setPhase] = useState<number | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setFields(null); setError(false);
     fetch(`/api/cohort/${cohortSlug}/member/${memberId}/profile`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(data => { if (!cancelled) setFields((data.profile?.sections as any)?.intervention_type?.fields ?? {}); })
+      .then(data => {
+        if (cancelled) return;
+        setFields((data.profile?.sections as any)?.intervention_type?.fields ?? {});
+        setPhase(Number(data.profile?.phase ?? 0) || null);
+      })
       .catch(() => { if (!cancelled) setError(true); });
     return () => { cancelled = true; };
   }, [cohortSlug, memberId, reloadKey]);
@@ -287,8 +300,61 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged }: 
   if (!fields) return <div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin" /></div>;
   return (
     <div className="space-y-3 py-1 text-sm">
-      <VisitEditor key={`${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} fields={fields} />
-      <VisitFiles key={`files-${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} onChanged={onFilesChanged} />
+      <VisitEditor key={`${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} fields={fields} onSaved={onRecordChanged} />
+      <VisitFiles key={`files-${memberId}-${reloadKey}`} cohortSlug={cohortSlug} memberId={memberId} onChanged={() => { onFilesChanged?.(); onRecordChanged?.(); }} />
+      {phase !== null && phase >= 1 && phase < 4 && (
+        <SkipToE4 cohortSlug={cohortSlug} memberId={memberId} phase={phase} onDone={() => { setPhase(4); onRecordChanged?.(); }} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Levar ao Encontro 4" (22 Oct call): an organisation still in Encontro 2 or 3
+ * whose solution was settled with the coordination at the visit goes straight
+ * to the initial proposal. The record says which encontros were skipped; the
+ * organisation's Encontro 4 asks what they would have given (the place, the
+ * problem, and anything else — in words or files).
+ */
+function SkipToE4({ cohortSlug, memberId, phase, onDone }: { cohortSlug: string; memberId: string; phase: number; onDone: () => void }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setBusy(true); setError(null);
+    try {
+      const r = await fetch(`/api/cohort/${cohortSlug}/member/${memberId}/skip-to-e4`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error ?? String(r.status));
+      onDone();
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+    } finally { setBusy(false); setConfirming(false); }
+  };
+  return (
+    <div className="rounded-lg border border-dashed border-foreground/15 p-3" data-testid="visit-skip-e4">
+      <p className="text-[13px] font-semibold">{t('cboView.skipE4Title', { defaultValue: 'Levar ao Encontro 4' })}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t('cboView.skipE4Hint', {
+          defaultValue: 'A organização está no Encontro {{phase}}. Se a solução já foi combinada na visita, ela pode ir direto para a proposta inicial: o Encontro 4 pergunta o lugar, o problema e o que mais quiserem contar ou anexar. Fica registrado que o encontro foi pulado.',
+          phase,
+        })}
+      </p>
+      {confirming ? (
+        <div className="mt-2 flex items-center gap-2">
+          <Button size="sm" className="h-8 text-xs" disabled={busy} onClick={go} data-testid="visit-skip-e4-confirm">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('cboView.skipE4Confirm', { defaultValue: 'Sim, levar ao Encontro 4' })}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 text-xs" disabled={busy} onClick={() => setConfirming(false)}>
+            {t('common.cancel', { defaultValue: 'Cancelar' })}
+          </Button>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" className="mt-2 h-8 text-xs" onClick={() => setConfirming(true)} data-testid="visit-skip-e4-button">
+          {t('cboView.skipE4Button', { defaultValue: 'Levar ao Encontro 4' })}
+        </Button>
+      )}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   );
 }
