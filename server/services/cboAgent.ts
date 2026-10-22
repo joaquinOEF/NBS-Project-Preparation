@@ -3803,6 +3803,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       return { photos: full.photos, cohort: full.cohort, cityMap: full.cityMap };
     },
     startAuthoring: () => { void runPrenoteAuthor(cboId); },
+    rereadFiles: () => { void rereadFiles(cboId); },
   };
   if (!state.metadata?.project && state.phase === 4) {
     try {

@@ -39,6 +39,8 @@ export interface JourneyCardData {
     closed?: { e2: boolean; e3: boolean; e4: boolean };
     /** A solution tested in Encontro 3 and reacted to — Encontro 3 done in substance. */
     testedInE3?: boolean;
+    /** Skipped by the coordination ("Levar ao Encontro 4") — passed, not done. */
+    skipped?: { e2: boolean; e3: boolean };
   };
 }
 
@@ -70,10 +72,19 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
  * from the tested solutions, and Encontro 4 closes an open Encontro 3 as it
  * stands. The dot for 3 stays open until the marker exists.
  */
-export function journeyClosed(p: Pick<JourneyCardData, 'w3'>): { e2: boolean; e3: boolean; e4: boolean; tested: boolean } {
+export function journeyClosed(p: Pick<JourneyCardData, 'w3'>): { e2: boolean; e3: boolean; e4: boolean; tested: boolean; skipped: { e2: boolean; e3: boolean } } {
   const raw = p.w3.closed ?? { e2: false, e3: false, e4: false };
   const tested = !!p.w3.testedInE3;
-  return { e4: raw.e4, e3: raw.e3 || raw.e4, e2: raw.e2 || raw.e3 || raw.e4 || tested, tested };
+  // An encontro the coordination skipped ("Levar ao Encontro 4") is passed: the
+  // next step is what comes after it, and its dot says "pulado", not "feito".
+  const sk = p.w3.skipped ?? { e2: false, e3: false };
+  return {
+    e4: raw.e4,
+    e3: raw.e3 || raw.e4 || sk.e3,
+    e2: raw.e2 || raw.e3 || raw.e4 || tested || sk.e2 || sk.e3,
+    tested,
+    skipped: { e2: sk.e2 && !raw.e2, e3: sk.e3 && !raw.e3 },
+  };
 }
 
 /** The one rule: the next thing that has to happen for this organisation, and who does it. */
@@ -137,6 +148,7 @@ export function JourneyCard({
   const { Icon, cls } = worryIcon(p.worry);
   const c = journeyClosed(p);
   const doneThrough = c.e4 ? 4 : c.e3 ? 3 : c.e2 ? 2 : p.phase >= 2 ? 1 : 0;
+  const wasSkipped = (n: number) => (n === 2 && c.skipped.e2) || (n === 3 && c.skipped.e3);
   const current = Math.min(6, doneThrough + 1);
   // Not in the catalogue ("aquecedor-solar"): said as words, never as an id.
   const label = (id: string) => { const s = getSolution(id); return s ? (pt ? s.pt.label : s.en.label) : cap(id.replace(/-/g, ' ')); };
@@ -197,8 +209,11 @@ export function JourneyCard({
           <div className="flex items-center gap-1" data-testid={`journey-dots-${p.id}`} aria-label={t('orchestrator.journey.dotsAria', { defaultValue: 'Encontros done: {{n}} of 6', n: doneThrough }) as string}>
             <span className="mr-1.5 text-[9.5px] uppercase tracking-wider text-muted-foreground">{t('orchestrator.journey.encontros', { defaultValue: 'Encontros' })}</span>
             {[1, 2, 3, 4, 5, 6].map(n => (
-              <span key={n} className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold ${
-                n <= doneThrough ? 'bg-emerald-600 text-white'
+              <span key={n} data-skipped={wasSkipped(n) ? 'yes' : undefined}
+                title={wasSkipped(n) ? (t('orchestrator.journey.skipped', { defaultValue: 'Pulado pela coordenação' }) as string) : undefined}
+                className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold ${
+                wasSkipped(n) ? 'border-[1.5px] border-dashed border-emerald-600/70 text-emerald-700/80 dark:text-emerald-300/80'
+                : n <= doneThrough ? 'bg-emerald-600 text-white'
                   : n === current ? 'border-[1.5px] border-emerald-600 text-emerald-700 dark:text-emerald-300'
                     : 'bg-muted text-muted-foreground/60'}`}>{n}</span>
             ))}
