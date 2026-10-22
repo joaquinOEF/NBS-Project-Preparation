@@ -67,7 +67,11 @@ const OPS = 'operations_sustain';
 
 /** The message the "Começar Encontro 4" button sends, and the resume chip. */
 export const E4_ENTRY = /^\s*(vamos come[çc]ar o encontro 4|let'?s start encontro 4)\b/i;
-export const E4_RESUME = /^\s*(continuar da fase 4|continue from phase 4|continuar\.?|continue\.?)\s*$/i;
+export const E4_RESUME = /^\s*(continuar da fase 4|continue from phase 4|continuar|continue)\.?\s*$/i;
+// ⚠️ The resume card sends "Continuar da Fase 4." — WITH the full stop. The
+// old pattern ended right after the number, so the line fell to the model
+// ("Como deseja prosseguir?") instead of the encontro's own question
+// (screenshots of a skipped org's first open, 22 Oct 2026).
 
 /** The chips Encontro 4 speaks. */
 export const E4C = {
@@ -130,6 +134,29 @@ const MAINTAIN = [
   { id: 'contratada', pt: 'Empresa contratada', en: 'A hired contractor' },
   { id: 'indefinido', pt: 'Ainda não sabemos', en: "We don't know yet" },
 ] as const;
+/**
+ * A typed answer to "quem faria a obra?" / "quem cuida?" read as one of the
+ * menu's options — only when the words say it plainly; null otherwise (the
+ * menu is asked once more). Order matters: "mutirão com apoio técnico" is
+ * mista before mutirão; "não sei" wins over anything it also mentions.
+ */
+export function typedChoice(gap: 'quem-faz-obra' | 'quem-cuida', text: string): string | null {
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\bnao (sei|sabemos)\b|ainda nao (sei|sabemos|definimos)/.test(t)) return 'indefinido';
+  if (gap === 'quem-faz-obra') {
+    if (/mutirao/.test(t) && /(tecnic|engenheir|arquitet|apoio|ajuda)/.test(t)) return 'mista';
+    if (/(universidade|ufrgs|pucrs|\bong\b|faculdade)/.test(t)) return 'parceria';
+    if (/(empresa|contratad|terceiriz|empreiteir)/.test(t)) return 'contratada';
+    if (/(mutirao|a gente mesm|a gente (faz|vai fazer|constro)|nos mesm|nos proprio|nossa equipe|voluntari)/.test(t)) return 'mutirao';
+    return null;
+  }
+  if (/(prefeitura|secretaria|dmae|smamus)/.test(t)) return 'parceria-prefeitura';
+  if (/(empresa|contratad|terceiriz)/.test(t)) return 'contratada';
+  if (/(voluntari|comunidade|vizinh|moradores)/.test(t)) return 'voluntarios';
+  if (/(a gente mesm|a gente (cuida|vai cuidar)|nos mesm|nos proprio|nossa equipe|a (propria )?organizacao|a associacao)/.test(t)) return 'nos';
+  return null;
+}
+
 /** "Quem faria?" in Encontro 3, as the build model Encontro 4 records. */
 const WHO_TO_BUILD: Record<WhoId, string> = { nos: 'mutirao', 'nos-com-parceiro': 'mista', contratar: 'contratada', ninguem: 'indefinido', 'nao-sei': 'indefinido' };
 
@@ -683,6 +710,52 @@ async function serveE4Inner(
       writeType({ _e4_problem_ok: 'yes', _e4_problem_pending: '' });
       say('Anotado — entra no problema, nas palavras de vocês.', 'Noted — it goes into the problem, in your words.');
       return serve('problem-said');
+    }
+    // "O que querem ver mudar" is a fixed menu of indicators — but a sentence
+    // typed there is an answer too. It went to the model and was lost
+    // ("Entendi. Vamos continuar.", walkthrough 22 Oct). Their words are kept
+    // in the notes; the question comes back once to pick what measures it.
+    if (gap === 'mudancas') {
+      const sol = prenoteSolution(input());
+      const chips = sol ? impactChips(sol.id, site('site_worry'), { ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}), ...(sol.units ? { units: sol.units } : {}) }, L) : [];
+      const isChip = is(E4C.todas) || chips.some(c => deps.normChip(c.label) === msg);
+      // A doubt ("o que é contrapartida?") still goes to the model, and the step comes back.
+      if (!isChip && !raw.includes('?')) {
+        deps.writeFields(TYPE, { project_notes: [type('project_notes'), `O que querem ver mudar: ${raw.slice(0, 400)}`].filter(Boolean).join('\n') });
+        say('Anotado ✓ — fica nas palavras de vocês.', 'Noted ✓ — in your own words.');
+        ask(
+          chips.length ? 'E qual destes mede melhor essa mudança?' : 'Anotado.',
+          chips.length ? 'And which of these measures that change best?' : 'Noted.',
+          chips.length
+            ? [...chips.map(c => ({ pt: c.label, en: c.label })), ...(chips.length > 1 ? [{ pt: E4C.todas.pt, en: E4C.todas.en }] : [])]
+            : [{ pt: E4C.podeSeguir.pt, en: E4C.podeSeguir.en }],
+        );
+        if (!chips.length) writeType({ _e4_changes: 'nota', _e4_gap_pending: '' });
+        return finish('mudancas-said');
+      }
+    }
+    // "Quem faria a obra?" / "E depois, quem cuida?" — a menu, but a sentence
+    // typed there is an answer too; it went to the model and was lost (typed
+    // probe of every Encontro 4 question, 22 Oct). Words that clearly name an
+    // option record it; otherwise the words are kept and the menu asks once
+    // which comes closest. A doubt (with "?") still goes to the model.
+    if ((gap === 'quem-faz-obra' || gap === 'quem-cuida') && !raw.includes('?')) {
+      const menu = gap === 'quem-faz-obra' ? BUILD : MAINTAIN;
+      const tapped = menu.some(o => is(o)) || is(E4C.isso) || is(E4C.mudou);
+      if (!tapped) {
+        const id = typedChoice(gap, raw);
+        const label = gap === 'quem-faz-obra' ? 'Quem faria a obra' : 'Quem cuida depois da obra';
+        deps.writeFields(TYPE, { project_notes: [type('project_notes'), `${label}: ${raw.slice(0, 400)}`].filter(Boolean).join('\n') });
+        if (id) {
+          if (gap === 'quem-faz-obra') writeType({ construction_model: id, _e4_gap_pending: '' });
+          else { deps.writeFields(OPS, { who_maintains: id }); writeType({ _e4_gap_pending: '' }); }
+          say('Anotado ✓', 'Noted ✓');
+          return serve(`${gap}-typed`);
+        }
+        say('Anotado ✓ — fica nas palavras de vocês.', 'Noted ✓ — in your own words.');
+        ask('E qual destes chega mais perto?', 'And which of these comes closest?', menu.map(o => ({ pt: o.pt, en: o.en })));
+        return finish(`${gap}-said`);
+      }
     }
     if (gap === 'beneficiarios' && !is(E4C.naoSei)) {
       deps.writeFields(SITE, { beneficiaries_note: raw.slice(0, 400) });

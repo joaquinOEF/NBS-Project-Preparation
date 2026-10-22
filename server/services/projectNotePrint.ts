@@ -1,6 +1,7 @@
 // The project note, printed — several organisations, one document. Same
 // shell as every other document (printShell.ts); written register; a source
 // line under every section.
+import { readableSource } from '@shared/source-label';
 import type { ProjectNote } from '@shared/project-plan';
 import { esc, md, printShell } from './printShell';
 
@@ -30,7 +31,7 @@ export function renderProjectNoteHtml(note: ProjectNote, lang: 'pt' | 'en' = 'pt
   <section>
     <h2>${esc(s.title)}</h2>
     ${s.paragraphs.map(para).join('')}
-    <p class="src">${esc(t.source)}: ${esc(Array.from(new Set(s.paragraphs.flatMap(p => p.sources))).join(' · '))}</p>
+    <p class="src">${esc(t.source)}: ${esc(Array.from(new Set(s.paragraphs.flatMap(p => p.sources).map(x => readableSource(x, lang)))).join(' · '))}</p>
   </section>`).join('');
   return printShell({
     lang,

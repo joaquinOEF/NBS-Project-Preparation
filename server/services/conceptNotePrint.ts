@@ -12,6 +12,7 @@
 // set as quotation — the one place its voice belongs.
 // ============================================================================
 
+import { readableSource } from '@shared/source-label';
 import type { ConceptNote, Paragraph } from '@shared/concept-note';
 
 import { esc, md, printShell } from './printShell';
@@ -63,7 +64,7 @@ export function renderConceptNoteHtml(note: ConceptNote, lang: 'pt' | 'en' = 'pt
   <section>
     <h2><span class="n">${s.n}</span>${esc(s.title)}${s.open ? `<span class="tag">${esc(t.openTag)}</span>` : ''}</h2>
     ${s.paragraphs.map(para).join('')}
-    <p class="src">${esc(t.source)}: ${esc(Array.from(new Set(s.paragraphs.flatMap(p => p.sources))).join(' · '))}</p>
+    <p class="src">${esc(t.source)}: ${esc(Array.from(new Set(s.paragraphs.flatMap(p => p.sources).map(x => readableSource(x, lang)))).join(' · '))}</p>
   </section>`).join('');
 
   return printShell({

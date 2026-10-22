@@ -1342,7 +1342,10 @@ export default function OrchestratorLandingPage() {
       // What the drawer shows under the name — and, for Documentos, the tested
       // solutions: without `w3` the per-scenario links never rendered at all.
       neighborhood: p.neighborhood || undefined,
-      encontro: (['who', 'where', 'building', 'impact', 'operations', 'needs', 'results'] as const).indexOf(p.currentPhase) + 1 || undefined,
+      // The session's own encontro. Derived from which profile sections are
+      // filled it read "Encontro 6" for an organisation in Encontro 4
+      // (walkthrough screenshots, 22 Oct 2026).
+      encontro: (Number(member?.snapshotPhase ?? 0) || (['who', 'where', 'building', 'impact', 'operations', 'needs', 'results'] as const).indexOf(p.currentPhase) + 1) || undefined,
       isTest: p.excludeFromPortfolio,
       w3: { testedIds: ((p.w3 as any)?.testedIds ?? []) as string[], detailed: !!(p.w3 as any)?.detailed },
     });
