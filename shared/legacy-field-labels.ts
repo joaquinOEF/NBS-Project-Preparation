@@ -105,3 +105,36 @@ export const PER_SOLUTION_SUFFIX: Array<{ suffix: string; pt: string; en: string
   { suffix: 'hardest', pt: 'o que mais pega', en: 'what is hardest' },
   { suffix: 'verdict', pt: 'reação', en: 'reaction' },
 ];
+
+/**
+ * Where the older records' loose names belong on the Perfil. Conceito Arte's
+ * printed some forty of them in one list under "Também registrado", and the
+ * design office, the scale and the authors read as if they were about the
+ * platform's project ("Essas informações são sobre qual projeto exatamente?" ·
+ * "Páginas 3 e 4 muito confusas" — Aline, 22 Oct 2026). Grouped and titled,
+ * each block says whose and what it is.
+ */
+export const LEGACY_GROUPS: Array<{ id: string; pt: string; en: string; fields: string[] }> = [
+  {
+    id: 'anteprojeto',
+    pt: 'O anteprojeto que a organização já tem',
+    en: 'The design the organisation already has',
+    fields: ['design_firm', 'design_authors', 'design_date', 'design_phase', 'design_scale', 'design_sponsor', 'design_sponsor_2',
+      'technical_proposal', 'technical_drawings', 'site_elements', 'solution_types', 'solution_description',
+      'bacia_retencao_area_m2', 'jardins_filtrantes_area_m2', 'nota_drenagem'],
+  },
+  {
+    id: 'orcamentos',
+    pt: 'Orçamentos que a organização já levantou',
+    en: 'Budgets the organisation has already gathered',
+    fields: ['site_budget_brl', 'budget_detail', 'budget_bacia_retencao', 'budget_jardim_chuva_m2',
+      'banco_floreira_orcamento', 'banco_floreira_custo_m2', 'banco_floreira_formacao', 'team_financing'],
+  },
+  {
+    id: 'evidencias',
+    pt: 'Documentos e evidências que a organização reuniu',
+    en: 'Documents and evidence the organisation gathered',
+    fields: ['project_documentation', 'academic_reference', 'photo_drive_link', 'flood_photo', 'flood_photo_2',
+      'volunteer_hours', 'formacao_prevista'],
+  },
+];

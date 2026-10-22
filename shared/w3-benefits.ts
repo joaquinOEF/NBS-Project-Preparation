@@ -480,9 +480,11 @@ export function benefitFor(solutionId: string, areaM2?: number, units?: number):
       return {
         ...base,
         siteSpecific: true,
+        // "Com 1, 16.000 litros no total" read as a typo on the Perfil — the
+        // count needs its unit (Desabafa, 22 Oct 2026).
         headlinePt: lo === hi
-          ? `Com ${units}, ${fmt(lo)} no total — ${b.unitPt} guarda ${fmt(b.low)}.`
-          : `Com ${units}, entre ${isLitres ? fmt(lo) : num(lo)} e ${fmt(hi)} no total.`,
+          ? (units === 1 ? `Com 1 ${b.unitPt}, ${fmt(lo)} no total.` : `Com ${units} unidades, ${fmt(lo)} no total — cada ${b.unitPt} guarda ${fmt(b.low)}.`)
+          : `Com ${units} ${units === 1 ? b.unitPt : 'unidades'}, entre ${isLitres ? fmt(lo) : num(lo)} e ${fmt(hi)} no total.`,
         headlineEn: lo === hi
           ? `With ${units}, ${fmtEn(lo)} in total — each ${b.unitEn} holds ${fmtEn(b.low)}.`
           : `With ${units}, between ${isLitres ? fmtEn(lo) : numEn(lo)} and ${fmtEn(hi)} in total.`,

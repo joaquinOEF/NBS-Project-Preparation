@@ -33,6 +33,7 @@
 //     own sentences appear as quotation and nothing else addresses the reader.
 // ============================================================================
 
+import { readableSpeech } from './readable-speech';
 import { parseDocumentNotes, toCardNote, ALL_SOLUTIONS } from './w3-document-notes';
 import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
 import { parseTests, REACTION, sizeOf } from './w3-tests';
@@ -532,7 +533,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     },
     problem: {
       ...(has(site.site_worry) ? { worry: site.site_worry, worryLabel: worryLabel(site.site_worry, pt) } : {}),
-      ...(has(site.site_story) ? { story: site.site_story.trim() } : {}),
+      ...(has(site.site_story) ? { story: readableSpeech(site.site_story.trim()) } : {}),
       ...(has(w3.justification_why_here) ? { whyHere: w3.justification_why_here.trim() } : {}),
       ...(has(w3.baseline_condition) ? { baseline: w3.baseline_condition.trim() } : {}),
     },

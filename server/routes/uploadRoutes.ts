@@ -1,3 +1,4 @@
+import { readableFilename } from '@shared/readable-filename';
 import type { Express, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import path from "path";
@@ -107,7 +108,8 @@ export async function storeDocument(
   const doc = await createDocument({
     orgId: meta.orgId,
     cboStateId: meta.cboStateId,
-    filename: file.originalname,
+    // Multipart names arrive decoded as Latin-1 — "PraÃ§a" for "Praça".
+    filename: readableFilename(file.originalname),
     mimeType: file.mimetype,
     kind: kindFromUpload(file.originalname, file.mimetype),
     purpose: meta.purpose,
@@ -194,7 +196,8 @@ export function registerUploadRoutes(app: Express): void {
       }
 
       res.json({
-        filename: file.originalname,
+        // Multipart names arrive decoded as Latin-1 — "PraÃ§a" for "Praça".
+    filename: readableFilename(file.originalname),
         size: file.size,
         savedPath,
         contentLength: content.length,

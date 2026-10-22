@@ -125,3 +125,74 @@ test('the initial proposal quotes the notes in Portuguese, once', () => {
   expect(text.split('conhece a praça e o histórico da organização').length - 1, 'said once').toBe(1);
   expect(text).toContain('Biovaletas — o que mais pega: Custo da execução');
 });
+
+// Aline's notes on four printed Perfis (22 Oct 2026), each on the real shape.
+test.describe('Aline\'s review of the printed Perfis', () => {
+  const rec = (fields: Record<string, Record<string, string>>): any => ({ phase: 3, sections: Object.fromEntries(Object.entries(fields).map(([s, kv]) => [s, { fields: Object.fromEntries(Object.entries(kv).map(([k, v]) => [k, F(v)])) }])) });
+
+  test('river flooding is not "Alagamento" twice', async () => {
+    const { cboDisplayValue } = await import('../shared/cbo-field-catalog');
+    expect(cboDisplayValue('intervention_site', 'site_worry', 'inundacao, alagamento, heat', 'pt')).toBe('Inundação, Alagamento, Calor');
+    expect(cboDisplayValue('intervention_site', 'site_worry', 'flood, alagamento', 'pt')).toBe('Alagamento');
+  });
+
+  test('a "no" their own description contradicts is left off', () => {
+    const p = buildOrgProfile({ orgName: 'Desabafa', state: rec({ org_profile: { nbs_experience: 'Ainda não', nbs_experience_detail: 'Já organizamos uma horta comunitária' } }), lang: 'pt' } as any);
+    expect([...p.facts, ...p.about].map(f => f.field)).not.toContain('nbs_experience');
+  });
+
+  test('a decisive detail is printed with its question, and the effect names its solution', () => {
+    const p = buildOrgProfile({ orgName: 'Desabafa', state: rec({
+      intervention_site: { bairro: 'Humaitá' },
+      intervention_type: {
+        detail_question_id: 'roof-area', detail_answer: 'Um cômodo ou uma parte',
+        solution_tests_json: JSON.stringify([{ solutionId: 'captacao-agua-da-chuva', reaction: 'faz-sentido', units: 1, testedAt: 'x' }, { solutionId: 'compostagem', reaction: 'faz-sentido', testedAt: 'y' }]),
+      },
+      impact_monitoring: { expected_impact: 'Com 1, 16.000 litros no total — cisterna de placas guarda 16.000 litros.' },
+    }), lang: 'pt' } as any);
+    const rows = p.alsoRecorded.flatMap(g => g.rows);
+    const detail = rows.find(r => r.field === 'detail_answer')!;
+    expect(detail.label).toBe('Detalhe decisivo da solução — Captação de água da chuva');
+    expect(detail.value).toMatch(/^Sobre o telhado que alimenta a cisterna, a organização informa: um cômodo ou uma parte\./);
+    const effect = rows.find(r => r.field === 'expected_impact')!;
+    expect(effect.label).toBe('Efeito esperado — Captação de água da chuva');
+    expect(effect.value).toMatch(/^Com 1 cisterna/);
+  });
+
+  test('a sentence repeated across the notes is said once', async () => {
+    const { readableNotes } = await import('../shared/cbo-field-catalog');
+    const out = readableNotes([
+      'Organização quer incluir horta comunitária — já tiveram experiência anterior com horta, atualmente inativa. Interesse em segunda horta.',
+      'Organização quer incluir horta comunitária — já tiveram experiência anterior com horta, atualmente inativa. Quem faria: parceria com escola.',
+    ].join('\n'));
+    expect(out.split('já tiveram experiência anterior').length - 1).toBe(1);
+    expect(out).toContain('Quem faria: parceria com escola.');
+  });
+
+  test('speech noise comes off a quote; their words stay', async () => {
+    const { readableSpeech } = await import('../shared/readable-speech');
+    expect(readableSpeech('Esse lugar, ele é um é um canteiro, né? Justamente embaixo desse desse canteiro. Então acaba enchendo de a- da água. Não se faz- fazem obras.'))
+      .toBe('Esse lugar, ele é um canteiro. Justamente embaixo desse canteiro. Então acaba enchendo da água. Não se fazem obras.');
+    expect(readableSpeech('A casa a gente usa. O sol a sombra.')).toBe('A casa a gente usa. O sol a sombra.');
+  });
+
+  test('a garbled file name reads as typed', async () => {
+    const { readableFilename } = await import('../shared/readable-filename');
+    expect(readableFilename('CROQUI_PraÃ§a Oliveira Rolim.pdf')).toBe('CROQUI_Praça Oliveira Rolim.pdf');
+    expect(readableFilename('Praça já certa.pdf')).toBe('Praça já certa.pdf');
+  });
+
+  test('the older loose fields are grouped and titled, and a pin is not printed as two numbers', () => {
+    const p = buildOrgProfile({ orgName: 'Conceito Arte', state: rec({
+      intervention_site: { bairro: 'Sarandi', site_lat: '-29.98', site_lng: '-51.13', design_firm: 'Versa Urbanismo', flood_photo: 'Foto de rua alagada' },
+      intervention_type: { site_budget_brl: '31273.07' },
+    }), lang: 'pt' } as any);
+    const titles = p.alsoRecorded.map(g => g.title);
+    expect(titles).toContain('O anteprojeto que a organização já tem');
+    expect(titles).toContain('Orçamentos que a organização já levantou');
+    expect(titles).toContain('Documentos e evidências que a organização reuniu');
+    const rows = p.alsoRecorded.flatMap(g => g.rows);
+    expect(rows.find(r => r.field === 'site_budget_brl')?.value).toMatch(/^R\$\s31\.273,07$/);
+    expect(rows.some(r => r.field === 'site_lat' || r.field === 'site_lng')).toBe(false);
+  });
+});

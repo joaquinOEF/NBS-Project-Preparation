@@ -3,6 +3,7 @@
  * sections (field: value) + the maturity scorecard (coordinator-only). Compact;
  * snapshot-on-open (re-fetches on `reloadKey`).
  */
+import { readableFilename } from '@shared/readable-filename';
 import { HEALTH_LABEL, type HealthEntry, type HealthKind } from '@shared/session-health';
 import { useEffect, useRef, useState } from 'react';
 import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
@@ -249,8 +250,8 @@ function VisitFiles({ cohortSlug, memberId, onChanged }: { cohortSlug: string; m
             <li key={f.id} className="flex items-center gap-2 text-[12.5px]" data-testid={`visit-file-${f.id}`}>
               <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               {f.hasOriginal
-                ? <a href={`/api/documents/${f.id}/original`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate hover:underline">{f.filename}</a>
-                : <span className="min-w-0 flex-1 truncate">{f.filename}</span>}
+                ? <a href={`/api/documents/${f.id}/original`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate hover:underline">{readableFilename(f.filename)}</a>
+                : <span className="min-w-0 flex-1 truncate">{readableFilename(f.filename)}</span>}
               <button type="button" onClick={() => void remove(f.id)} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t('cboView.visitFileRemove', { defaultValue: 'Remover {{name}}', name: f.filename }) as string} data-testid={`visit-file-remove-${f.id}`}>
                 <X className="h-3 w-3" />
