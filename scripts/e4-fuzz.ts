@@ -45,7 +45,10 @@ const ENTRY = { pt: 'Vamos começar o Encontro 4.', en: "Let's start Encontro 4.
 const SITE_MAP = 'Map selection (composite mode):\n- [zone] Floresta: HIGH risk, intervention: flood parks, area: 1.2 km², pop: 11.128, flood: 78%, heat: 41%, landslide: 12%, at (-30.0198, -51.2032)\n- [custom] Pátio dos fundos at (-30.0198, -51.2032) · 140 m²\nTotal: 2 assets, 0 sampled points';
 const FREE = ['não sei', 'ok', 'umas 40 famílias da rua de baixo', '10 por 12', 'uns 200 metros quadrados', 'quanto custa isso?', 'jardins de chuva', 'jardim mágico flutuante', 'a escola e a associação', '25', '', '😀', 'pode repetir?', 'Mutirão de 20 pessoas'];
 const JUNK = /undefined|\bNaN\b|\[object |\*\*\s*\*\*|\{\{|\}\}/;
-const ID_LEAK = /\b(site_worry|land_tenure|construction_model|who_maintains|_e4_\w+|e4_contribution|e4_partners|private-owned|public-informal|jardins-de-chuva|corredores-verdes|_pending_asks_json|alagamentos|familias-atendidas)\b/;
+// "alagamentos" is an indicator id AND a Portuguese word ("evitando alagamentos"
+// in the catalogue's own sentence): only flagged where prose can't put it — a
+// list separator or a quote right before it (",alagamentos", "'alagamentos").
+const ID_LEAK = /\b(site_worry|land_tenure|construction_model|who_maintains|_e4_\w+|e4_contribution|e4_partners|private-owned|public-informal|jardins-de-chuva|corredores-verdes|_pending_asks_json|familias-atendidas)\b|[,'"]alagamentos\b/;
 
 const TESTS = (over: any[] = []) => JSON.stringify(over);
 const base = (extra: Array<{ sectionId: string; field: string; value: string }>) => [

@@ -26,6 +26,9 @@ const BASE_FIELDS = [
   { sectionId: 'intervention_site', field: 'site_area_m2', value: '600' },
   { sectionId: 'intervention_type', field: 'solution_tests_json', value: TESTS },
   { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'jardins-de-chuva' },
+  // These walks test the questions one by one; the grouped "Pelo que vocês já
+  // contaram" card that would come first is e2e/e4-self-healing.spec.ts.
+  { sectionId: 'intervention_type', field: '_e4_recap_done', value: 'yes' },
 ];
 const PLACE = [
   { sectionId: 'intervention_site', field: '_site_lat', value: '-30.0198' },
