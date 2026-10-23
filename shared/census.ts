@@ -50,44 +50,46 @@ export interface CensusNearby {
 
 /** One tract's figures, as imported (null = withheld by IBGE). */
 export interface TractStats { p: number | null; c: number | null; e: number | null; pp: number | null; d: number | null; r: number | null; t: number | null; w: number | null }
+/** A tract's figures with the share of its area inside the circle(s) (0–1; absent = 1). */
+export type WeightedTract = TractStats & { share?: number };
 
 /**
  * Sum tracts into what a document says. Shared so a combined project on the
  * board (client, on every drop) and the server count the same way — each tract
  * once, because the map is keyed by tract id.
  */
-export function summariseTracts(stats: Record<string, TractStats>, nearby: CensusNearby[] = []): CensusAround | null {
-  const ids = Object.keys(stats);
+export function summariseTracts(stats: Record<string, TractStats & { share?: number }>, nearby: CensusNearby[] = []): CensusAround | null {
+  const ids = Object.keys(stats).filter(id => (stats[id].share ?? 1) > 0);
   if (!ids.length) return null;
   const s = ids.map(id => stats[id]);
-  const sum = (k: keyof TractStats) => (s.some(x => x[k] !== null) ? s.reduce((a, x) => a + (x[k] ?? 0), 0) : null);
-  const homes = s.reduce((a, x) => a + (x.d ?? 0), 0);
-  const share = (k: 't' | 'w', asCount: boolean) => {
-    const ok = s.filter(x => x[k] !== null && (x.d ?? 0) > 0);
-    const h = ok.reduce((a, x) => a + (x.d ?? 0), 0);
-    if (h <= 0) return null;
-    // `t` is a share per tract (weight by homes); `w` is a count of homes.
-    return ok.reduce((a, x) => a + (asCount ? (x[k] as number) : (x[k] as number) * (x.d ?? 0)), 0) / h;
-  };
-  const incomes = s.map(x => x.r).filter((v): v is number => v !== null).sort((a, b) => a - b);
+  const f = (x: TractStats & { share?: number }) => x.share ?? 1;
+  const sum = (k: keyof TractStats) => (s.some(x => x[k] !== null) ? s.reduce((a, x) => a + (x[k] ?? 0) * f(x), 0) : null);
+  const homes = s.reduce((a, x) => a + (x.d ?? 0) * f(x), 0);
+  const trees = s.filter(x => x.t !== null && (x.d ?? 0) > 0);
+  const treeHomes = trees.reduce((a, x) => a + (x.d ?? 0) * f(x), 0);
+  const sewer = s.filter(x => x.w !== null && (x.d ?? 0) > 0);
+  const sewerHomes = sewer.reduce((a, x) => a + (x.d ?? 0) * f(x), 0);
+  // The typical income: tracts that are meaningfully inside the circle.
+  const incomes = s.filter(x => f(x) >= 0.05).map(x => x.r).filter((v): v is number => v !== null).sort((a, b) => a - b);
+  const round = (v: number | null) => (v === null ? null : Math.round(v));
   return {
     tracts: ids,
-    people: s.reduce((a, x) => a + (x.p ?? 0), 0),
-    children: sum('c'),
-    elderly: sum('e'),
-    blackOrBrown: sum('pp'),
-    homes,
+    people: Math.round(s.reduce((a, x) => a + (x.p ?? 0) * f(x), 0)),
+    children: round(sum('c')),
+    elderly: round(sum('e')),
+    blackOrBrown: round(sum('pp')),
+    homes: Math.round(homes),
     incomeMedian: incomes.length ? incomes[Math.floor(incomes.length / 2)] : null,
-    noTreesShare: share('t', false),
-    noSewerShare: share('w', true),
+    noTreesShare: treeHomes > 0 ? trees.reduce((a, x) => a + (x.t as number) * (x.d ?? 0) * f(x), 0) / treeHomes : null,
+    noSewerShare: sewerHomes > 0 ? sewer.reduce((a, x) => a + (x.w as number) * f(x), 0) / sewerHomes : null,
     partial: s.some(x => x.c === null || x.e === null || x.r === null),
     nearby,
   };
 }
 
 export const CENSUS_SOURCE: Record<Lang, string> = {
-  pt: 'IBGE, Censo 2022 — setores a até ~300 m',
-  en: 'IBGE, 2022 Census — tracts within ~300 m',
+  pt: 'IBGE, Censo 2022 — raio de 300 m (setores ponderados pela área)',
+  en: 'IBGE, 2022 Census — within a 300 m radius (tracts weighted by area)',
 };
 
 /** What a solution acts on, so a line argues for THIS solution (D2). */

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
 import { censusForSite, tractStatsAround } from '../services/censusContext';
 import { censusLines } from '@shared/census';
+import { healSite, healStateSite } from '../services/siteHealing';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
@@ -87,7 +88,8 @@ import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersi
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
 import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
-import { deleteCboState } from '../services/cboPersistence';
+import { deleteCboState, loadCboMessages } from '../services/cboPersistence';
+import { readableFilename } from '@shared/readable-filename';
 import {
   requireCoordinator,
   createCoordinator,
@@ -701,7 +703,8 @@ export function registerCohortRoutes(app: Express): void {
     for (const m of members) {
       const sections = sectionsOf(m.cboStateId!);
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
-      const base = prenoteInputFromSections(sections);
+      const rawBase = prenoteInputFromSections(sections);
+      const base = { ...rawBase, site: healSite(rawBase.site) };
       // The map lines too, as every other path that builds a pre-note.
       const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site), census: censusForSite(base.site) }, lang);
       data.prenotes.set(m.id, prenote);
@@ -1438,7 +1441,43 @@ export function registerCohortRoutes(app: Express): void {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     const docs = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId });
-    res.json({ documents: docs.map(toDocumentMeta) });
+    // Files the organisation sent that never became a document (audit 23 Oct:
+    // 21 across 3 orgs) — named in the session's upload manifest or in an
+    // "Uploaded … but could not parse" turn, with no row here. Listed so the
+    // coordination can ask again or send it on their behalf.
+    let missing: string[] = [];
+    if (member.cboStateId) {
+      const st = getCboState(member.cboStateId) ?? (await loadCboFromDb(member.cboStateId).catch(() => null))?.state ?? null;
+      const key = (n: string) => readableFilename(n).normalize('NFC').toLowerCase().trim();
+      const have = new Set(docs.map(d => key(d.filename)));
+      const named = new Set<string>();
+      for (const f of (st as any)?.uploadedFiles ?? []) if (f?.name) named.add(readableFilename(String(f.name)));
+      // The live session first (persistence is debounced), else what is stored.
+      const live = getCboMessages(member.cboStateId);
+      const msgs = live?.length ? live : await loadCboMessages(member.cboStateId).catch(() => [] as any[]);
+      for (const m of msgs as any[]) {
+        const text = typeof m?.content === 'string' ? m.content : '';
+        for (const hit of Array.from(text.matchAll(/Uploaded "([^"]+)" but could not parse/g)) as RegExpMatchArray[]) named.add(readableFilename(hit[1]));
+      }
+      missing = Array.from(named).filter(n => !have.has(key(n)));
+    }
+    res.json({ documents: docs.map(toDocumentMeta), missing });
+  }));
+
+  /**
+   * Remove one of the organisation's files at its request (data term, Section
+   * 6: corrections and deletions go through the coordination). The notes read
+   * from it go with it.
+   */
+  app.delete('/api/cohort/:coordinatorSlug/member/:memberId/documents/:docId', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const doc = await getDocumentForScope(req.params.docId, { orgId: member.orgId, cboStateId: member.cboStateId });
+    if (!doc) { res.status(404).json({ error: 'not found' }); return; }
+    await deleteDocument(doc.id);
+    console.info(`[documents] removed ${doc.id} (${readableFilename(doc.filename)}) for member ${member.id} by ${reqCoordinator(req)?.email ?? 'coordinator'}`);
+    if (member.cboStateId) void rereadFiles(member.cboStateId);
+    res.json({ ok: true });
   }));
 
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/documents/:docId/text', wrap(async (req, res) => {
@@ -1528,7 +1567,7 @@ export function registerCohortRoutes(app: Express): void {
         Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
           .map(([k, v]) => [k, String(v?.value ?? '')]),
       );
-    const site = asRecord('intervention_site');
+    const site = healSite(asRecord('intervention_site'));
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
     const input = {
@@ -1754,7 +1793,8 @@ export function registerCohortRoutes(app: Express): void {
     return buildOrgProfile({
       orgName: member.orgName,
       neighborhood: member.neighborhood,
-      state,
+      // The risk bars read the bairro the pin is in (siteHealing.ts), never a list's first name.
+      state: healStateSite(state),
       lang,
       census: censusForSite(siteRec),
       // ⚠️ Only a CAPTION prints under a photo — never the old literal

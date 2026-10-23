@@ -17,8 +17,8 @@ const W2_W3 = [
   { sectionId: 'org_profile', field: 'prior_project_scale', value: 'funded' },
   { sectionId: 'intervention_site', field: 'bairro', value: 'Sarandi' },
   { sectionId: 'intervention_site', field: 'site_name', value: 'Terreno ao lado da horta' },
-  { sectionId: 'intervention_site', field: '_site_lat', value: '-30.0906' },
-  { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1726' },
+  { sectionId: 'intervention_site', field: '_site_lat', value: '-29.9930' }, // inside Sarandi (it said Sarandi with a pin in Cascata)
+  { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1300' },
   { sectionId: 'intervention_site', field: 'land_tenure', value: 'public-informal' },
   { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
   { sectionId: 'intervention_site', field: 'site_story', value: 'Quando chove forte a água entra pelo fundo.' },

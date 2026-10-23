@@ -28,9 +28,17 @@ CNES health units and INEP public schools; INCRA quilombos and FUNAI lands.
 
 ## Around a site — `server/services/censusContext.ts`
 
-Tracts that **touch 300 m** around the pin count whole (U2): "moram a até
-~300 m", honest about being approximate — in the dense centre it touches many
-small tracts (~6,000 people). Several sites together count each tract once.
+People **inside a 300 m circle**: each tract counts for the share of its area
+inside it (a 20 m grid over the circle; several sites = the union of their
+circles, so an overlap counts once).
+
+⚠️ The first version counted every tract that merely **touched** the circle.
+Measured against an area-weighted count over 80 points it read **~2× high**
+(median 2.04, p90 2.88 — Morro da Cruz 10,300 vs ~3,000). Fixed 23 Oct; the
+area-weighted count was then checked against an independent source, CNEFE
+address hexagons, at five sites (ratio 0.80–1.42, median ~1.05).
+`e2e/record-defects.spec.ts` keeps both checks: bounds over 300 points and
+two independent area-weighted counts agreeing within 10%.
 
 ## Where it shows — `shared/census.ts`
 
@@ -50,4 +58,11 @@ small tracts (~6,000 people). Several sites together count each tract once.
   rewrite made before it stays valid and keeps winning.
 - Health units and schools are context, never partners (R2).
 
-Spec: `e2e/census-2022.spec.ts`.
+## Bairro figures — `server/services/siteHealing.ts`
+
+Documents read the site through `healSite`: hazards, population and poverty
+for the bairro the **pin** is in (its census tract), never the first name of a
+list, and a missing poverty rate stays unknown (never 0.0). The stored record is
+not rewritten.
+
+Specs: `e2e/census-2022.spec.ts`, `e2e/record-defects.spec.ts`.

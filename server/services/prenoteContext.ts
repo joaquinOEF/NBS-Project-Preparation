@@ -18,6 +18,7 @@ import { listDocumentsForScope, getOrgIdForCboState } from './documentPersistenc
 import { authorConceptNote } from './conceptNoteAuthor';
 import { cityMapFor } from './siteContext';
 import { censusForSite } from './censusContext';
+import { healSite } from './siteHealing';
 
 export const PRENOTE_AUTHOR_MODEL = process.env.PRENOTE_AUTHOR_MODEL || 'claude-opus-5-5';
 
@@ -27,7 +28,9 @@ export async function prenoteInputFor(
   lang: 'pt' | 'en',
   opts: { photoUrl: (docId: string) => string; cohortLines: (cboId: string, lang: 'pt' | 'en') => Promise<string[]>; orgId?: string | null },
 ): Promise<PrenoteInput> {
-  const base = prenoteInputFromSections(sections);
+  const raw = prenoteInputFromSections(sections);
+  // The bairro figures for where the pin is (siteHealing.ts) — read, never written back.
+  const base = { ...raw, site: healSite(raw.site) };
   const orgId = opts.orgId ?? (await getOrgIdForCboState(cboStateId).catch(() => null));
   const docs = await listDocumentsForScope({ cboStateId, ...(orgId ? { orgId } : {}) }).catch(() => [] as any[]);
   // Only a CAPTION travels — never the literal description an old upload

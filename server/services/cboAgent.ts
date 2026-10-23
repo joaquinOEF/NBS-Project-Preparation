@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cityMapFor } from './siteContext';
 import { censusForSite } from './censusContext';
+import { healSite } from './siteHealing';
 import { searchCityDocs } from './cityDocs';
 import type { Response } from "express";
 import {
@@ -4478,7 +4479,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
         Object.entries(((state.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
           .map(([k, v]) => [k, String(v?.value ?? '')]),
       );
-    const site = asRecord('intervention_site');
+    const site = healSite(asRecord('intervention_site'));
     const type = asRecord('intervention_type');
     const solutions = recordedSolutionIds(type);
     if (!solutions.length) { setAuthoringState(cboId, 'skipped:no solution'); return; }

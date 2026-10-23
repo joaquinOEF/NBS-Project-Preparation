@@ -15,13 +15,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import path from 'node:path';
-import { summariseTracts, type CensusAround, type CensusNearby, type TractStats } from '@shared/census';
+import { summariseTracts, type CensusAround, type CensusNearby, type TractStats, type WeightedTract } from '@shared/census';
 import { sitePoint } from './siteContext';
 
 const RADIUS_M = 300;
 const NEARBY_M = 1000;
 
-interface Tract { id: string; bairro: string; rings: number[][][]; bbox: [number, number, number, number] }
+interface Tract { id: string; bairro: string; rings: number[][][]; bbox: [number, number, number, number]; areaM2: number }
 type Stats = TractStats;
 interface Place { kind: CensusNearby['kind']; name: string; source: string; rings: number[][][] | null; point: [number, number] | null; bbox: [number, number, number, number] }
 interface Loaded { tracts: Tract[]; stats: Record<string, Stats>; places: Place[] }
@@ -34,6 +34,13 @@ function ringsOf(g: any): number[][][] {
   if (g.type === 'Polygon') return g.coordinates;
   if (g.type === 'MultiPolygon') return g.coordinates.flat();
   return [];
+}
+/** Shoelace in local metres: outer rings minus holes. */
+function polygonAreaM2(g: any): number {
+  const polys: number[][][][] = g?.type === 'Polygon' ? [g.coordinates] : g?.type === 'MultiPolygon' ? g.coordinates : [];
+  const k = Math.cos((-30.05 * Math.PI) / 180);
+  const ringArea = (r: number[][]) => { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] + r[i][0]) * (r[j][1] - r[i][1]); return Math.abs(a / 2) * 111_320 * k * 110_540; };
+  return polys.reduce((sum, poly) => sum + poly.reduce((a, r, i) => a + (i === 0 ? ringArea(r) : -ringArea(r)), 0), 0);
 }
 function bboxOf(rings: number[][][]): [number, number, number, number] {
   let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
@@ -48,7 +55,7 @@ function load(): Loaded | null {
   try {
     const tracts: Tract[] = read('tracts.geojson.gz').features.map((f: any) => {
       const rings = ringsOf(f.geometry);
-      return { id: f.properties.s, bairro: f.properties.b, rings, bbox: bboxOf(rings) };
+      return { id: f.properties.s, bairro: f.properties.b, rings, bbox: bboxOf(rings), areaM2: polygonAreaM2(f.geometry) };
     });
     const places: Place[] = [...read('services.geojson.gz').features, ...read('territories.geojson.gz').features].map((f: any) => {
       const point = f.geometry?.type === 'Point' ? f.geometry.coordinates as [number, number] : null;
@@ -100,16 +107,51 @@ function tractsAround(L: Loaded, lat: number, lng: number): string[] {
   return L.tracts.filter(t => nearBbox(lat, lng, t.bbox, RADIUS_M) && distanceToRings(lat, lng, t.rings) <= RADIUS_M).map(t => t.id);
 }
 
-function summarise(L: Loaded, ids: string[], nearby: CensusNearby[]): CensusAround {
-  return summariseTracts(Object.fromEntries(ids.filter(id => L.stats[id]).map(id => [id, L.stats[id]])), nearby)!;
+/**
+ * How much of each tract lies inside the circle(s): a grid of 20 m cells over
+ * the union of the 300 m circles, each cell given to the tract it falls in.
+ * weight = cells × cell area ÷ tract area (≤ 1). Counting whole tracts that
+ * merely touch the circle read ~2× high (median, 80 points across the city —
+ * e2e/record-defects.spec.ts); this is the count inside the circle.
+ */
+const CELL_M = 20;
+function weightsAround(L: Loaded, points: Array<{ lat: number; lng: number }>): Map<string, number> {
+  const kx = 111_320 * Math.cos((-30.05 * Math.PI) / 180), ky = 110_540;
+  const cells = new Set<string>();
+  for (const p of points) {
+    const gx0 = Math.round((p.lng * kx) / CELL_M), gy0 = Math.round((p.lat * ky) / CELL_M), n = Math.ceil(RADIUS_M / CELL_M);
+    for (let dx = -n; dx <= n; dx++) for (let dy = -n; dy <= n; dy++) {
+      const cx = (gx0 + dx) * CELL_M, cy = (gy0 + dy) * CELL_M;
+      if (Math.hypot(cx - p.lng * kx, cy - p.lat * ky) <= RADIUS_M) cells.add(`${gx0 + dx}:${gy0 + dy}`);
+    }
+  }
+  const candidates = L.tracts.filter(t => points.some(p => nearBbox(p.lat, p.lng, t.bbox, RADIUS_M + CELL_M)));
+  const count = new Map<string, number>();
+  for (const key of Array.from(cells)) {
+    const [gx, gy] = key.split(':').map(Number);
+    const lng = (gx * CELL_M) / kx, lat = (gy * CELL_M) / ky;
+    for (const t of candidates) {
+      if (lng < t.bbox[0] || lng > t.bbox[2] || lat < t.bbox[1] || lat > t.bbox[3]) continue;
+      if (t.rings.some(r => inside(lng, lat, r))) { count.set(t.id, (count.get(t.id) ?? 0) + 1); break; }
+    }
+  }
+  const area = new Map(candidates.map(t => [t.id, t.areaM2]));
+  const out = new Map<string, number>();
+  count.forEach((n, id) => out.set(id, Math.min(1, (n * CELL_M * CELL_M) / Math.max(area.get(id) ?? 1, 1))));
+  return out;
+}
+
+function summarise(L: Loaded, weights: Map<string, number>, nearby: CensusNearby[]): CensusAround {
+  const entries = Array.from(weights.entries()).filter(([id]) => L.stats[id]).map(([id, w]) => [id, { ...L.stats[id], share: w }]);
+  return summariseTracts(Object.fromEntries(entries), nearby)!;
 }
 
 /** The tracts around a point with their figures — what a board needs to count a combined project itself. */
-export function tractStatsAround(lat: number, lng: number): Record<string, TractStats> | null {
+export function tractStatsAround(lat: number, lng: number): Record<string, WeightedTract> | null {
   const L = load();
   if (!L) return null;
-  const ids = tractsAround(L, lat, lng);
-  return ids.length ? Object.fromEntries(ids.map(id => [id, L.stats[id]])) : null;
+  const w = weightsAround(L, [{ lat, lng }]);
+  return w.size ? Object.fromEntries(Array.from(w.entries()).filter(([id]) => L.stats[id]).map(([id, x]) => [id, { ...L.stats[id], share: x }])) : null;
 }
 
 function nearbyOf(L: Loaded, lat: number, lng: number): CensusNearby[] {
@@ -126,18 +168,18 @@ function nearbyOf(L: Loaded, lat: number, lng: number): CensusNearby[] {
 export function censusAround(lat: number, lng: number): CensusAround | null {
   const L = load();
   if (!L || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  const ids = tractsAround(L, lat, lng);
-  if (!ids.length) return null;
-  return summarise(L, ids, nearbyOf(L, lat, lng));
+  const w = weightsAround(L, [{ lat, lng }]);
+  if (!w.size) return null;
+  return summarise(L, w, nearbyOf(L, lat, lng));
 }
 
 /** Several points together — each tract counted ONCE (a combined project). */
 export function censusAroundMany(points: Array<{ lat: number; lng: number }>): CensusAround | null {
   const L = load();
   if (!L) return null;
-  const ids = new Set<string>();
-  for (const p of points) if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) for (const id of tractsAround(L, p.lat, p.lng)) ids.add(id);
-  return ids.size ? summarise(L, Array.from(ids), []) : null;
+  const ok = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  const w = ok.length ? weightsAround(L, ok) : new Map<string, number>();
+  return w.size ? summarise(L, w, []) : null;
 }
 
 /** The census for a record's site fields — the same pin as the map facts (siteContext.sitePoint). */
@@ -145,6 +187,25 @@ export function censusForSite(site: Record<string, string | undefined>): CensusA
   const p = sitePoint(site);
   return p ? censusAround(p.lat, p.lng) : null;
 }
+
+/** The census bairro of the tract a point falls in — the official name for where the pin is. */
+export function censusBairroAt(lat: number, lng: number): string | null {
+  const L = load();
+  if (!L) return null;
+  for (const t of L.tracts) if (nearBbox(lat, lng, t.bbox, 0) && distanceToRings(lat, lng, t.rings) === 0) return t.bairro;
+  return null;
+}
+
+/** 2022 population of a bairro (sum of its tracts), by census bairro name. */
+export function censusBairroPopulation(bairro: string): number | null {
+  const L = load();
+  if (!L) return null;
+  const want = normName(bairro);
+  let sum = 0, hit = false;
+  for (const t of L.tracts) if (normName(t.bairro) === want) { sum += L.stats[t.id]?.p ?? 0; hit = true; }
+  return hit ? sum : null;
+}
+const normName = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 /** For tests: forget the loaded snapshot. */
 export function resetCensus(): void { cache = undefined; }

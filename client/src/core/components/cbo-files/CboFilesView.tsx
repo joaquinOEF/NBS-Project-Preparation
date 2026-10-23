@@ -58,6 +58,10 @@ export type CboFilesViewProps = {
   fetchText: (docId: string) => Promise<string>;
   /** On mobile, prefer an "open" button over an inline PDF iframe. */
   preferOpenOverIframe?: boolean;
+  /** Coordinator only: remove a file at the organisation's request (inline "Remover? Sim / Não"). */
+  onRemove?: (doc: DocumentMeta) => Promise<void>;
+  /** Files the organisation sent that never became a document — listed so someone asks again. */
+  missing?: string[];
 };
 
 export function CboFilesView({
@@ -67,10 +71,22 @@ export function CboFilesView({
   originalUrl,
   fetchText,
   preferOpenOverIframe = false,
+  onRemove,
+  missing = [],
 }: CboFilesViewProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language?.startsWith('pt') ? 'pt-BR' : 'en-US';
   const [selected, setSelected] = useState<DocumentMeta | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const pt = i18n.language?.startsWith('pt') !== false;
+  const missingBlock = missing.length > 0 ? (
+    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200" data-testid="files-missing">
+      <p className="m-0 font-medium">{pt ? `Não chegaram (${missing.length})` : `Did not arrive (${missing.length})`}</p>
+      <p className="m-0 mb-1 text-[11px] opacity-80">{pt ? 'A organização enviou, mas o arquivo não pôde ser lido. Vale pedir de novo — ou anexar pela visita técnica.' : 'The organisation sent these, but they could not be read. Ask again, or attach them through the technical visit.'}</p>
+      <ul className="m-0 list-disc pl-4">{missing.map(n => <li key={n}>{n}</li>)}</ul>
+    </div>
+  ) : null;
 
   if (loading) {
     return (
@@ -84,12 +100,12 @@ export function CboFilesView({
   }
   if (documents.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+      <div>{missingBlock}<div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
         <Paperclip className="w-7 h-7 mb-2 opacity-40" />
         <p className="text-sm">
           {t('files.empty', { defaultValue: 'No files shared yet.' })}
         </p>
-      </div>
+      </div></div>
     );
   }
 
@@ -106,6 +122,7 @@ export function CboFilesView({
   }
 
   return (
+    <div>{missingBlock}
     <ul className="divide-y divide-foreground/5">
       {documents.map(doc => {
         const Icon = iconFor(doc);
@@ -138,10 +155,28 @@ export function CboFilesView({
               </span>
               <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180 shrink-0" />
             </button>
+            {onRemove && (
+              <div className="flex justify-end gap-2 pb-1.5 pr-1 text-[11px]">
+                {confirming === doc.id ? (
+                  <>
+                    <span className="text-muted-foreground">{pt ? 'Remover este arquivo (pedido da organização)?' : 'Remove this file (the organisation asked)?'}</span>
+                    <button type="button" className="font-medium text-red-700 hover:underline disabled:opacity-50" disabled={removing === doc.id}
+                      onClick={async () => { setRemoving(doc.id); try { await onRemove(doc); } finally { setRemoving(null); setConfirming(null); } }}
+                      data-testid={`file-remove-yes-${doc.id}`}>{pt ? 'Sim, remover' : 'Yes, remove'}</button>
+                    <button type="button" className="text-muted-foreground hover:underline" onClick={() => setConfirming(null)}>{pt ? 'Não' : 'No'}</button>
+                  </>
+                ) : (
+                  <button type="button" className="text-muted-foreground hover:text-red-700 hover:underline" onClick={() => setConfirming(doc.id)} data-testid={`file-remove-${doc.id}`}>
+                    {pt ? 'Remover' : 'Remove'}
+                  </button>
+                )}
+              </div>
+            )}
           </li>
         );
       })}
     </ul>
+    </div>
   );
 }
 
