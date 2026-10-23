@@ -22,6 +22,8 @@
 // the coordinator's drawer and the printed copy use, so the three never differ.
 // ============================================================================
 
+import { censusForSite } from './censusContext';
+import { beneficiariesHint } from '@shared/census';
 import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
@@ -406,9 +408,14 @@ async function serveE4Inner(
       }
       case 'beneficiarios': {
         writeType({ _e4_gap_pending: 'beneficiarios' });
+        // The census as a starting point (23 Oct, E1) — the answer stays theirs, in their words.
+        // `site()` reads '' for an empty field — pass undefined, or an empty site_lat hides _site_lat.
+        const pin = (k: string) => site(k) || undefined;
+        const census = censusForSite({ site_lat: pin('site_lat'), _site_lat: pin('_site_lat'), site_lng: pin('site_lng'), _site_lng: pin('_site_lng') });
+        const hint = (l: 'pt' | 'en') => { const h = beneficiariesHint(census, l); return h ? `${h} ` : ''; };
         ask(
-          'Quando esse problema acontece, quem sofre mais? Quantas famílias ou pessoas, mais ou menos?',
-          'When this problem happens, who suffers most? Roughly how many households or people?',
+          `${hint('pt')}Quando esse problema acontece, quem sofre mais? Quantas famílias ou pessoas, mais ou menos?`,
+          `${hint('en')}When this problem happens, who suffers most? Roughly how many households or people?`,
           [{ pt: E4C.naoSei.pt, en: E4C.naoSei.en, dPt: 'Escreve ou fala aqui embaixo', dEn: 'Write or say it below' }],
         );
         return finish(detail);

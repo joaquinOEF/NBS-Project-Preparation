@@ -33,6 +33,7 @@
 //     own sentences appear as quotation and nothing else addresses the reader.
 // ============================================================================
 
+import { censusLines, relevanceFor, CENSUS_SOURCE } from './census';
 import { readableSpeech } from './readable-speech';
 import { parseDocumentNotes, toCardNote, ALL_SOLUTIONS } from './w3-document-notes';
 import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
@@ -246,6 +247,12 @@ export interface ConceptNoteFacts {
    * Computed by server/services/siteContext.ts; empty when no site is marked.
    */
   cityMap: Array<{ text: string; source: string }>;
+
+  /**
+   * Who lives around the site, from the 2022 Census — same lines as the
+   * proposta inicial's Território (shared/census.ts), without race (D3).
+   */
+  census: Array<{ text: string; source: string }>;
 
   /** What the organisation itself puts in. Named, never priced. */
   contribution: string[];
@@ -570,6 +577,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     // peer's record at this layer would put a name on someone else's document.
     cohort: (input.cohort ?? []).map(l => String(l).trim()).filter(Boolean),
     cityMap: (input.cityMap ?? []).filter(x => x?.text && x?.source),
+    census: censusLines(input.census, { lang, relevance: relevanceFor(ids[0]), nearby: true }),
     contribution,
     verdict: portfolioState(dossier.verdicts),
     gaps: dossier.gaps,
@@ -928,6 +936,8 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ? P(pt ? 'No lugar marcado, segundo os mapas da Prefeitura:' : "At the marked site, according to the city's maps:", [pt ? 'mapas da Prefeitura (servidor SIG da SMAMUS)' : "the city's maps (SMAMUS GIS server)"])
       : null,
     ...f.cityMap.map(x => P(x.text, [x.source], 'bullet')),
+    f.census.length ? P(pt ? 'Quem mora perto, segundo o Censo 2022:' : 'Who lives nearby, by the 2022 Census:', [CENSUS_SOURCE[lang]]) : null,
+    ...f.census.map(x => P(x.text, [x.source], 'bullet')),
   ]);
 
   // ── 3 · O problema ────────────────────────────────────────────────────────

@@ -179,6 +179,8 @@ export interface SynergyMember {
    * Public map facts about a place, not anything the organisation said.
    */
   cityMapPt?: string[];
+  /** Who lives around the site, 2022 Census (shared/census.ts) — coordination view, with race (D3). */
+  censusPt?: string[];
 }
 
 export type GroupAxis = 'territory' | 'mechanism' | 'arrangement';
@@ -585,6 +587,8 @@ export type SynergyFacts = {
   photoNotesPt: string[];
   /** Filled server-side after synergyFactsFrom (siteContext.ts needs the layers on disk). */
   cityMapPt?: string[];
+  /** Filled server-side: the 2022 Census around the site, with race (coordination view). */
+  censusPt?: string[];
   /** What Encontro 3 concluded, and this pass could not previously see. */
   approvalInstruments: string[];
   fundingOpen: string[];

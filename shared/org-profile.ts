@@ -25,6 +25,7 @@
 // renders it). Written register on the page: docs/document-register.md.
 // ============================================================================
 
+import { censusLines, relevanceFor, type CensusAround } from './census';
 import { LEGACY_GROUPS } from './legacy-field-labels';
 import { getSolution } from './nbs-catalog';
 import { DECISIVE_DETAIL } from './w3-detail-questions';
@@ -69,6 +70,8 @@ export interface OrgProfile {
     /** Bairro-wide MEANS, 0–100 — not measured at this place, and labelled so. */
     risks: null | { flood: number; heat: number; landslide: number };
     areaM2: number | null;
+    /** Who lives around it, 2022 Census (shared/census.ts) — not their words, and labelled so. No race (D3). */
+    census: Array<{ text: string; source: string }>;
   };
   photos: ProfilePhoto[];
   documents: string[];
@@ -89,6 +92,8 @@ export interface OrgProfileInput {
   state: CboState | null;
   docs?: Array<{ id: string; filename: string; kind?: string | null; summary?: string | null; hasOriginal?: boolean }>;
   lang?: Lang;
+  /** From server/services/censusContext.ts, for the marked site. */
+  census?: CensusAround | null;
 }
 
 // What the design places, and where. Anything else goes to `alsoRecorded`.
@@ -293,6 +298,8 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
       longer,
       risks: flood != null || heat != null || landslide != null ? { flood: flood ?? 0, heat: heat ?? 0, landslide: landslide ?? 0 } : null,
       areaM2,
+      // The lines follow the first solution they tested (D2); none yet → people and what's nearby.
+      census: censusLines(input.census, { lang, relevance: relevanceFor(tested[0]?.solutionId) }),
     } : null,
     photos,
     documents: docs.filter(d => d.kind !== 'image').map(d => d.filename),

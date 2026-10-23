@@ -393,6 +393,11 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                   </div>
                 );
               })()}
+              {card.censusLine && (
+                <p className="text-[11px] leading-snug text-foreground/80" title={card.censusLine.source} data-testid={`preportfolio-census-${gi}`}>
+                  {card.censusLine.text} <span className="text-muted-foreground">({card.censusLine.source})</span>
+                </p>
+              )}
               <div className="flex flex-wrap gap-1.5 text-[11px]" data-testid={`preportfolio-card-${gi}`}>
                 {card.riskLabels.length > 0 && <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">{card.riskLabels.join(' · ')}</span>}
                 <span className="rounded-full border border-border px-2 py-0.5" data-testid={`preportfolio-budget-${gi}`}>{card.budget ? `${brl(card.budget.low)}–${brl(card.budget.high)}` : t('orchestrator.preportfolio.noBudget', { defaultValue: 'sem estimativa' })}</span>

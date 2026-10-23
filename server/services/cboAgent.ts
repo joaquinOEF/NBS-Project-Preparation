@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cityMapFor } from './siteContext';
+import { censusForSite } from './censusContext';
 import { searchCityDocs } from './cityDocs';
 import type { Response } from "express";
 import {
@@ -4497,6 +4498,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
       cohort: await cohortLinesFor(cboId, lang).catch(() => []),
       cityMap: cityMapFor(site),
+      census: censusForSite(site),
     }, lang);
 
     const out = await authorConceptNote(note, lang);

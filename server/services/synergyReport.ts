@@ -219,6 +219,8 @@ export function analysisForModel(a: SynergyAnalysis): string {
     // polder, sub-basin, corridor or REURB area across organisations is a
     // shared constraint or a shared ask that no answer they gave expresses.
     for (const n of m.cityMapPt ?? []) L.push(`    🗺 no mapa da cidade: ${n}`);
+    // Who lives around it — public census figures for the tracts within ~300 m, not their words.
+    for (const n of m.censusPt ?? []) L.push(`    👥 Censo 2022, a até ~300 m: ${n}`);
     // ⚠️ What Encontro 3 concluded. Until now this pass read the fields and
     // their own words and NOTHING the workshop produced — so the two most
     // poolable things a cohort has, the instrument each project goes through

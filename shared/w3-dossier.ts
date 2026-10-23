@@ -86,6 +86,8 @@ export interface W3Input {
    * each — produced only by server/services/siteContext.ts (`siteFacts`).
    */
   cityMap?: Array<{ text: string; source: string }>;
+  /** Who lives around the site, 2022 Census (server/services/censusContext.ts). Documents only. */
+  census?: import('./census').CensusAround | null;
 }
 
 const has = (v: string | undefined | null): v is string =>

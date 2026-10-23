@@ -53,6 +53,8 @@ export function narrativeFacts(members: Array<{ orgName: string; prenote: Prenot
   L.push(`PROJETO: ${members.length} organizações. Por que o arranjo as juntou: ${card.reason}.`);
   if (card.riskLabels.length) L.push(`Riscos que o projeto responde: ${card.riskLabels.join(', ')}.`);
   if (card.budget) L.push(`Estimativa somada: R$ ${card.budget.low.toLocaleString('pt-BR')} a R$ ${card.budget.high.toLocaleString('pt-BR')}.`);
+  // The 2022 Census around the project's places, each tract once (shared/census.ts). Each member's own lines arrive in its Território below.
+  if (card.censusLine) L.push(`Quem mora perto dos lugares do projeto (${card.censusLine.source}): ${card.censusLine.text}.`);
   L.push(`Quando pode começar: ${card.horizonLabel}${card.slowest ? ` (definido por ${card.slowest.orgName}: ${card.slowest.why.join('; ')})` : ''}.`);
   for (const m of members) {
     const p = m.prenote;

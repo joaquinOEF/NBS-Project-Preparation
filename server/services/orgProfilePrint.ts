@@ -19,7 +19,7 @@ const T = {
   pt: {
     eyebrow: 'Perfil da organização', stage: 'Encontro', who: 'Quem somos', does: 'O que faz', contact: 'Contato',
     place: 'O lugar', words: 'Nas palavras da organização', coords: 'Coordenadas', area: 'Área marcada',
-    risks: 'Risco climático no bairro', risksNote: 'Médias do bairro inteiro (PLAC/ARVC), de 0 a 100 — não são medições deste lugar. A percepção da organização sobre o próprio território prevalece.',
+    census: 'Quem mora perto (Censo 2022)', censusNote: 'Dados públicos do IBGE para os setores a até ~300 m do ponto marcado — não são palavras da organização nem quem ela atende.', risks: 'Risco climático no bairro', risksNote: 'Médias do bairro inteiro (PLAC/ARVC), de 0 a 100 — não são medições deste lugar. A percepção da organização sobre o próprio território prevalece.',
     flood: 'Alagamento e inundação', heat: 'Calor', landslide: 'Deslizamento',
     photos: 'Fotografias enviadas', files: 'Documentos enviados',
     tested: 'Soluções testadas no Encontro 3', solution: 'Solução', reaction: 'Leitura da organização', blocks: 'O que trava', cost: 'Custo de referência',
@@ -39,7 +39,7 @@ const T = {
   en: {
     eyebrow: 'Organisation profile', stage: 'Encontro', who: 'Who we are', does: 'What it does', contact: 'Contact',
     place: 'The place', words: "In the organisation's words", coords: 'Coordinates', area: 'Marked area',
-    risks: 'Climate risk in the neighbourhood', risksNote: "Means for the whole neighbourhood (PLAC/ARVC), 0 to 100 — not measurements of this place. The organisation's own reading of its territory prevails.",
+    census: 'Who lives nearby (2022 Census)', censusNote: "IBGE public data for the tracts within ~300 m of the marked point — not the organisation's words, nor who it serves.", risks: 'Climate risk in the neighbourhood', risksNote: "Means for the whole neighbourhood (PLAC/ARVC), 0 to 100 — not measurements of this place. The organisation's own reading of its territory prevails.",
     flood: 'Ponding and flooding', heat: 'Heat', landslide: 'Landslide',
     photos: 'Photographs sent', files: 'Documents sent',
     tested: 'Solutions tested in Encontro 3', solution: 'Solution', reaction: "The organisation's reading", blocks: 'What blocks it', cost: 'Reference cost',
@@ -114,6 +114,7 @@ function article(p: OrgProfile, o: ProfileRenderOpts): string {
     ${p.place.story ? `<blockquote><span class="ql">${esc(t.words)}</span>“${esc(p.place.story)}”</blockquote>` : ''}
     ${long(p.place.longer)}
     ${p.place.risks ? `<div class="risks"><h4>${esc(t.risks)}</h4>${bar(t.flood, p.place.risks.flood)}${bar(t.heat, p.place.risks.heat)}${bar(t.landslide, p.place.risks.landslide)}<p class="fine">${esc(t.risksNote)}</p></div>` : ''}
+    ${p.place.census.length ? `<div class="census"><h4>${esc(t.census)}</h4><ul>${p.place.census.map(c => `<li>${esc(c.text)} <span class="src">${esc(c.source)}</span></li>`).join('')}</ul><p class="fine">${esc(t.censusNote)}</p></div>` : ''}
   </section>` : ''}
 
   ${p.photos.length ? `<section class="photos">
@@ -199,6 +200,7 @@ const CSS = `
   blockquote { margin: 12px 0 8px; padding: 2px 0 2px 14px; border-left: 3px solid #24493a; font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 15.5px; line-height: 1.45; font-style: italic; break-inside: avoid; max-width: 66ch; }
   .ql { display: block; font: 800 9.5px/1.6 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #4a6b58; font-style: normal; }
   .risks { margin-top: 10px; break-inside: avoid; }
+  .census { margin-top: 10px; break-inside: avoid; } .census ul { margin: 4px 0 0; padding-left: 18px; } .census li { margin-bottom: 3px; } .census .src { color: #6b7b71; font-size: 10.5px; }
   .risk { display: grid; grid-template-columns: 46mm 1fr 9mm; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
   .track { height: 7px; border-radius: 4px; background: #e3e8e4; overflow: hidden; }
   .fill { display: block; height: 100%; background: #16201a; }

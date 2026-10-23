@@ -102,6 +102,7 @@ export function CboProjectBrief({ brief, lang }: { brief: ProjectBrief; lang: 'p
       <section className='rounded-lg border border-[#c9bd9a] bg-card px-2.5 py-2 text-[12px] leading-snug dark:border-stone-600' data-testid='brief-shared'>
         <h4 className='m-0 mb-1 text-[13px] font-bold'>{s.shared}</h4>
         {!hasShared && <p className='m-0 text-muted-foreground'>{s.nothingShared}</p>}
+        {sh.census && <p className='m-0 mb-1.5' data-testid='brief-census'>{sh.census.text} <span className='text-muted-foreground'>({sh.census.source})</span></p>}
         <div className='space-y-1.5'>
           {row(s.groups, sh.groups.map(g => `${g.axis} — ${g.key}: ${g.orgNames.join(', ')}`))}
           {row(s.studies, sh.pooledStudies.map(p => `${p.need}: ${p.orgNames.join(', ')}`))}

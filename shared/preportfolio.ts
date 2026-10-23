@@ -20,6 +20,7 @@
 // This file is layers 1 and 2 and the suggestion. No model in it.
 // ============================================================================
 
+import { summariseTracts, combinedCensusLine, relevanceFor, type CensusAround, type TractStats } from './census';
 import { getSolution } from './nbs-catalog';
 import { familiesOfWorries, type HazardKey } from './site-knowledge';
 import { studyRequirement } from './w3-dossier';
@@ -97,6 +98,12 @@ export interface PortfolioOrg {
    * which bairro they are in.
    */
   places?: Partial<Record<'polder' | 'bacia' | 'corredor', string>>;
+  /**
+   * The 2022 Census tracts within ~300 m of the marked site, with their
+   * figures (server/services/censusContext.ts) — set by the server, so the
+   * board can count a combined project on every drop, each tract once.
+   */
+  censusTracts?: Record<string, TractStats>;
 }
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && v !== '' && v != null ? n : undefined; };
@@ -297,6 +304,9 @@ export interface ProjectCard {
   reason: string;
   /** The union of the members' plan connections, each with the organisation it came from. */
   planLinks: Array<PlanLink & { orgName: string }>;
+  /** Who lives around the project's places, 2022 Census, each tract once. Coordination view: with race (D3). */
+  census: CensusAround | null;
+  censusLine: { text: string; source: string } | null;
 }
 
 /**
@@ -341,7 +351,19 @@ export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lan
     unvisited: ms.filter(m => !m.visited).map(m => m.orgName),
     reason: ms.length ? reasonFor(ms, lang) : (pt ? 'Projeto vazio' : 'Empty project'),
     planLinks: ms.flatMap(m => (m.planLinks ?? []).map(l => ({ ...l, orgName: m.orgName }))),
+    ...projectCensus(ms, lang),
   };
+}
+
+/** The members' tracts merged by id — two circles that overlap count once. */
+function projectCensus(ms: PortfolioOrg[], lang: Lang): { census: CensusAround | null; censusLine: { text: string; source: string } | null } {
+  const merged: Record<string, TractStats> = {};
+  for (const m of ms) Object.assign(merged, m.censusTracts ?? {});
+  const census = summariseTracts(merged);
+  const places = ms.filter(m => m.censusTracts && Object.keys(m.censusTracts).length).length;
+  // Trees when any member's solution acts on heat (D2).
+  const heat = ms.some(m => relevanceFor(m.solutionId)?.heat);
+  return { census, censusLine: combinedCensusLine(census, places, { lang, withRace: true, heat }) };
 }
 
 /** The key layer 3 caches a narrative under — the member set, order-free. */

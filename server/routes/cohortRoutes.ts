@@ -1,6 +1,8 @@
 import { isPhotoCaption } from '@shared/photo-caption';
 import { createHash } from 'node:crypto';
-import { cityMapFor, siteGroupsFor } from '../services/siteContext';
+import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
+import { censusForSite, tractStatsAround } from '../services/censusContext';
+import { censusLines } from '@shared/census';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
@@ -464,7 +466,7 @@ async function attachDerivedSections<
         // What the city's maps say at the marked site, as lines — "two
         // organisations in the same polder" is a synergy no field holds.
         const siteRec = Object.fromEntries(Object.entries(f).map(([k, v]: [string, any]) => [k, v?.value == null ? undefined : String(v.value)]));
-        synergyByState.set(row.id, { ...synergyFactsFrom(sections), cityMapPt: cityMapFor(siteRec).map(x => x.text) });
+        synergyByState.set(row.id, { ...synergyFactsFrom(sections), cityMapPt: cityMapFor(siteRec).map(x => x.text), censusPt: censusLines(censusForSite(siteRec), { lang: 'pt', relevance: { heat: true, water: true }, withRace: true }).map(x => x.text) });
       } catch (err) {
         console.error(`[cohort] synergy facts failed for ${row.id}:`, err);
       }
@@ -701,11 +703,14 @@ export function registerCohortRoutes(app: Express): void {
       const orgName = String((sections as any)?.org_profile?.fields?.org_name?.value ?? '').trim() || m.orgName;
       const base = prenoteInputFromSections(sections);
       // The map lines too, as every other path that builds a pre-note.
-      const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site) }, lang);
+      const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site), census: censusForSite(base.site) }, lang);
       data.prenotes.set(m.id, prenote);
       const org = portfolioOrg(m.id, orgName, sections, lang);
       const places = siteGroupsFor(base.site);
       if (Object.keys(places).length) org.places = places;
+      const pin = sitePoint(base.site);
+      const tracts = pin ? tractStatsAround(pin.lat, pin.lng) : null;
+      if (tracts) org.censusTracts = tracts;
       const facts = prenoteFacts(orgName, prenote);
       data.fingerprints.set(m.id, createHash('sha1').update(facts).update(prenote.solution?.id ?? '-').digest('hex').slice(0, 12));
       if (prenote.solution) {
@@ -1202,6 +1207,7 @@ export function registerCohortRoutes(app: Express): void {
           // across an organisation boundary, and this list crosses one.
           photoNotesPt: s.photoNotesPt ?? [],
           cityMapPt: s.cityMapPt ?? [],
+          censusPt: s.censusPt ?? [],
           worry: m.w2?.worry ?? null,
           familias: s.familias ?? [],
           solutions: s.solutions ?? [],
@@ -1535,6 +1541,7 @@ export function registerCohortRoutes(app: Express): void {
       // that includes the cohort layer the authored prose may have cited.
       cohort: await cohortLinesFor(member.cboStateId, lang).catch(() => []),
       cityMap: cityMapFor(site),
+      census: censusForSite(site),
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1743,11 +1750,13 @@ export function registerCohortRoutes(app: Express): void {
     let state: CboState | null = null;
     if (member.cboStateId) state = getCboState(member.cboStateId) ?? (await loadCboFromDb(member.cboStateId).catch(() => null))?.state ?? null;
     const rows = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId }).catch(() => []);
+    const siteRec = Object.fromEntries(Object.entries((state?.sections as any)?.intervention_site?.fields ?? {}).map(([k, f]: [string, any]) => [k, f?.value == null ? undefined : String(f.value)])) as Record<string, string | undefined>;
     return buildOrgProfile({
       orgName: member.orgName,
       neighborhood: member.neighborhood,
       state,
       lang,
+      census: censusForSite(siteRec),
       // ⚠️ Only a CAPTION prints under a photo — never the old literal
       // description (English, "No visible text. Description: …"). A photo not
       // captioned yet prints without one until the boot backfill reaches it.

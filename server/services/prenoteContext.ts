@@ -17,6 +17,7 @@ import { prenoteInputFromSections, prenoteSolution, conceptInputFor, type Prenot
 import { listDocumentsForScope, getOrgIdForCboState } from './documentPersistence';
 import { authorConceptNote } from './conceptNoteAuthor';
 import { cityMapFor } from './siteContext';
+import { censusForSite } from './censusContext';
 
 export const PRENOTE_AUTHOR_MODEL = process.env.PRENOTE_AUTHOR_MODEL || 'claude-opus-5-5';
 
@@ -40,7 +41,9 @@ export async function prenoteInputFor(
   // card, the drawer, the print and the summary, so the authored paragraphs
   // validate against what prints.
   const cityMap = cityMapFor(base.site);
-  return { ...base, photos, cohort, cityMap };
+  // Who lives around it (2022 Census) — Território's census lines, documents only.
+  const census = censusForSite(base.site);
+  return { ...base, photos, cohort, cityMap, census };
 }
 
 /**
