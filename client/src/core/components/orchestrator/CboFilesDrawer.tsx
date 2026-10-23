@@ -83,6 +83,7 @@ export function CboFilesDrawer({
 
   // Files tab data (lives here so the refresh button can re-pull it too).
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
+  const [missingFiles, setMissingFiles] = useState<string[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState<string | null>(null);
   // A file attached in the visit tab belongs on the Arquivos list too.
@@ -114,7 +115,7 @@ export function CboFilesDrawer({
     setDocsError(null);
     fetch(`/api/cohort/${cohortSlug}/member/${member.id}/documents`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(data => { if (!cancelled) setDocs(data.documents ?? []); })
+      .then(data => { if (!cancelled) { setDocs(data.documents ?? []); setMissingFiles(Array.isArray(data.missing) ? data.missing : []); } })
       .catch(() => { if (!cancelled) setDocsError(t('files.loadError', { defaultValue: 'Could not load files.' })); })
       .finally(() => { if (!cancelled) setDocsLoading(false); });
     return () => { cancelled = true; };
@@ -350,6 +351,11 @@ export function CboFilesDrawer({
                 error={docsError}
                 originalUrl={docId => `/api/documents/${docId}/original`}
                 fetchText={fetchText}
+                missing={missingFiles}
+                onRemove={async doc => {
+                  const r = await fetch(`/api/cohort/${cohortSlug}/member/${member.id}/documents/${doc.id}`, { method: 'DELETE', credentials: 'include' });
+                  if (r.ok) setFilesTick(n => n + 1);
+                }}
               />
             </TabsContent>
             <TabsContent value="conversa" className="flex-1 min-h-0 overflow-auto mt-2">

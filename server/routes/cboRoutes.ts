@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { recordedSolutionIds, testsOf } from '@shared/recorded-solutions';
 import { cityMapFor } from '../services/siteContext';
 import { censusForSite } from '../services/censusContext';
+import { healSite } from '../services/siteHealing';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
@@ -569,7 +570,7 @@ export function registerCboRoutes(app: Express): void {
         Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
           .map(([k, v]) => [k, String(v?.value ?? '')]),
       );
-    const site = asRecord('intervention_site');
+    const site = healSite(asRecord('intervention_site'));
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
 
@@ -613,7 +614,7 @@ export function registerCboRoutes(app: Express): void {
         Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
           .map(([k, v]) => [k, String(v?.value ?? '')]),
       );
-    const site = asRecord('intervention_site');
+    const site = healSite(asRecord('intervention_site'));
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
     const chosen = recordedSolutionIds(type);
@@ -658,7 +659,7 @@ export function registerCboRoutes(app: Express): void {
         Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
           .map(([k, v]) => [k, String(v?.value ?? '')]),
       );
-    const site = asRecord('intervention_site');
+    const site = healSite(asRecord('intervention_site'));
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
     const chosen = recordedSolutionIds(type);
@@ -695,7 +696,7 @@ export function registerCboRoutes(app: Express): void {
         Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
           .map(([k, v]) => [k, String(v?.value ?? '')]),
       );
-    const site = asRecord('intervention_site');
+    const site = healSite(asRecord('intervention_site'));
     const type = asRecord('intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
 

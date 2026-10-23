@@ -20,6 +20,7 @@
 
 import { cityMapFor, sitePoint } from './siteContext';
 import { censusAroundMany, censusForSite } from './censusContext';
+import { healSite } from './siteHealing';
 import { combinedCensusLine, censusLines, relevanceFor } from '@shared/census';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
@@ -75,7 +76,7 @@ export async function loadProjectMembers(project: CohortProject): Promise<Projec
     if (m.cboStateId) {
       state = getCboState(m.cboStateId) ?? (await loadCboFromDb(m.cboStateId).catch(() => null))?.state ?? null;
     }
-    const site = asRecord(state, 'intervention_site');
+    const site = healSite(asRecord(state, 'intervention_site'));
     const type = asRecord(state, 'intervention_type');
     const areaM2 = Number(site.site_area_m2) || 0;
     const solutions = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);

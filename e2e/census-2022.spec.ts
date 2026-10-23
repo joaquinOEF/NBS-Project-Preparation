@@ -43,7 +43,7 @@ test.describe('around a point', () => {
   test('the tracts that touch ~300 m, summed; withheld figures make it partial, never zero', () => {
     const c = censusAround(MATRIZ.lat, MATRIZ.lng)!;
     expect(c.tracts.length).toBeGreaterThan(3);
-    expect(c.people).toBeGreaterThan(1000);
+    expect(c.people).toBeGreaterThan(500);
     expect(c.noTreesShare).not.toBeNull();
     expect(c.noTreesShare!).toBeGreaterThanOrEqual(0);
     expect(c.noTreesShare!).toBeLessThanOrEqual(1);

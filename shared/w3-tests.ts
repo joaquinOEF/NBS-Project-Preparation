@@ -141,7 +141,9 @@ export function sizeOf(
   input: { areaM2?: number; site?: Record<string, string | undefined>; w3?: Record<string, string | undefined> },
   test?: SolutionTest | null,
 ): { areaM2?: number; units?: number } {
-  const place = input.areaM2 || Number(input.site?.site_area_m2) || undefined;
+  // The place's size can sit in the type section too — a model write routed it
+  // there (Conceito Arte, 246 m², audit 23 Oct); it is still their answer.
+  const place = input.areaM2 || Number(input.site?.site_area_m2) || Number(input.w3?.site_area_m2) || undefined;
   const t = test ?? testOf(parseTests(input.w3?.solution_tests_json), solutionId);
   if (t) return { areaM2: t.areaM2 !== undefined ? (t.areaM2 || undefined) : place, units: t.units || undefined };
   return { areaM2: place, units: Number(input.w3?.intervention_units) || undefined };

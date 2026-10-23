@@ -20,7 +20,7 @@
 // This file is layers 1 and 2 and the suggestion. No model in it.
 // ============================================================================
 
-import { summariseTracts, combinedCensusLine, relevanceFor, type CensusAround, type TractStats } from './census';
+import { summariseTracts, combinedCensusLine, relevanceFor, type CensusAround, type WeightedTract } from './census';
 import { getSolution } from './nbs-catalog';
 import { familiesOfWorries, type HazardKey } from './site-knowledge';
 import { studyRequirement } from './w3-dossier';
@@ -103,7 +103,7 @@ export interface PortfolioOrg {
    * figures (server/services/censusContext.ts) — set by the server, so the
    * board can count a combined project on every drop, each tract once.
    */
-  censusTracts?: Record<string, TractStats>;
+  censusTracts?: Record<string, WeightedTract>;
 }
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && v !== '' && v != null ? n : undefined; };
@@ -357,8 +357,13 @@ export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lan
 
 /** The members' tracts merged by id — two circles that overlap count once. */
 function projectCensus(ms: PortfolioOrg[], lang: Lang): { census: CensusAround | null; censusLine: { text: string; source: string } | null } {
-  const merged: Record<string, TractStats> = {};
-  for (const m of ms) Object.assign(merged, m.censusTracts ?? {});
+  // A tract inside two members' circles: its shares add, capped at the whole tract
+  // (exact when the circles don't overlap; at most a small over-count when they do).
+  const merged: Record<string, WeightedTract> = {};
+  for (const m of ms) for (const [id, t] of Object.entries(m.censusTracts ?? {})) {
+    const prev = merged[id];
+    merged[id] = prev ? { ...t, share: Math.min(1, (prev.share ?? 1) + (t.share ?? 1)) } : t;
+  }
   const census = summariseTracts(merged);
   const places = ms.filter(m => m.censusTracts && Object.keys(m.censusTracts).length).length;
   // Trees when any member's solution acts on heat (D2).
