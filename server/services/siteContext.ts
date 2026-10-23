@@ -162,7 +162,8 @@ export function sitePoint(site: Record<string, string | undefined>): { lat: numb
 export function cityMapFor(site: Record<string, string | undefined>): Array<{ text: string; source: string }> {
   const pt = sitePoint(site);
   if (!pt) return [];
-  try { return siteFacts(pt.lat, pt.lng).map(f => ({ text: f.text, source: f.source })); }
+  // An unnamed square 100 m away says nothing on a funder's page (round 3, P1-B).
+  try { return siteFacts(pt.lat, pt.lng).filter(f => !/\bsem nome\b/i.test(f.text)).map(f => ({ text: f.text, source: f.source })); }
   catch (err) { console.warn('[site-context] lookup failed:', (err as Error).message); return []; }
 }
 
