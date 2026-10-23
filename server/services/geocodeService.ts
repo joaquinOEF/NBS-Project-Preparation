@@ -149,18 +149,18 @@ export async function reverseGeocode(
 // several Brazilian cities, and an unbounded search happily returns the wrong
 // one — silently, with confident coordinates.
 const POA_VIEWBOX = '-51.32,-29.93,-51.01,-30.27'; // W,N,E,S
-const fwdCache = new Map<string, { lat: number; lng: number; label: string } | null>();
+const fwdCache = new Map<string, { lat: number; lng: number; label: string; precise?: boolean } | null>();
 
 export async function forwardGeocode(
   query: string,
   cityHint = 'Porto Alegre, Rio Grande do Sul, Brasil',
-): Promise<{ lat: number; lng: number; label: string } | null> {
+): Promise<{ lat: number; lng: number; label: string; precise?: boolean } | null> {
   const q = query.trim();
   if (q.length < 4) return null;
   // e2e seam: a fixed POA coordinate, so the address path is testable without
   // reaching Nominatim. Refuses in a deployment (see runtimeEnv).
   if (isFakeGeocodeEnabled()) {
-    return { lat: -30.0267, lng: -51.2173, label: q };
+    return { lat: -30.0267, lng: -51.2173, label: q, precise: /\d/.test(q) };
   }
   const cacheKey = q.toLowerCase();
   if (fwdCache.has(cacheKey)) return fwdCache.get(cacheKey)!;
@@ -181,7 +181,9 @@ export async function forwardGeocode(
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
       // Prefer the tidy street+number form the reverse path already produces,
       // so a site named this way reads the same however it was resolved.
-      return { lat, lng, label: shortAddress(hit.address) ?? q };
+      // `precise`: the match is the house number, not just the street (a long
+      // street's middle can be a kilometre from the door).
+      return { lat, lng, label: shortAddress(hit.address) ?? q, precise: !!hit.address?.house_number };
     });
     fwdCache.set(cacheKey, result);
     return result;

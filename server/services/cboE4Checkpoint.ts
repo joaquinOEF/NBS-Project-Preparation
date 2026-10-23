@@ -37,6 +37,7 @@ import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { parseVisit, visitSummary } from '@shared/e4-visit';
 import { impactChips } from '@shared/e4-indicators';
 import { BUILD, MAINTAIN, CONTRIBUTION, PARTNERS, COORD_LABEL } from '@shared/e4-options';
+import type { E4Suggestion } from '@shared/e4-suggestions';
 import {
   buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER, recordedContribution, recordedPartners,
   type E4Solution, type PrenoteInput,
@@ -53,7 +54,9 @@ export interface E4Deps {
    * and the cohort counts — so the card in the chat is the same page the
    * coordinator and the print show (server/services/prenoteContext.ts).
    */
-  extras?(): Promise<Pick<PrenoteInput, 'photos' | 'cohort'>>;
+  extras?(): Promise<Partial<PrenoteInput>>;
+  /** What they already told us that Encontro 4 would otherwise ask (shared/e4-suggestions.ts). */
+  suggestions?(): Promise<E4Suggestion[]>;
   /** At the close: the summary written over the facts (fire and forget). */
   startAuthoring?(): void;
   /**
@@ -102,7 +105,16 @@ export const E4C = {
   podeSeguir: { pt: 'Pode seguir', en: 'Carry on' },
   estaCerto: { pt: 'Está certo ✓', en: "That's right ✓" },
   corrigirUma: { pt: 'Corrigir uma', en: 'Correct one' },
+  umaPorUma: { pt: 'Responder uma por uma', en: 'Answer one by one' },
 } as const;
+
+/** The grouped card's items, as the "Corrigir uma" menu names them. */
+const RECAP_LABEL: Record<string, { pt: string; en: string }> = {
+  lugar: { pt: 'O lugar', en: 'The place' },
+  preocupacoes: { pt: 'O que preocupa', en: 'What worries us' },
+  'quem-faz': { pt: 'Quem faz a obra', en: 'Who builds' },
+  parceiros: { pt: 'Com quem já trabalharam', en: 'Who we worked with' },
+};
 
 /** "Mudar algo" → which part. Each clears the answers behind it and asks again. */
 const CHANGE = {
@@ -145,7 +157,7 @@ export function typedChoice(gap: 'quem-faz-obra' | 'quem-cuida', text: string): 
 const WHO_TO_BUILD: Record<WhoId, string> = { nos: 'mutirao', 'nos-com-parceiro': 'mista', contratar: 'contratada', ninguem: 'indefinido', 'nao-sei': 'indefinido' };
 
 type Step =
-  | 'close-e3' | 'solution' | 'size' | 'place' | 'problem' | 'contexto' | 'draft'
+  | 'close-e3' | 'solution' | 'size' | 'recap' | 'place' | 'problem' | 'contexto' | 'draft'
   | 'beneficiarios' | 'mudancas' | 'quem-faz-obra' | 'quem-cuida' | 'contrapartida' | 'parceiros'
   | 'approve' | 'done';
 
@@ -211,6 +223,26 @@ async function serveE4Inner(
 
   // Fetched once per turn; the photos and the cohort do not change mid-turn.
   const extras = deps.extras ? await deps.extras().catch(() => ({})) : {};
+  // Only once Encontro 4 is open — the geocode and the scan are not free.
+  const allSuggestions: E4Suggestion[] = type('_e4_opened') && deps.suggestions ? await deps.suggestions().catch(() => []) : [];
+  // The suggestions were read at the start of the turn; the record may have
+  // moved since (an answer given THIS turn). Each item is checked against the
+  // live record every time — "Alagamento" just tapped is not offered back.
+  const stillOpen = (x: E4Suggestion) => {
+    if ((type('_e4_recap_skip') || '').split(',').includes(x.key)) return false;
+    switch (x.key) {
+      case 'lugar': return !(site('_site_lat') || site('site_lat')) && type('_e4_place_skipped') !== 'yes';
+      case 'preocupacoes': {
+        if (type('_e4_problem_ok') === 'yes') return false;
+        const now = site('site_worry').split(',').map(w => w.trim());
+        return String(x.writes.intervention_site?.site_worry ?? '').split(',').some(w => !now.includes(w));
+      }
+      case 'quem-faz': return !type('construction_model') && type('_e4_who_declined') !== 'yes';
+      case 'parceiros': return !type('e4_partners') && type('_e4_partners_declined') !== 'yes';
+    }
+  };
+  const bundle = () => (type('_e4_recap_done') === 'yes' ? [] : allSuggestions.filter(x => x.confidence === 'high' && stillOpen(x)));
+  const placeGuess = () => allSuggestions.find(x => x.key === 'lugar' && x.confidence === 'medium' && stillOpen(x)) ?? null;
   const input = (): PrenoteInput => ({ ...prenoteInputFromSections(state.sections), ...extras });
   const solution = (): E4Solution | null => parseE4Solution(type('_e4_solution_json'));
   // Every era of record (shared/recorded-solutions.ts) — Conceito Arte's
@@ -226,6 +258,7 @@ async function serveE4Inner(
     const sol = solution();
     if (!sol) return 'solution';
     if (type('_e4_size_ok') !== 'yes') return 'size';
+    if (bundle().length) return 'recap';
     if (!hasPlace() && type('_e4_place_skipped') !== 'yes') return 'place';
     if (type('_e4_problem_ok') !== 'yes') return 'problem';
     if (type('_skip_json') && type('_e4_context_done') !== 'yes') return 'contexto';
@@ -337,8 +370,39 @@ async function serveE4Inner(
         );
         return finish(detail);
       }
+      case 'recap': {
+        // One card for what they already told us (high confidence only) — one
+        // tap instead of four questions. Nothing is written until they confirm.
+        const items = bundle();
+        writeType({ _e4_recap_pending: 'yes' });
+        const lines = items.map(x => `• ${isPt ? x.pt : x.en}`).join('\n');
+        ask(
+          `Pelo que vocês já contaram, dá pra adiantar:\n${lines}\nEstá certo?`,
+          `From what you already told us, we can fill in:\n${lines}\nIs that right?`,
+          [
+            { pt: E4C.estaCerto.pt, en: E4C.estaCerto.en, dPt: 'Guarda tudo isso', dEn: 'Keeps all of it' },
+            { pt: E4C.corrigirUma.pt, en: E4C.corrigirUma.en, dPt: 'Tira uma da lista', dEn: 'Takes one off the list' },
+            { pt: E4C.umaPorUma.pt, en: E4C.umaPorUma.en, dPt: 'Pergunta de novo cada uma', dEn: 'Asks each one again' },
+          ],
+        );
+        return finish(detail);
+      }
       case 'place': {
         writeType({ _e4_place_pending: 'yes' });
+        const guess = placeGuess();
+        if (guess) {
+          // A street with no house number on the map: close, not certain — so asked on its own.
+          ask(
+            `Pelo endereço que vocês deram, o lugar fica por aqui: **${guess.pt.replace(/^o lugar: /, '')}**. É aqui?`,
+            `From the address you gave, the place is around here: **${guess.en.replace(/^the place: /, '')}**. Is it here?`,
+            [
+              { pt: E4C.isso.pt, en: E4C.isso.en, dPt: 'Marca esse ponto', dEn: 'Marks this point' },
+              { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa pra ajustar', dEn: 'Opens the map to adjust' },
+              { pt: E4C.seguirSemLugar.pt, en: E4C.seguirSemLugar.en, dPt: 'Fica nas pendências', dEn: 'It goes in the open items' },
+            ],
+          );
+          return finish(detail);
+        }
         ask(
           'O lugar ainda não está marcado no mapa. Sem ele a proposta inicial fica sem endereço — marcamos agora?',
           'The place is not marked on the map yet. Without it the initial proposal has no address — shall we mark it now?',
@@ -848,7 +912,48 @@ async function serveE4Inner(
     return serve('size-unknown');
   }
 
+  if (type('_e4_recap_pending') === 'yes') {
+    const items = bundle();
+    if (is(E4C.estaCerto)) {
+      for (const x of items) {
+        if (x.writes.intervention_site) deps.writeFields(SITE, x.writes.intervention_site);
+        if (x.writes.intervention_type) writeType(x.writes.intervention_type);
+      }
+      writeType({ _e4_recap_done: 'yes', _e4_recap_pending: '', _e4_recap_pick: '', _e4_recap_json: JSON.stringify({ applied: items.map(x => x.key), at: new Date().toISOString() }) });
+      // The worries were confirmed with the rest: the problem step only re-asks if they are empty.
+      if (items.some(x => x.key === 'preocupacoes')) writeType({ _e4_problem_ok: 'yes' });
+      say('Guardado ✓', 'Saved ✓');
+      return serve('recap-accepted');
+    }
+    if (is(E4C.umaPorUma)) {
+      writeType({ _e4_recap_done: 'yes', _e4_recap_pending: '', _e4_recap_pick: '' });
+      return serve('recap-one-by-one');
+    }
+    if (is(E4C.corrigirUma)) {
+      writeType({ _e4_recap_pick: 'yes' });
+      ask('Qual tiramos da lista? Essa a gente pergunta depois.', 'Which one do we take off? We will ask it later.',
+        items.map(x => ({ pt: RECAP_LABEL[x.key].pt, en: RECAP_LABEL[x.key].en, dPt: x.sourcePt, dEn: x.sourceEn })));
+      return finish('recap-pick');
+    }
+    if (type('_e4_recap_pick') === 'yes') {
+      const hit = items.find(x => is(RECAP_LABEL[x.key]));
+      if (hit) {
+        const skip = new Set((type('_e4_recap_skip') || '').split(',').filter(Boolean));
+        skip.add(hit.key);
+        writeType({ _e4_recap_skip: Array.from(skip).join(','), _e4_recap_pick: '' });
+        return serve('recap-corrected');
+      }
+    }
+  }
+
   if (type('_e4_place_pending') === 'yes') {
+    const guess = placeGuess();
+    if (guess && is(E4C.isso) && guess.writes.intervention_site) {
+      deps.writeFields(SITE, guess.writes.intervention_site);
+      writeType({ _e4_place_pending: '' });
+      say('Lugar marcado ✓', 'Place marked ✓');
+      return serve('place-from-address');
+    }
     if (is(E4C.marcarAgora)) {
       pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(site('bairro') ? { focusZone: site('bairro').split(',')[0].trim() } : {}) } } as any);
       return finish('open-site-map');

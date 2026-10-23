@@ -4,6 +4,7 @@ import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
 import { censusForSite, tractStatsAround } from '../services/censusContext';
 import { censusLines } from '@shared/census';
 import { healSite, healStateSite } from '../services/siteHealing';
+import { suggestionsFor } from '../services/e4Suggestions';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
@@ -2860,7 +2861,12 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/e4-answers', wrap(async (req, res) => {
     const got = await memberState(req, res);
     if (!got) return;
-    res.json(e4AnswersView(got.state));
+    // What the organisation already told us that would fill a gap here
+    // (shared/e4-suggestions.ts) — offered to prefill the form, never saved by itself.
+    const live = getCboMessages(got.id);
+    const msgs = live.length ? live : await loadCboMessages(got.id).catch(() => [] as any[]);
+    const suggestions = await suggestionsFor(got.state, (msgs as any[]).map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '' }))).catch(() => []);
+    res.json({ ...e4AnswersView(got.state), suggestions });
   }));
 
   app.post('/api/cohort/:coordinatorSlug/member/:memberId/e4-answers', wrap(async (req, res) => {
@@ -2906,8 +2912,9 @@ export function registerCohortRoutes(app: Express): void {
     }
     const siteName = str(a.siteName, 120);
     if (siteName) siteW.site_name = siteName;
-    const problem = str(a.problem, 40);
-    if (problem && WORRY_SUBTYPES.some(w => w.id === problem && w.id !== 'other')) {
+    // One worry, or several (a suggestion restores the ones Encontro 2 lost).
+    const problem = str(a.problem, 120).split(',').map(x => x.trim()).filter(x => WORRY_SUBTYPES.some(w => w.id === x && w.id !== 'other')).join(',');
+    if (problem) {
       siteW.site_worry = problem;
       typeW._e4_problem_ok = 'yes';
       written.problem = problem;

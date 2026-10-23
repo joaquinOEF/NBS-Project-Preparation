@@ -13,6 +13,7 @@
  * them; the page marks them "registrado pela coordenação" and the organisation
  * confirms them in Encontro 4's one check at the end.
  */
+import type { E4Suggestion } from '@shared/e4-suggestions';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
@@ -36,6 +37,8 @@ interface View {
   open: CoordKey[];
   byCoordination: CoordKey[];
   suggested: string[];
+  /** What the organisation already told us that would fill a gap (prefill only). */
+  suggestions?: E4Suggestion[];
 }
 
 interface Draft {
@@ -143,6 +146,14 @@ export function E4AnswersPanel({
   }, [base, reloadKey]);
 
   const set = (patch: Partial<Draft>) => { setDraft(d => ({ ...d, ...patch })); setSavedCount(null); };
+  // A suggestion fills the form; the coordination still saves it (shared/e4-suggestions.ts).
+  const useSuggestion = (x: E4Suggestion) => {
+    const site = x.writes.intervention_site ?? {}, type = x.writes.intervention_type ?? {};
+    if (x.key === 'lugar' && site._site_lat) { set({ lat: Number(site._site_lat), lng: Number(site._site_lng), ...(site.site_name ? { siteName: site.site_name } : {}) }); setEditing(e => e.includes('place') ? e : [...e, 'place']); }
+    if (x.key === 'preocupacoes' && site.site_worry) { set({ problem: site.site_worry }); setEditing(e => e.includes('problem') ? e : [...e, 'problem']); }
+    if (x.key === 'quem-faz' && type.construction_model) { set({ quemFaz: type.construction_model }); setEditing(e => e.includes('quem-faz-obra') ? e : [...e, 'quem-faz-obra']); }
+    if (x.key === 'parceiros' && type.e4_partners) { set({ partnersText: type.e4_partners }); setEditing(e => e.includes('parceiros') ? e : [...e, 'parceiros']); }
+  };
   const toggle = (list: string[] | undefined, id: string) => (list ?? []).includes(id) ? (list ?? []).filter(x => x !== id) : [...(list ?? []), id];
 
   const solId = draft.solutionId || view?.values.solution || '';
@@ -232,7 +243,8 @@ export function E4AnswersPanel({
         );
       }
       case 'problem': return (
-        <Chips testid="e4a-problem" selected={draft.problem ? [draft.problem] : []} onToggle={id => set({ problem: draft.problem === id ? undefined : id })}
+        // Several worries can be on record (Encontro 2 is multi-select); a tap toggles one.
+        <Chips testid="e4a-problem" selected={draft.problem ? draft.problem.split(',') : []} onToggle={id => { const cur = draft.problem ? draft.problem.split(',') : []; const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]; set({ problem: next.length ? next.join(',') : undefined }); }}
           options={WORRY_SUBTYPES.filter(w => w.id !== 'other').map(w => ({ id: w.id, label: opt(w) }))} />
       );
       case 'beneficiarios': return (
@@ -327,6 +339,25 @@ export function E4AnswersPanel({
 
       {unfolded && (
         <>
+          {(view.suggestions ?? []).length > 0 && (
+            <div className="rounded-md border border-sky-200 bg-sky-50/60 px-2.5 py-2 text-[12px] dark:border-sky-900 dark:bg-sky-950/30" data-testid="e4a-suggestions">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="font-semibold">{lang === 'pt' ? 'Do que a organização já contou' : 'From what the organisation already told us'}</span>
+                <button type="button" className="text-[11.5px] font-medium text-sky-800 hover:underline dark:text-sky-300" onClick={() => (view.suggestions ?? []).forEach(useSuggestion)} data-testid="e4a-suggestions-all">
+                  {lang === 'pt' ? 'Usar todas' : 'Use all'}
+                </button>
+              </div>
+              <ul className="m-0 space-y-1 pl-0">
+                {(view.suggestions ?? []).map(x => (
+                  <li key={x.key} className="flex list-none items-start justify-between gap-2">
+                    <span className="min-w-0">{lang === 'pt' ? x.pt : x.en}{x.confidence === 'medium' ? (lang === 'pt' ? ' (aproximado)' : ' (approximate)') : ''}<span className="block text-[10.5px] text-muted-foreground">{lang === 'pt' ? x.sourcePt : x.sourceEn}</span></span>
+                    <button type="button" className="shrink-0 text-[11.5px] font-medium text-sky-800 hover:underline dark:text-sky-300" onClick={() => useSuggestion(x)} data-testid={`e4a-suggestion-${x.key}`}>{lang === 'pt' ? 'Usar' : 'Use'}</button>
+                  </li>
+                ))}
+              </ul>
+              <p className="m-0 mt-1 text-[10.5px] text-muted-foreground">{lang === 'pt' ? '"Usar" só preenche o formulário — nada é salvo até "Salvar respostas".' : '"Use" only fills the form — nothing is saved until "Save answers".'}</p>
+            </div>
+          )}
           {COORD_KEYS.map(k => (
             <div key={k} className="border-t border-border/50 pt-2 space-y-1" data-testid={`e4a-item-${k}`}>
               <div className="flex flex-wrap items-center gap-1.5">

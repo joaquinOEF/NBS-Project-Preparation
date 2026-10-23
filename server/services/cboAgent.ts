@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cityMapFor } from './siteContext';
 import { censusForSite } from './censusContext';
 import { healSite } from './siteHealing';
+import { suggestionsFor } from './e4Suggestions';
 import { searchCityDocs } from './cityDocs';
 import type { Response } from "express";
 import {
@@ -3805,8 +3806,11 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     normChip,
     extras: async () => {
       const full = await prenoteInputFor(cboId, state.sections, lang === 'en' ? 'en' : 'pt', { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
-      return { photos: full.photos, cohort: full.cohort, cityMap: full.cityMap };
+      // The census and the site as documents read it (siteHealing.ts) — or the
+      // card in the chat would differ from the print.
+      return { photos: full.photos, cohort: full.cohort, cityMap: full.cityMap, census: full.census, site: full.site };
     },
+    suggestions: () => suggestionsFor(state, getCboMessages(cboId).map(m => ({ role: m.role, content: m.content }))),
     startAuthoring: () => { void runPrenoteAuthor(cboId); },
     rereadFiles: () => { void rereadFiles(cboId); },
   };

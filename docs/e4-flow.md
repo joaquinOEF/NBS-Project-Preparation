@@ -45,6 +45,20 @@ which now also covers the place and the main problem. The organisation's
 correction replaces the value, and the mark goes with it (latest wins; the
 edit log keeps the earlier one).
 
+### What they already told us — one card (23 Oct, self-healing)
+
+Right after the size, a `recap` step shows ONE card with what the record
+already holds but Encontro 4 would otherwise ask (`shared/e4-suggestions.ts`,
+`server/services/e4Suggestions.ts`): the place from an address that geocodes
+to the house number, worries tapped in Encontro 2 and lost, "quem faria?"
+from Encontro 3, partners on record or named as "parceria com …". **High
+confidence only.** "Está certo ✓" writes them all; "Corrigir uma" takes one
+off (asked later on its own); "Responder uma por uma" falls back to the
+questions. A street with no number is a guess, asked alone at the place step
+("É aqui?"). Items are re-checked against the live record every time, so an
+answer given this turn is never offered back. The coordinator's "O que ainda
+falta" shows the same suggestions; "Usar" only fills the form.
+
 ## The page (`shared/e4-prenote.ts`)
 
 `buildPrenote()` — no model. One solution: E4's confirmation → the visit
