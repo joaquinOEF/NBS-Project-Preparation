@@ -383,10 +383,11 @@ async function serveE4Inner(
         // tap instead of four questions. Nothing is written until they confirm.
         const items = bundle();
         writeType({ _e4_recap_pending: 'yes' });
-        const lines = items.map(x => `• ${isPt ? x.pt : x.en}`).join('\n');
+        // A Markdown list: the card renders Markdown, where a single newline is no break.
+        const lines = (l: 'pt' | 'en') => items.map(x => `- ${l === 'pt' ? x.pt : x.en}`).join('\n');
         ask(
-          `Pelo que vocês já contaram, dá pra adiantar:\n${lines}\nEstá certo?`,
-          `From what you already told us, we can fill in:\n${lines}\nIs that right?`,
+          `Pelo que vocês já contaram, dá pra adiantar:\n\n${lines('pt')}\n\nEstá certo?`,
+          `From what you already told us, we can fill in:\n\n${lines('en')}\n\nIs that right?`,
           [
             { pt: E4C.estaCerto.pt, en: E4C.estaCerto.en, dPt: 'Guarda tudo isso', dEn: 'Keeps all of it' },
             { pt: E4C.corrigirUma.pt, en: E4C.corrigirUma.en, dPt: 'Tira uma da lista', dEn: 'Takes one off the list' },
