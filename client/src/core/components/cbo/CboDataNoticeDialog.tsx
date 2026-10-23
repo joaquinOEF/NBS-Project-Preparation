@@ -2,15 +2,16 @@
 // extraction fear Antonia surfaced at the 2026-07-16 biweekly: orgs have seen
 // outsiders collect their data and deliver nothing, and were asking "what are
 // you going to do with that?" and "does the platform stop in December?".
-// This is the short honest version, always reachable from the chat header;
-// the full data terms are being drafted with the coordination (Ana) and will
-// replace the closing line's promise when confirmed.
+// This is the short honest version, always reachable from the chat header.
+// Since 23 Oct 2026 the full term (shared/data-term.ts) is accepted in the
+// platform, and this dialog links to it and shows the organisation's record.
 //
-// Copy rule: nothing here may promise what the coalition hasn't agreed to —
-// the "até quando" wording was written to be true under the current plan and
-// must be re-checked when the terms doc lands.
+// Copy rule: nothing here may say more or less than the term. Each section
+// below is a summary of the term's own section; when the term gets a new
+// version, re-read these against it (e2e/data-term.spec.ts checks the names).
 
-import { ShieldCheck } from 'lucide-react';
+import { ExternalLink, ShieldCheck } from 'lucide-react';
+import { DATA_TERM, type DataTermStatus } from '@shared/data-term';
 import {
   Dialog,
   DialogContent,
@@ -28,23 +29,24 @@ const STRINGS = {
       },
       {
         h: 'Quem vê',
-        p: 'Você e a equipe de coordenação da rede (Vila Flores, OEF e Pyxera Global). Nada é vendido nem compartilhado fora da rede sem combinar com vocês.',
+        p: 'Você e as equipes que apoiam o programa (Vila Flores, Open Earth Foundation, Pyxera Global e Bankers without Boundaries). As outras organizações da rede não veem. Nada é vendido, e o projeto de vocês só é mostrado a um financiador com o seu consentimento por escrito.',
       },
       {
         h: 'Pra que usamos',
-        p: 'Pra montar o projeto de vocês, enxergar projetos parecidos dentro da rede e preparar propostas de financiamento com esses dados.',
+        p: 'Pra montar o projeto de vocês, enxergar sinergias com outros projetos da rede e preparar uma captação conjunta. Pra financiadores e parceiros, só números da rede como um todo.',
       },
       {
         h: 'Até quando',
-        p: 'A plataforma acompanha a preparação dos projetos — o trabalho não termina em dezembro. Se algo for mudar no acesso, vocês serão avisadas com antecedência.',
+        p: 'O acesso está garantido até pelo menos 31 de dezembro de 2026. Se precisar terminar antes, vocês serão avisadas com pelo menos um mês de antecedência e poderão exportar tudo.',
       },
       {
         h: 'Seus direitos',
-        p: 'A qualquer momento você pode baixar tudo (botão de exportar aqui em cima) ou pedir pra coordenação corrigir ou apagar os dados da sua organização.',
+        p: 'A qualquer momento você pode baixar tudo (botão de exportar aqui em cima) ou pedir à equipe do Vila Flores pra corrigir ou apagar os dados da sua organização. O projeto continua sendo de vocês.',
       },
     ],
-    footer:
-      'Um termo completo está sendo preparado junto com a coordenação — esta é a versão curta e honesta.',
+    footer: 'Esta é a versão curta.',
+    readFull: 'Ler o termo completo',
+    acceptedBy: 'Aceito em {date} por {name}',
   },
   en: {
     title: 'Your data is yours',
@@ -55,23 +57,24 @@ const STRINGS = {
       },
       {
         h: 'Who sees it',
-        p: 'You and the network coordination team (Vila Flores, OEF and Pyxera Global). Nothing is sold or shared outside the network without agreeing with you first.',
+        p: 'You and the teams supporting the programme (Vila Flores, Open Earth Foundation, Pyxera Global and Bankers without Boundaries). Other organisations in the network do not see it. Nothing is sold, and your project is only shown to a funder with your written consent.',
       },
       {
         h: 'What we use it for',
-        p: 'To build your project, spot similar projects across the network, and prepare funding proposals with this data.',
+        p: 'To build your project, spot synergies with other projects in the network and prepare joint fundraising. Funders and partners only get figures about the network as a whole.',
       },
       {
         h: 'For how long',
-        p: 'The platform follows the projects through preparation — the work does not end in December. If access is ever going to change, you will be told in advance.',
+        p: 'Access is guaranteed until at least 31 December 2026. If it ever has to end sooner, you will be told at least a month in advance and can export everything.',
       },
       {
         h: 'Your rights',
-        p: 'At any time you can download everything (the export button above) or ask the coordination to correct or delete your organization’s data.',
+        p: 'At any time you can download everything (the export button above) or ask the Vila Flores team to correct or delete your organization’s data. The project stays yours.',
       },
     ],
-    footer:
-      'A full terms document is being prepared with the coordination — this is the short, honest version.',
+    footer: 'This is the short version.',
+    readFull: 'Read the full term (Portuguese)',
+    acceptedBy: 'Accepted on {date} by {name}',
   },
 };
 
@@ -79,12 +82,21 @@ export function CboDataNoticeDialog({
   open,
   onOpenChange,
   lang,
+  accepted = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lang: 'pt' | 'en';
+  /** The organisation's acceptance of the current version, when there is one. */
+  accepted?: DataTermStatus['accepted'];
 }) {
   const s = STRINGS[lang];
+  // The test seam reports acceptance without a record (empty name) — say nothing then.
+  const record = accepted?.name
+    ? s.acceptedBy
+      .replace('{date}', new Date(accepted.at).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-GB'))
+      .replace('{name}', accepted.name)
+    : null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -106,9 +118,17 @@ export function CboDataNoticeDialog({
               <p className='m-0 text-[13.5px] leading-relaxed'>{sec.p}</p>
             </section>
           ))}
-          <p className='m-0 border-t border-border pt-2 text-[11px] italic text-muted-foreground'>
-            {s.footer}
-          </p>
+          <div className='space-y-1 border-t border-border pt-2 text-[12px] text-muted-foreground'>
+            <p className='m-0'>
+              {s.footer}{' '}
+              <a href='/termo-de-dados' target='_blank' rel='noreferrer'
+                className='inline-flex items-center gap-1 font-medium text-emerald-700 underline underline-offset-2 dark:text-emerald-400'
+                data-testid='cbo-data-notice-full-term'>
+                {s.readFull} (v{DATA_TERM.version})<ExternalLink className='h-3 w-3' />
+              </a>
+            </p>
+            {record && <p className='m-0' data-testid='cbo-data-notice-accepted'>{record}</p>}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -91,8 +91,11 @@ import {
   createCoordinator,
   getCoordinatorByEmail,
   publicCoordinator,
+  getCoordinatorBySession,
+  COORD_COOKIE,
   type CoordinatorRequest,
 } from '../services/coordinatorAuth';
+import { attachDataTerm, dataTermStatusForOrgPage, recordAcceptance, acceptancesCsv } from '../services/dataTerm';
 import { coordinators } from '@shared/coordinator-schema';
 import { organizations } from '@shared/org-schema';
 
@@ -248,6 +251,9 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
     supportRequests,
     supportPendingCount: supportPending.length,
     inspirationPicks: Array.isArray(member.inspirationPicks) ? member.inspirationPicks : [],
+    // The data term (shared/data-term.ts): the page shows the gate until the
+    // organisation has accepted the current version.
+    dataTerm: await dataTermStatusForOrgPage(member.id),
   };
 }
 
@@ -1266,7 +1272,7 @@ export function registerCohortRoutes(app: Express): void {
       cohort = c;
     }
     if (!cohort) cohort = await getOrCreateDefaultCohort();
-    const all = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
+    const all = await attachDataTerm(await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))))));
     res.json({ cohort, ...splitLeftNetwork(cohort, all), isAdmin: !coordinator?.cohortId });
   }));
 
@@ -1339,7 +1345,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
     if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
-    const all = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
+    const all = await attachDataTerm(await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))))));
     res.json({ cohort, ...splitLeftNetwork(cohort, all) });
   }));
 
@@ -1403,7 +1409,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
-    const all = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
+    const all = await attachDataTerm(await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))))));
     res.json({ cohort, ...splitLeftNetwork(cohort, all) });
   }));
 
@@ -1928,6 +1934,20 @@ export function registerCohortRoutes(app: Express): void {
     res.json(out);
   }));
 
+  // Who accepted the data term — one row per organisation on the board
+  // (pending ones too); `?all=1` is every acceptance with its evidence columns.
+  app.get('/api/cohort/:coordinatorSlug/data-term.csv', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const rows = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const { members } = splitLeftNetwork(cohort, rows);
+    const all = req.query.all === '1';
+    const csv = await acceptancesCsv(cohort.id, members.map(m => ({ id: m.id, orgName: m.orgName })), all);
+    const day = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="aceites-termo-de-dados${all ? '-historico' : ''}-${day}.csv"`);
+    res.send(csv);
+  }));
+
   // ── A whole cohort, portable (shared/cohort-bundle.ts) ─────────────────────
   // Export every member as it stands, contacts stripped; import it elsewhere as
   // a NEW cohort. Production → staging, so the pre-portfolio and the projects
@@ -2296,6 +2316,24 @@ export function registerCohortRoutes(app: Express): void {
     const member = await findMemberBySlug(req.params.memberSlug);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     res.json(await buildMemberPayload(member));
+  }));
+
+  // The organisation accepts the data term (Section 10): name, role, the box,
+  // "Aceitar". Same link credential as every member route. The gate is the
+  // same for everyone (23 Oct), so a coordinator signed in on this browser is
+  // recorded, not refused.
+  app.post('/api/cbo-member/:memberSlug/data-term', wrap(async (req, res) => {
+    const member = await findMemberBySlug(req.params.memberSlug);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const coordinator = await getCoordinatorBySession((req as any).cookies?.[COORD_COOKIE]).catch(() => null);
+    const result = await recordAcceptance(member, req.body ?? {}, {
+      // Behind Replit's proxy req.ip is the proxy; the client is the first hop.
+      ip: req.get('x-forwarded-for')?.split(',')[0]?.trim() || req.ip || null,
+      userAgent: req.get('user-agent') ?? null,
+      coordinatorSession: !!coordinator,
+    });
+    if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
+    res.json({ dataTerm: result.status });
   }));
 
   // CBO submits a support request. Returns the created entry (with id).

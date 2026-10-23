@@ -15,7 +15,7 @@ test.describe('COUGAR — data notice', () => {
     const dialog = page.getByTestId('cbo-data-notice-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('Seus dados são seus')).toBeVisible();
-    await expect(dialog.getByText('não termina em dezembro', { exact: false })).toBeVisible();
+    await expect(dialog.getByText('31 de dezembro de 2026', { exact: false })).toBeVisible();
     await expect(dialog.getByText('corrigir ou apagar', { exact: false })).toBeVisible();
 
     await page.keyboard.press('Escape');

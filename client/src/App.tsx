@@ -33,6 +33,7 @@ const BusinessModelPage = lazy(() => import('@/legacy/pages/business-model'));
 const ImpactModelPage = lazy(() => import('@/legacy/pages/impact-model'));
 const ConceptNotePage = lazy(() => import('@/legacy/pages/concept-note'));
 const CboProfilePage = lazy(() => import('@/core/pages/cbo-profile'));
+const DataTermPage = lazy(() => import('@/core/pages/data-term'));
 // Named exports — lazy() wants a default, so remap.
 const OAuthCallback = lazy(() =>
   import('@/legacy/components/auth/oauth-callback').then(m => ({ default: m.OAuthCallback })),
@@ -89,6 +90,7 @@ function Router() {
       {/* Concept Note — split-screen agent + document editor */}
       <Route path='/concept-note' component={ConceptNotePage} />
       <Route path='/cbo-profile' component={CboProfilePage} />
+      <Route path='/termo-de-dados' component={DataTermPage} />
       
       {/* Sample mode routes - no API calls, uses local data */}
       <Route path='/sample/cities' component={CitySelection} />

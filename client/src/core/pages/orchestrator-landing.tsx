@@ -23,7 +23,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, BookOpen, Check, Compass, Droplets, Leaf, LifeBuoy, Target,
   Map as MapIcon, Mountain, Network, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
-  FileText, Loader2, Share2, Sparkles, Download, ChevronRight,
+  FileText, Loader2, Share2, Sparkles, Download, ChevronRight, ShieldCheck,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -1225,6 +1225,8 @@ export default function OrchestratorLandingPage() {
       excludeFromPortfolio: p.excludeFromPortfolio,
       simulated: sim.simulatedBy.get(p.id) ?? null,
       w3: p.w3 as JourneyCardData['w3'],
+      // Absent on an older server → no mark at all, rather than a false "pendente".
+      dataTermAt: (m as any)?.dataTerm ? ((m as any).dataTerm.accepted?.at ?? null) : undefined,
     };
   };
 
@@ -1347,6 +1349,7 @@ export default function OrchestratorLandingPage() {
       // (walkthrough screenshots, 22 Oct 2026).
       encontro: (Number(member?.snapshotPhase ?? 0) || (['who', 'where', 'building', 'impact', 'operations', 'needs', 'results'] as const).indexOf(p.currentPhase) + 1) || undefined,
       isTest: p.excludeFromPortfolio,
+      dataTerm: (member as any)?.dataTerm ?? null,
       w3: { testedIds: ((p.w3 as any)?.testedIds ?? []) as string[], detailed: !!(p.w3 as any)?.detailed },
     });
     setFilesTab(tab);
@@ -1815,6 +1818,31 @@ export default function OrchestratorLandingPage() {
                       {t('orchestrator.exportCohort.button', { defaultValue: 'Export cohort' })}
                     </a>
                   </Button>
+                )}
+                {/* Who accepted the data term (docs/data-term.md): one row per
+                    organisation, pending ones too; the history with the evidence
+                    columns is the second link. */}
+                {cohort?.coordinatorSlug && (
+                  <span className="inline-flex items-center">
+                    <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground/80">
+                      <a
+                        href={`/api/cohort/${cohort.coordinatorSlug}/data-term.csv`}
+                        data-testid="button-export-data-term"
+                        title={t('orchestrator.dataTerm.exportTooltip', { defaultValue: 'Uma linha por organização: aceito ou pendente, nome, função, data e hora, versão do termo' }) as string}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                        {t('orchestrator.dataTerm.export', { defaultValue: 'Aceites do termo (CSV)' })}
+                      </a>
+                    </Button>
+                    <a
+                      href={`/api/cohort/${cohort.coordinatorSlug}/data-term.csv?all=1`}
+                      className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                      data-testid="button-export-data-term-all"
+                      title={t('orchestrator.dataTerm.exportAllTooltip', { defaultValue: 'Todos os aceites já registrados, com as colunas de evidência (hash do texto, IP, navegador, sessão de coordenação)' }) as string}
+                    >
+                      {t('orchestrator.dataTerm.exportAll', { defaultValue: 'histórico' })}
+                    </a>
+                  </span>
                 )}
                 <Button
                   size="sm" variant="outline" onClick={() => setImportOrgOpen(true)} data-testid="button-import-org"

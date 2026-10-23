@@ -40,6 +40,8 @@ import { getOrgIdForCboState, listDocumentsByOrg } from '../services/documentPer
 import { cohorts, cohortMembers, DEFAULT_WORKSHOPS } from '@shared/cohort-schema';
 import { coordinators, coordinatorSessions } from '@shared/coordinator-schema';
 import { prepareAskUser } from '../services/askUserGuards';
+import { requireGateForTest } from '../services/dataTerm';
+import { dataTermAcceptances } from '@shared/data-term-schema';
 import { QUESTIONNAIRES, askCopyFor } from '@shared/cbo-questionnaire';
 
 // Namespacing prefixes — cleanup keys off these so we never touch real data.
@@ -313,6 +315,13 @@ export function registerTestRoutes(app: Express): void {
     res.json({ member, inviteUrl: `/cbo-profile?t=${member.capabilityToken}` });
   }));
 
+  // The data term gate is off for the suite (CBO_DATA_TERM_GATE=off); a spec
+  // about the term turns it back on for its own member.
+  app.post('/__test/data-term/require/:memberId', (req, res) => {
+    requireGateForTest(req.params.memberId);
+    res.json({ ok: true });
+  });
+
   // ── Teardown ────────────────────────────────────────────────────────────
   // Purge only this harness's namespaced data. Idempotent. Returns counts.
   app.post('/__test/cleanup', wrap(async (_req, res) => {
@@ -322,6 +331,7 @@ export function registerTestRoutes(app: Express): void {
     if (cohortIds.length) {
       const m = await db.delete(cohortMembers).where(inArray(cohortMembers.cohortId, cohortIds)).returning();
       members = m.length;
+      await db.delete(dataTermAcceptances).where(inArray(dataTermAcceptances.cohortId, cohortIds));
       await db.delete(cohorts).where(inArray(cohorts.id, cohortIds));
     }
     const e2eCoords = await db.select().from(coordinators).where(like(coordinators.email, `%${E2E_EMAIL_DOMAIN}`));
