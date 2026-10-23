@@ -2717,7 +2717,8 @@ export default function CboProfilePage() {
                   return (
                     <div key={i} className="flex justify-start">
                       <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-card border border-border">
-                        <p className="text-sm">{parsed.question}</p>
+                        {/* The question as it was asked — Markdown, like the live card (it carries **bold** names). */}
+                        <div className="text-sm prose prose-sm max-w-none [&>p]:my-0"><ReactMarkdown remarkPlugins={[remarkGfm]}>{parsed.question}</ReactMarkdown></div>
                       </div>
                     </div>
                   );
