@@ -10,7 +10,7 @@
 // roster's grouping both read it, so they cannot disagree.
 // ---------------------------------------------------------------------------
 import { useTranslation } from 'react-i18next';
-import { Droplets, Sun, Mountain, Sprout, MapPin, Paperclip, Eye, FlaskConical, EyeOff, Check, X, HelpCircle } from 'lucide-react';
+import { Droplets, Sun, Mountain, Sprout, MapPin, Paperclip, Eye, FlaskConical, EyeOff, Check, X, HelpCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { getSolution } from '@shared/nbs-catalog';
 
@@ -30,6 +30,8 @@ export interface JourneyCardData {
   maturityTotal: number;
   excludeFromPortfolio: boolean;
   simulated: number[] | null;
+  /** The data term (shared/data-term.ts): when the current version was accepted, null while pending. */
+  dataTermAt?: string | null;
   w3: {
     state: 'ready' | 'needs_study' | 'needs_permission' | 'needs_site' | null;
     unblockedBy: string | null;
@@ -291,6 +293,19 @@ export function JourneyCard({
               </button>
             )}
             {!p.hasPlace && <span>{t('orchestrator.demo.locationPending')}</span>}
+            {p.dataTermAt !== undefined && (p.dataTermAt
+              ? (
+                <span className="inline-flex items-center gap-0.5 text-emerald-700 dark:text-emerald-400" data-testid={`data-term-ok-${p.id}`}
+                  title={t('orchestrator.dataTerm.okTitle', { defaultValue: 'Termo de dados aceito em {{date}}', date: new Date(p.dataTermAt).toLocaleDateString(pt ? 'pt-BR' : 'en-GB') }) as string}>
+                  <ShieldCheck className="h-3 w-3" />{t('orchestrator.dataTerm.ok', { defaultValue: 'Termo ✓' })}
+                </span>
+              )
+              : (
+                <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400" data-testid={`data-term-pending-${p.id}`}
+                  title={t('orchestrator.dataTerm.pendingTitle', { defaultValue: 'A organização ainda não aceitou o termo de dados — verá o termo ao abrir o link' }) as string}>
+                  <ShieldAlert className="h-3 w-3" />{t('orchestrator.dataTerm.pending', { defaultValue: 'Termo pendente' })}
+                </span>
+              ))}
             <button type="button" className="ml-auto inline-flex items-center gap-1 font-medium text-foreground/70 hover:text-foreground" onClick={e => { e.stopPropagation(); onOpenTab('perfil'); }}>
               <Eye className="h-3 w-3" />{t('orchestrator.cboView.open', { defaultValue: 'View' })}
             </button>

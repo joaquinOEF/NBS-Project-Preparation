@@ -568,6 +568,16 @@
       "groupOrg": "As organizações seguem",
       "groupReady": "Prontas para o pré-portfólio",
       "groupEarly": "Ainda nos Encontros 1–2"
+    },
+    "dataTerm": {
+      "ok": "Termo ✓",
+      "okTitle": "Termo de dados aceito em {{date}}",
+      "pending": "Termo pendente",
+      "pendingTitle": "A organização ainda não aceitou o termo de dados — verá o termo ao abrir o link",
+      "export": "Aceites do termo (CSV)",
+      "exportTooltip": "Uma linha por organização: aceito ou pendente, nome, função, data e hora, versão do termo",
+      "exportAll": "histórico",
+      "exportAllTooltip": "Todos os aceites já registrados, com as colunas de evidência (hash do texto, IP, navegador, sessão de coordenação)"
     }
   },
   "citySelection": {
@@ -2622,7 +2632,9 @@
     "prenoteEdit": "Editar o texto",
     "prenoteRestore": "Voltar ao texto calculado",
     "simulateE3": "Simular Encontro 3",
-    "tabVisit": "Visita técnica"
+    "tabVisit": "Visita técnica",
+    "dataTermAccepted": "Termo v{{v}} aceito em {{date}} por {{name}} ({{role}})",
+    "dataTermPending": "Termo de dados pendente"
   },
   "notFound": {
     "title": "Página não encontrada",

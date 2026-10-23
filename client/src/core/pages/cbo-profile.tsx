@@ -74,6 +74,8 @@ function parseUploadFilename(content: string): string | null {
 }
 import { LifeBuoy, ShieldCheck } from 'lucide-react';
 import { CboDataNoticeDialog } from '@/core/components/cbo/CboDataNoticeDialog';
+import { DataTermGate } from '@/core/components/cbo/DataTermGate';
+import type { DataTermStatus } from '@shared/data-term';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
 import { CboSolutionOptions } from '@/core/components/cbo/CboSolutionOptions';
@@ -713,6 +715,9 @@ export default function CboProfilePage() {
   // coordinator-side flows can also nudge the user to open this.
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [dataNoticeOpen, setDataNoticeOpen] = useState(false);
+  // The data term (shared/data-term.ts). Null until the member payload says;
+  // unaccepted → the gate replaces the page.
+  const [dataTerm, setDataTerm] = useState<DataTermStatus | null>(null);
   const [supportPendingCount, setSupportPendingCount] = useState(0);
   // E2 educational strips (types + examples) are persisted as inline `composer`
   // messages in the transcript (see processEvent / messages.map) so they survive
@@ -883,6 +888,7 @@ export default function CboProfilePage() {
       if (data.memberSlug) setMemberSlug(data.memberSlug);
       if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
       if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
+      if (data.dataTerm) setDataTerm(data.dataTerm);
       if (data.path === 'has-project' || data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
       else if (data.path === null) setMemberPath(null);
       if (typeof data.supportPendingCount === 'number') setSupportPendingCount(data.supportPendingCount);
@@ -2106,6 +2112,20 @@ export default function CboProfilePage() {
   // phaseComplete() already use.
   const filledCount = useMemo(() => state ? cboSectionsFilledCount(state) : 0, [state]);
 
+  // The data term comes before everything, the welcome included — once per
+  // organisation per version. A new version arriving on the 30s poll shows it
+  // too (Section 10: a new acceptance before the changes apply).
+  if (memberSlug && memberInfo && dataTerm && !dataTerm.accepted) {
+    return (
+      <DataTermGate
+        memberSlug={memberSlug}
+        orgName={memberInfo.orgName}
+        lang={lang === 'pt' ? 'pt' : 'en'}
+        onAccepted={setDataTerm}
+      />
+    );
+  }
+
   if (!state) {
     // Invite link failed to resolve — never leave the user on a bare spinner.
     if (viaInviteLink && sessionError) {
@@ -2286,7 +2306,7 @@ export default function CboProfilePage() {
         />
       )}
       <CboFilesSheet cboId={cboId} open={filesSheetOpen} onOpenChange={setFilesSheetOpen} />
-      <CboDataNoticeDialog open={dataNoticeOpen} onOpenChange={setDataNoticeOpen} lang={lang === 'pt' ? 'pt' : 'en'} />
+      <CboDataNoticeDialog open={dataNoticeOpen} onOpenChange={setDataNoticeOpen} lang={lang === 'pt' ? 'pt' : 'en'} accepted={dataTerm?.accepted ?? null} />
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat — full width on mobile (when Chat tab active); on md+
             full width while the panel is collapsed (chat-first), half when

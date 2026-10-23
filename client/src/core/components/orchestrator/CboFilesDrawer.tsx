@@ -8,7 +8,7 @@ import { PrenotePanel } from './PrenotePanel';
 import { E4AnswersPanel } from './E4AnswersPanel';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2, UserMinus, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download, CopyPlus, FileText, MapPin, FlaskConical, Share2, EyeOff, RotateCcw, Trash2, UserMinus, ArrowLeft, CheckCircle2, ShieldCheck, ShieldAlert } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -20,6 +20,7 @@ import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscr
 import { CboProfileSummary, VisitPanel, SkipToE4 } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
 import { getSolution } from '@shared/nbs-catalog';
+import type { DataTermStatus } from '@shared/data-term';
 
 /** Each tab is as wide as its word (and grows to share what is left) — never an equal fifth it cannot fit in. */
 const TAB = 'grow shrink-0 basis-auto px-1.5 text-[12px] min-[420px]:px-2.5 min-[420px]:text-[12.5px]';
@@ -35,6 +36,8 @@ export type FilesDrawerMember = {
   isTest?: boolean;
   /** Ids of the solutions tested in Encontro 3 — one "Cenário" link each in Documentos. */
   w3?: { testedIds?: string[]; detailed?: boolean };
+  /** The data term's record for the current version (shared/data-term.ts). */
+  dataTerm?: DataTermStatus | null;
 };
 
 export function CboFilesDrawer({
@@ -140,6 +143,27 @@ export function CboFilesDrawer({
             <div className="flex min-h-7 min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground" data-testid="cbo-drawer-context">
               {member?.neighborhood && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{member.neighborhood}</span>}
               {encontro ? <span>{member?.neighborhood ? '· ' : ''}{t('cboView.encontroN', { defaultValue: 'Encontro {{n}}', n: encontro })}</span> : null}
+              {member?.dataTerm && (
+                member.dataTerm.accepted
+                  ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400" data-testid="cbo-drawer-data-term">
+                      <ShieldCheck className="h-3 w-3" />
+                      {t('cboView.dataTermAccepted', {
+                        defaultValue: 'Termo v{{v}} aceito em {{date}} por {{name}} ({{role}})',
+                        v: member.dataTerm.version,
+                        date: new Date(member.dataTerm.accepted.at).toLocaleString(cohortLanguage === 'en' ? 'en-GB' : 'pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+                        name: member.dataTerm.accepted.name,
+                        role: member.dataTerm.accepted.role,
+                      })}
+                    </span>
+                  )
+                  : (
+                    <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400" data-testid="cbo-drawer-data-term">
+                      <ShieldAlert className="h-3 w-3" />
+                      {t('cboView.dataTermPending', { defaultValue: 'Termo de dados pendente' })}
+                    </span>
+                  )
+              )}
               {member?.isTest && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/70 bg-amber-50 px-1.5 py-px text-[10.5px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300" data-testid="cbo-drawer-test-badge">
                   <FlaskConical className="h-3 w-3" />{t('cboView.testBadge', { defaultValue: 'Cópia de teste — fora do portfólio' })}

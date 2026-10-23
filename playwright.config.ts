@@ -122,6 +122,9 @@ export default defineConfig({
           CBO_TURN_QUEUE_WAIT_MS: '3000',
           CBO_FAKE_MODEL: '1',
           CBO_FAKE_GEOCODE: '1',
+          // The data term gate (shared/data-term.ts) would stop every spec that
+          // opens the org page; e2e/data-term.spec.ts re-enables it per member.
+          CBO_DATA_TERM_GATE: 'off',
           NODE_ENV: 'development',
           PORT,
           OAUTH_CLIENT_ID: 'e2e-dummy',

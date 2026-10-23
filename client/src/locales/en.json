@@ -535,6 +535,16 @@
       "groupOrg": "The organisations continue",
       "groupReady": "Ready for the pre-portfolio",
       "groupEarly": "Still in Encontros 1–2"
+    },
+    "dataTerm": {
+      "ok": "Term ✓",
+      "okTitle": "Data term accepted on {{date}}",
+      "pending": "Term pending",
+      "pendingTitle": "The organisation hasn't accepted the data term yet — they'll see it when they open their link",
+      "export": "Term acceptances (CSV)",
+      "exportTooltip": "One row per organisation: accepted or pending, name, role, date and time, term version",
+      "exportAll": "history",
+      "exportAllTooltip": "Every acceptance ever recorded, with the evidence columns (text hash, IP, browser, coordinator session)"
     }
   },
   "citySelection": {
@@ -2584,7 +2594,9 @@
     "prenoteEdit": "Edit the text",
     "prenoteRestore": "Restore the calculated text",
     "simulateE3": "Simulate Encontro 3",
-    "tabVisit": "Technical visit"
+    "tabVisit": "Technical visit",
+    "dataTermAccepted": "Term v{{v}} accepted on {{date}} by {{name}} ({{role}})",
+    "dataTermPending": "Data term pending"
   },
   "files": {
     "loadError": "Could not load files.",
