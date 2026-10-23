@@ -44,11 +44,13 @@ two independent area-weighted counts agreeing within 10%.
 
 | Where | What | Race |
 |---|---|---|
-| Proposta inicial, **Território** (all pre-note paths) | people + ages + typical income; trees if the solution acts on heat, sewage if on water (D2); "No entorno" | no |
-| Concept note, under the territory | same lines | no |
-| Perfil (PDF) | "Quem mora perto (Censo 2022)", by the first solution tested | no |
-| Encontro 4, before "quem é atingido" — only while unanswered | "Pelo Censo 2022, cerca de N pessoas moram a até uns 300 m daqui" | no |
-| Combined project, pre-portfolio, synergy report (coordination) | totals across places, each tract once | yes (D3) |
+| Proposta inicial · **Território** | the city's maps only (unnamed squares dropped) | — |
+| Proposta inicial · **Quem mora perto** (own section, after Território) | people + ages + typical income; "No entorno": UBS (no SAMU bases), public schools, quilombos/indigenous lands, fresh-food shops for urban agriculture (Overture ≥ 0.7, named, never counted) | no |
+| Proposta inicial · **Impacto** | the argument for THIS solution: heat → streets without trees + how many children and 60+ live near; water → homes without adequate sewage (≥ 5%) | no |
+| Proposta inicial · **Indicadores** | "referência pública" beside the baseline: homes within 300 m (Famílias atendidas), today's treeless share (Diferença de temperatura) — their count still decides | no |
+| Concept note, Perfil (PDF) | people + impact + nearby, in one block | no |
+| Encontro 4, "quem é atingido" — only while unanswered | hint + scale chips: "Quase todo mundo daqui (~N)", "Uma parte — umas centenas", "Um grupo específico", "Não sei dizer". A chip records THEIR choice with our number as context; a census note never becomes a household target | no |
+| Combined project, pre-portfolio, synergy report (coordination) | one sentence, each tract once | yes (D3) |
 
 - Relevance comes from the solution's família weights (`relevanceFor`):
   heat ≥ 0.5 → trees; flood ≥ 0.5 → sewage.

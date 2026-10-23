@@ -5,12 +5,13 @@
     "census": "IBGE, Censo Demográfico 2022 — agregados por setor censitário (população, domicílios, renda, entorno)",
     "health": "CNES (Ministério da Saúde), 2026",
     "schools": "INEP, Censo Escolar 2025 — public schools only",
+    "food": "Overture Maps places (hortifrútis, mercados) — confidence ≥ 0.7, names only",
     "territories": "INCRA (quilombos, 2024) and FUNAI (terras indígenas, 2024)"
   },
   "counts": {
     "tracts": 2744,
     "people": 1332845,
-    "services": 515,
+    "services": 853,
     "territories": 7
   },
   "withheld": {

@@ -42,7 +42,7 @@ export interface CensusAround {
 }
 
 export interface CensusNearby {
-  kind: 'ubs' | 'hospital' | 'pronto-atendimento' | 'escola' | 'quilombo' | 'terra-indigena';
+  kind: 'ubs' | 'hospital' | 'pronto-atendimento' | 'escola' | 'quilombo' | 'terra-indigena' | 'alimento';
   name: string;
   distanceM: number;
   source: string;
@@ -93,7 +93,7 @@ export const CENSUS_SOURCE: Record<Lang, string> = {
 };
 
 /** What a solution acts on, so a line argues for THIS solution (D2). */
-export interface CensusRelevance { heat: boolean; water: boolean }
+export interface CensusRelevance { heat: boolean; water: boolean; food?: boolean }
 
 /**
  * From the solution's família weights (shared/nbs-catalog.ts — the same ones
@@ -104,7 +104,7 @@ export function relevanceFor(solutionId: string | null | undefined): CensusRelev
   const sol = solutionId ? getSolution(solutionId) : undefined;
   const fam = sol ? getFamilia(sol.familiaId) : undefined;
   if (!fam) return null;
-  return { heat: (fam.hazards.heat ?? 0) >= 0.5, water: (fam.hazards.flood ?? 0) >= 0.5 };
+  return { heat: (fam.hazards.heat ?? 0) >= 0.5, water: (fam.hazards.flood ?? 0) >= 0.5, food: fam.id === 'agricultura-urbana' };
 }
 
 const round = (v: number) => (v >= 1000 ? Math.round(v / 100) * 100 : Math.round(v / 10) * 10);
@@ -114,7 +114,7 @@ const brl = (v: number) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
 
 /** Title-case a CNES/INEP name ("UNIDADE DE SAUDE MORRO DA CRUZ" → "Unidade de Saúde Morro da Cruz"). */
 export function niceName(name: string): string {
-  const fix: Record<string, string> = { Saude: 'Saúde', Clinica: 'Clínica', Familia: 'Família', Basica: 'Básica', Esc: 'Escola', Est: 'Estadual', Mun: 'Municipal', Ens: 'Ensino', Fun: 'Fundamental', Ed: 'Educação', Bas: 'Básica' };
+  const fix: Record<string, string> = { Saude: 'Saúde', Clinica: 'Clínica', Familia: 'Família', Basica: 'Básica', Esc: 'Escola', Est: 'Estadual', Mun: 'Municipal', Ens: 'Ensino', Fun: 'Fundamental', Ed: 'Educação', Bas: 'Básica', Col: 'Colégio', Nucl: 'Núcleo', Emef: 'EMEF', Emei: 'EMEI', Eja: 'EJA', Cp: 'CP', Prof: 'Prof.', Ifrs: 'IFRS' };
   return name.toLowerCase().split(/\s+/).map((w, i) => {
     if (i > 0 && ['de', 'da', 'do', 'dos', 'das', 'e'].includes(w)) return w;
     const t = w.charAt(0).toUpperCase() + w.slice(1);
@@ -122,77 +122,114 @@ export function niceName(name: string): string {
   }).join(' ');
 }
 
-/**
- * The lines for a document about ONE site. Third person, rounded, sourced.
- * `relevance` null = a document with no solution yet: people only.
- */
-export function censusLines(c: CensusAround | null | undefined, opts: { lang: Lang; relevance?: CensusRelevance | null; withRace?: boolean; nearby?: boolean }): Array<{ text: string; source: string }> {
-  if (!c || c.people <= 0) return [];
+/** Who lives there — one line: people, ages, typical income (+ race only for the coordination). */
+export function censusPeopleLine(c: CensusAround | null | undefined, opts: { lang: Lang; withRace?: boolean }): { text: string; source: string } | null {
+  if (!c || c.people <= 0) return null;
   const pt = opts.lang === 'pt';
-  const src = CENSUS_SOURCE[opts.lang];
-  const out: Array<{ text: string; source: string }> = [];
   const ages = [
     c.children !== null && c.children > 0 ? (pt ? `${fmt(c.children, 'pt')} com até 14 anos` : `${fmt(c.children, 'en')} aged 14 or under`) : null,
     c.elderly !== null && c.elderly > 0 ? (pt ? `${fmt(c.elderly, 'pt')} com 60 anos ou mais` : `${fmt(c.elderly, 'en')} aged 60 or over`) : null,
   ].filter(Boolean);
-  let people = pt
-    ? `Cerca de ${fmt(c.people, 'pt')} pessoas moram a até ~300 m do lugar${ages.length ? `, ${ages.join(' e ')}` : ''}`
-    : `About ${fmt(c.people, 'en')} people live within ~300 m of the site${ages.length ? `, ${ages.join(' and ')}` : ''}`;
-  if (opts.withRace && c.blackOrBrown !== null && c.people > 0) {
-    people += pt ? `; ${pct(c.blackOrBrown / c.people)} são pretas ou pardas` : `; ${pct(c.blackOrBrown / c.people)} are Black or brown (pretas ou pardas)`;
+  let text = pt
+    ? `Cerca de ${fmt(c.people, 'pt')} pessoas moram num raio de 300 m do lugar${ages.length ? `, ${ages.join(' e ')}` : ''}`
+    : `About ${fmt(c.people, 'en')} people live within 300 m of the site${ages.length ? `, ${ages.join(' and ')}` : ''}`;
+  if (opts.withRace && c.blackOrBrown !== null) text += pt ? `; ${pct(c.blackOrBrown / c.people)} são pretas ou pardas` : `; ${pct(c.blackOrBrown / c.people)} are Black or brown (pretas ou pardas)`;
+  if (c.incomeMedian !== null) text += pt ? `. Renda típica do responsável pelo domicílio: ${brl(c.incomeMedian)}` : `. Typical household-head income: ${brl(c.incomeMedian)}`;
+  text += c.partial ? (pt ? ' (o IBGE protege alguns números de setores pequenos).' : ' (IBGE withholds some figures for small tracts).') : '.';
+  return { text, source: CENSUS_SOURCE[opts.lang] };
+}
+
+/**
+ * Why THIS solution here, from the census (round 3, C1-A): the line that argues
+ * for the solution chosen — never repeating the people line.
+ *   heat  → streets without trees, and how many of the most heat-vulnerable live near;
+ *   water → homes without adequate sewage (only when it is a real share, ≥ 5%).
+ */
+export function censusImpactLines(c: CensusAround | null | undefined, rel: CensusRelevance | null | undefined, lang: Lang): Array<{ text: string; source: string }> {
+  if (!c || c.people <= 0 || !rel) return [];
+  const pt = lang === 'pt';
+  const out: Array<{ text: string; source: string }> = [];
+  if (rel.heat && c.noTreesShare !== null) {
+    const vulnerable = [
+      c.children ? (pt ? `~${fmt(c.children, 'pt')} crianças e adolescentes` : `~${fmt(c.children, 'en')} children and teenagers`) : null,
+      c.elderly ? (pt ? `~${fmt(c.elderly, 'pt')} pessoas com 60 anos ou mais` : `~${fmt(c.elderly, 'en')} people aged 60 or over`) : null,
+    ].filter(Boolean);
+    out.push({
+      text: pt
+        ? `No entorno, ${pct(c.noTreesShare)} das casas estão em ruas sem árvores${vulnerable.length ? `; moram ali ${vulnerable.join(' e ')}, quem mais sofre no calor` : ''}.`
+        : `Around it, ${pct(c.noTreesShare)} of homes are on streets with no trees${vulnerable.length ? `; ${vulnerable.join(' and ')} live there, those who suffer most in the heat` : ''}.`,
+      source: pt ? 'IBGE, Censo 2022 — entorno dos domicílios e idade' : 'IBGE, 2022 Census — street surroundings and age',
+    });
   }
-  if (c.incomeMedian !== null) people += pt ? `. Renda típica do responsável pelo domicílio: ${brl(c.incomeMedian)}` : `. Typical household-head income: ${brl(c.incomeMedian)}`;
-  people += c.partial ? (pt ? ' (o IBGE protege alguns números de setores pequenos).' : ' (IBGE withholds some figures for small tracts).') : '.';
-  out.push({ text: people, source: src });
-  const rel = opts.relevance;
-  if (rel?.heat && c.noTreesShare !== null) {
-    out.push({ text: pt ? `${pct(c.noTreesShare)} das casas do entorno estão em ruas sem árvores.` : `${pct(c.noTreesShare)} of homes around it are on streets with no trees.`, source: pt ? 'IBGE, Censo 2022 — entorno dos domicílios' : 'IBGE, 2022 Census — street surroundings' });
-  }
-  if (rel?.water && c.noSewerShare !== null && c.noSewerShare >= 0.05) {
-    out.push({ text: pt ? `${pct(c.noSewerShare)} das casas do entorno não têm esgoto adequado.` : `${pct(c.noSewerShare)} of homes around it lack adequate sewage.`, source: pt ? 'IBGE, Censo 2022 — saneamento' : 'IBGE, 2022 Census — sanitation' });
-  }
-  if (opts.nearby !== false) {
-    const line = nearbyLine(c.nearby, opts.lang);
-    if (line) out.push(line);
+  if (rel.water && c.noSewerShare !== null && c.noSewerShare >= 0.05) {
+    out.push({
+      text: pt ? `No entorno, ${pct(c.noSewerShare)} das casas não têm esgoto adequado.` : `Around it, ${pct(c.noSewerShare)} of homes lack adequate sewage.`,
+      source: pt ? 'IBGE, Censo 2022 — saneamento' : 'IBGE, 2022 Census — sanitation',
+    });
   }
   return out;
 }
 
+/** Public references beside an indicator's own baseline (round 3, C1-B) — the organisation's count still decides. */
+export function indicatorReferences(c: CensusAround | null | undefined, lang: Lang): Record<string, string> {
+  if (!c || c.people <= 0) return {};
+  const pt = lang === 'pt';
+  const out: Record<string, string> = {};
+  if (c.homes > 0) out['familias-atendidas'] = pt ? `referência pública: ~${fmt(c.homes, 'pt')} domicílios num raio de 300 m (IBGE, Censo 2022)` : `public reference: ~${fmt(c.homes, 'en')} homes within 300 m (IBGE, 2022 Census)`;
+  if (c.noTreesShare !== null) out.temperatura = pt ? `referência pública: hoje ${pct(c.noTreesShare)} das casas do entorno estão em ruas sem árvores (IBGE, Censo 2022)` : `public reference: today ${pct(c.noTreesShare)} of homes around it are on treeless streets (IBGE, 2022 Census)`;
+  return out;
+}
+
+/** All of it, for a document with no separate sections (concept note, Perfil). */
+export function censusLines(c: CensusAround | null | undefined, opts: { lang: Lang; relevance?: CensusRelevance | null; withRace?: boolean; nearby?: boolean }): Array<{ text: string; source: string }> {
+  const people = censusPeopleLine(c, opts);
+  if (!people) return [];
+  const near = opts.nearby === false ? null : nearbyLine(c!.nearby, opts.lang, opts.relevance);
+  return [people, ...censusImpactLines(c, opts.relevance, opts.lang), ...(near ? [near] : [])];
+}
+
 /** "No entorno: …" — context, never a partner (R2). Nearest first, a few. */
-export function nearbyLine(nearby: CensusNearby[], lang: Lang): { text: string; source: string } | null {
+export function nearbyLine(nearby: CensusNearby[], lang: Lang, rel?: CensusRelevance | null): { text: string; source: string } | null {
   const pt = lang === 'pt';
   const near = (k: CensusNearby['kind'][], max: number, within: number) => nearby.filter(n => k.includes(n.kind) && n.distanceM <= within).sort((a, b) => a.distanceM - b.distanceM).slice(0, max);
   const m = (d: number) => `${Math.max(10, Math.round(d / 10) * 10)} m`;
-  const health = near(['ubs', 'pronto-atendimento', 'hospital'], 2, 1000);
+  // An ambulance base is not a place people go to (SAMU) — noise on a funder's page (P1-B).
+  const health = near(['ubs', 'pronto-atendimento', 'hospital'], 4, 1000).filter(n => !/^samu\b/i.test(n.name)).slice(0, 2);
+  // Fresh-food shops only for urban agriculture, named, never counted (Overture is patchy).
+  const food = rel?.food ? near(['alimento'], 2, 1000) : [];
   const schools = near(['escola'], 2, 500);
   const terr = near(['quilombo', 'terra-indigena'], 2, 1000);
   const parts = [
     ...health.map(n => `${niceName(n.name)} (${m(n.distanceM)})`),
     ...schools.map(n => `${niceName(n.name)} (${m(n.distanceM)})`),
+    ...food.map(n => `${n.name} (${m(n.distanceM)})`),
     ...terr.map(n => n.kind === 'quilombo'
       ? (pt ? `território quilombola ${niceName(n.name)} (${n.distanceM === 0 ? 'no local' : m(n.distanceM)})` : `quilombola territory ${niceName(n.name)} (${n.distanceM === 0 ? 'on site' : m(n.distanceM)})`)
       : (pt ? `terra indígena ${n.name} (${n.distanceM === 0 ? 'no local' : m(n.distanceM)})` : `indigenous land ${n.name} (${n.distanceM === 0 ? 'on site' : m(n.distanceM)})`)),
   ];
   if (!parts.length) return null;
-  const sources = Array.from(new Set([...health, ...schools, ...terr].map(n => n.source))).join('; ');
+  const sources = Array.from(new Set([...health, ...schools, ...food, ...terr].map(n => n.source))).join('; ');
   return { text: pt ? `No entorno: ${parts.join(', ')}.` : `Nearby: ${parts.join(', ')}.`, source: sources };
 }
 
-/** One line for several places together — each tract counted once (B). */
+/** One sentence for several places together — each tract counted once (P1-C: a sentence, not a dotted line). */
 export function combinedCensusLine(c: CensusAround | null | undefined, places: number, opts: { lang: Lang; withRace?: boolean; heat?: boolean }): { text: string; source: string } | null {
   if (!c || c.people <= 0) return null;
   const pt = opts.lang === 'pt';
-  const parts = [pt ? `~${fmt(c.people, 'pt')} pessoas a até ~300 m ${places > 1 ? `dos ${places} lugares` : 'do lugar'}` : `~${fmt(c.people, 'en')} people within ~300 m of ${places > 1 ? `the ${places} sites` : 'the site'}`];
-  if (opts.withRace && c.blackOrBrown !== null) parts.push(pt ? `${pct(c.blackOrBrown / c.people)} pretas ou pardas` : `${pct(c.blackOrBrown / c.people)} Black or brown`);
-  if (c.incomeMedian !== null) parts.push(pt ? `renda típica do responsável ${brl(c.incomeMedian)}` : `typical household-head income ${brl(c.incomeMedian)}`);
-  if (opts.heat && c.noTreesShare !== null) parts.push(pt ? `${pct(c.noTreesShare)} das casas em ruas sem árvores` : `${pct(c.noTreesShare)} of homes on treeless streets`);
-  return { text: parts.join(' · '), source: pt ? 'IBGE, Censo 2022 (cada setor contado uma vez)' : 'IBGE, 2022 Census (each tract counted once)' };
+  const where = places > 1 ? (pt ? `Os ${places} lugares somam` : `The ${places} sites add up to`) : (pt ? 'O lugar tem' : 'The site has');
+  const parts: string[] = [pt ? `${where} cerca de ${fmt(c.people, 'pt')} moradores num raio de 300 m` : `${where} about ${fmt(c.people, 'en')} residents within 300 m`];
+  if (opts.withRace && c.blackOrBrown !== null) parts.push(pt ? `${pct(c.blackOrBrown / c.people)} se declaram pretos ou pardos` : `${pct(c.blackOrBrown / c.people)} identify as Black or brown`);
+  if (opts.heat && c.noTreesShare !== null) parts.push(pt ? `${pct(c.noTreesShare)} das casas estão em ruas sem árvores` : `${pct(c.noTreesShare)} of homes are on treeless streets`);
+  if (c.incomeMedian !== null) parts.push(pt ? `a renda típica do responsável é ${brl(c.incomeMedian)}` : `the typical household-head income is ${brl(c.incomeMedian)}`);
+  const last = parts.pop()!;
+  const text = parts.length ? `${parts.join('; ')}; ${pt ? 'e' : 'and'} ${last}.` : `${last}.`;
+  return { text, source: pt ? 'IBGE, Censo 2022 (cada setor contado uma vez)' : 'IBGE, 2022 Census (each tract counted once)' };
 }
 
 /** Encontro 4's hint before "quem é atingido" (E1): a starting point, never their answer. */
 export function beneficiariesHint(c: CensusAround | null | undefined, lang: Lang): string | null {
   if (!c || c.people < 50) return null;
   return lang === 'pt'
-    ? `Pelo Censo 2022, cerca de ${fmt(c.people, 'pt')} pessoas moram a até uns 300 m daqui${c.children ? `, ${fmt(c.children, 'pt')} delas com até 14 anos` : ''}.`
-    : `By the 2022 Census, about ${fmt(c.people, 'en')} people live within ~300 m of here${c.children ? `, ${fmt(c.children, 'en')} of them aged 14 or under` : ''}.`;
+    ? `Pelo Censo 2022, cerca de ${fmt(c.people, 'pt')} pessoas moram num raio de 300 m daqui${c.children ? `, ${fmt(c.children, 'pt')} delas com até 14 anos` : ''}.`
+    : `By the 2022 Census, about ${fmt(c.people, 'en')} people live within 300 m of here${c.children ? `, ${fmt(c.children, 'en')} of them aged 14 or under` : ''}.`;
 }

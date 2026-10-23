@@ -106,7 +106,15 @@ export const E4C = {
   estaCerto: { pt: 'Está certo ✓', en: "That's right ✓" },
   corrigirUma: { pt: 'Corrigir uma', en: 'Correct one' },
   umaPorUma: { pt: 'Responder uma por uma', en: 'Answer one by one' },
+  grupoEspecifico: { pt: 'Um grupo específico', en: 'A specific group' },
 } as const;
+
+/** "Quem é atingido" anchored on the census (round 3, E1): THEIR scale, our number as context. */
+const fmtN = (n: number) => (n >= 1000 ? Math.round(n / 100) * 100 : Math.round(n / 10) * 10).toLocaleString('pt-BR');
+const scaleChips = (people: number) => ({
+  quase: { pt: `Quase todo mundo daqui (~${fmtN(people)})`, en: `Almost everyone here (~${fmtN(people)})` },
+  parte: people >= 500 ? { pt: 'Uma parte — umas centenas', en: 'Part of them — a few hundred' } : { pt: 'Uma parte — algumas dezenas', en: 'Part of them — a few dozen' },
+});
 
 /** The grouped card's items, as the "Corrigir uma" menu names them. */
 const RECAP_LABEL: Record<string, { pt: string; en: string }> = {
@@ -477,10 +485,23 @@ async function serveE4Inner(
         const pin = (k: string) => site(k) || undefined;
         const census = censusForSite({ site_lat: pin('site_lat'), _site_lat: pin('_site_lat'), site_lng: pin('site_lng'), _site_lng: pin('_site_lng') });
         const hint = (l: 'pt' | 'en') => { const h = beneficiariesHint(census, l); return h ? `${h} ` : ''; };
+        if (type('_e4_benef_group') === 'yes') {
+          ask('Qual grupo, e mais ou menos quantas pessoas?', 'Which group, and roughly how many people?',
+            [{ pt: E4C.naoSei.pt, en: E4C.naoSei.en, dPt: 'Escreve ou fala aqui embaixo', dEn: 'Write or say it below' }]);
+          return finish(detail);
+        }
+        const sc = census && census.people >= 50 ? scaleChips(census.people) : null;
         ask(
           `${hint('pt')}Quando esse problema acontece, quem sofre mais? Quantas famílias ou pessoas, mais ou menos?`,
           `${hint('en')}When this problem happens, who suffers most? Roughly how many households or people?`,
-          [{ pt: E4C.naoSei.pt, en: E4C.naoSei.en, dPt: 'Escreve ou fala aqui embaixo', dEn: 'Write or say it below' }],
+          [
+            ...(sc ? [
+              { pt: sc.quase.pt, en: sc.quase.en, dPt: 'Quase todos que moram perto', dEn: 'Nearly everyone who lives near' },
+              { pt: sc.parte.pt, en: sc.parte.en, dPt: 'Não todo mundo', dEn: 'Not everyone' },
+              { pt: E4C.grupoEspecifico.pt, en: E4C.grupoEspecifico.en, dPt: 'Diz qual', dEn: 'Say which' },
+            ] : []),
+            { pt: E4C.naoSei.pt, en: E4C.naoSei.en, dPt: 'Escreve ou fala aqui embaixo', dEn: 'Write or say it below' },
+          ],
         );
         return finish(detail);
       }
@@ -829,9 +850,31 @@ async function serveE4Inner(
         return finish(`${gap}-said`);
       }
     }
+    // The scale chips (round 3, E1): their choice, the census as context — never "N affected" unless they say so.
+    if (gap === 'beneficiarios' && type('_e4_benef_group') !== 'yes') {
+      const pin = (k: string) => site(k) || undefined;
+      const census = censusForSite({ site_lat: pin('site_lat'), _site_lat: pin('_site_lat'), site_lng: pin('site_lng'), _site_lng: pin('_site_lng') });
+      const sc = census && census.people >= 50 ? scaleChips(census.people) : null;
+      if (sc && is(sc.quase)) {
+        deps.writeFields(SITE, { beneficiaries_note: `Quase todas as ~${fmtN(census!.people)} pessoas que moram num raio de 300 m (Censo 2022), segundo a organização` });
+        writeType({ _e4_gap_pending: '' });
+        say('Anotado ✓', 'Noted ✓');
+        return serve('beneficiarios-scale');
+      }
+      if (sc && is(sc.parte)) {
+        deps.writeFields(SITE, { beneficiaries_note: `Uma parte de quem mora perto — ${census!.people >= 500 ? 'umas centenas' : 'algumas dezenas'} de pessoas, segundo a organização (no raio de 300 m moram ~${fmtN(census!.people)}, Censo 2022)` });
+        writeType({ _e4_gap_pending: '' });
+        say('Anotado ✓', 'Noted ✓');
+        return serve('beneficiarios-scale');
+      }
+      if (is(E4C.grupoEspecifico)) {
+        writeType({ _e4_benef_group: 'yes' });
+        return serve('beneficiarios-group');
+      }
+    }
     if (gap === 'beneficiarios' && !is(E4C.naoSei)) {
       deps.writeFields(SITE, { beneficiaries_note: raw.slice(0, 400) });
-      writeType({ _e4_gap_pending: '' });
+      writeType({ _e4_gap_pending: '', _e4_benef_group: '' });
       say('Anotado ✓', 'Noted ✓');
       return serve('beneficiarios');
     }

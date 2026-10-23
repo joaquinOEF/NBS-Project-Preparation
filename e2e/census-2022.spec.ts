@@ -75,11 +75,11 @@ test.describe('what a document says', () => {
 
   test('people always; trees only for a heat solution; sewage only for a water one (D2)', () => {
     const heat = censusLines(c, { lang: 'pt', relevance: relevanceFor('corredores-verdes') }).map(l => l.text).join('\n');
-    expect(heat).toContain('Cerca de 10.300 pessoas moram a até ~300 m');
-    expect(heat).toContain('68% das casas do entorno estão em ruas sem árvores');
+    expect(heat).toContain('Cerca de 10.300 pessoas moram num raio de 300 m');
+    expect(heat).toContain('68% das casas estão em ruas sem árvores');
     expect(heat).not.toContain('esgoto');
     const water = censusLines(c, { lang: 'pt', relevance: relevanceFor('jardins-de-chuva') }).map(l => l.text).join('\n');
-    expect(water).toContain('40% das casas do entorno não têm esgoto adequado');
+    expect(water).toContain('40% das casas não têm esgoto adequado');
     expect(water).not.toContain('árvores');
     const slope = censusLines(c, { lang: 'pt', relevance: relevanceFor('grade-viva') }).map(l => l.text).join('\n');
     expect(slope).not.toMatch(/árvores|esgoto/);
@@ -97,8 +97,8 @@ test.describe('what a document says', () => {
   });
 
   test('the combined line and the Encontro 4 hint', () => {
-    expect(combinedCensusLine(c, 2, { lang: 'pt', withRace: true, heat: true })!.text).toBe('~10.300 pessoas a até ~300 m dos 2 lugares · 51% pretas ou pardas · renda típica do responsável R$ 1.625 · 68% das casas em ruas sem árvores');
-    expect(beneficiariesHint(c, 'pt')).toBe('Pelo Censo 2022, cerca de 10.300 pessoas moram a até uns 300 m daqui, 2.500 delas com até 14 anos.');
+    expect(combinedCensusLine(c, 2, { lang: 'pt', withRace: true, heat: true })!.text).toBe('Os 2 lugares somam cerca de 10.300 moradores num raio de 300 m; 51% se declaram pretos ou pardos; 68% das casas estão em ruas sem árvores; e a renda típica do responsável é R$ 1.625.');
+    expect(beneficiariesHint(c, 'pt')).toBe('Pelo Censo 2022, cerca de 10.300 pessoas moram num raio de 300 m daqui, 2.500 delas com até 14 anos.');
     expect(beneficiariesHint({ ...c, people: 20 }, 'pt')).toBeNull();
   });
 });
@@ -116,18 +116,30 @@ test.describe('the documents gain the lines — and nothing the organisation sai
     return s.sections;
   };
 
-  test('the proposta inicial: census lines in Território, their own words untouched, no race', () => {
+  test('the proposta inicial: "Quem mora perto" after the map, the argument in Impacto, references in Indicadores — their words untouched, no race', () => {
     const base = prenoteInputFromSections(sections());
     const before = buildPrenote(base);
     const after = buildPrenote({ ...base, census: censusForSite(base.site) });
-    const t = after.sections.find(s => s.id === 'territorio')!;
-    expect(t.title).toBe('O lugar nos mapas e quem mora perto');
-    expect(t.lines.some(l => /pessoas moram a até ~300 m/.test(l.text) && /IBGE, Censo 2022/.test(l.source ?? ''))).toBe(true);
-    expect(t.lines.some(l => /ruas sem árvores/.test(l.text))).toBe(true);
+    const ids = after.sections.map(s => s.id);
+    const e = after.sections.find(s => s.id === 'entorno')!;
+    expect(e.title).toBe('Quem mora perto');
+    expect(ids.indexOf('entorno')).toBe(ids.indexOf(ids.includes('territorio') ? 'territorio' : 'problema') + 1);
+    expect(e.lines.some(l => /pessoas moram num raio de 300 m/.test(l.text) && /IBGE, Censo 2022/.test(l.source ?? ''))).toBe(true);
+    // The heat argument is in Impacto, not repeated in "Quem mora perto".
+    expect(e.lines.some(l => /ruas sem árvores/.test(l.text))).toBe(false);
+    expect(after.sections.find(s => s.id === 'impacto')!.lines.some(l => /ruas sem árvores.*quem mais sofre no calor/.test(l.text))).toBe(true);
+    expect(after.sections.find(s => s.id === 'indicadores')!.lines.some(l => /referência pública: ~[\d.]+ domicílios num raio de 300 m/.test(l.text))).toBe(true);
     expect(JSON.stringify(after)).not.toMatch(/pretas|pardas/);
-    // Everything else is exactly as before.
-    for (const s of before.sections.filter(x => x.id !== 'territorio')) expect(after.sections.find(x => x.id === s.id)).toEqual(s);
+    // Everything they said is exactly as before.
+    for (const s of before.sections.filter(x => !['entorno', 'impacto', 'indicadores'].includes(x.id))) expect(after.sections.find(x => x.id === s.id)).toEqual(s);
     expect(JSON.stringify(after)).toContain('umas 40 famílias da vila');
+  });
+
+  test('a census note never becomes a household target', () => {
+    const base = prenoteInputFromSections(sections());
+    const p = buildPrenote({ ...base, site: { ...base.site, beneficiaries_note: 'Quase todas as ~5.200 pessoas que moram num raio de 300 m (Censo 2022), segundo a organização' }, census: censusForSite(base.site) });
+    const ind = p.sections.find(s => s.id === 'indicadores')!.lines.map(l => l.text).join(' ');
+    expect(ind).not.toMatch(/meta: 5\.?200/);
   });
 
   test('the concept note says who lives nearby under the territory, sourced, without race', () => {
@@ -135,7 +147,7 @@ test.describe('the documents gain the lines — and nothing the organisation sai
     const n = buildConceptNote({ site: base.site, org: { org_name: 'X' }, solutions: ['corredores-verdes'], census: censusForSite(base.site) }, 'pt');
     const text = JSON.stringify(n);
     expect(text).toContain('Quem mora perto, segundo o Censo 2022');
-    expect(text).toMatch(/pessoas moram a até ~300 m/);
+    expect(text).toMatch(/pessoas moram num raio de 300 m/);
     expect(text).not.toMatch(/pretas|pardas/);
   });
 });
@@ -150,7 +162,7 @@ test.describe('the combined project (coordination views)', () => {
     const card = projectCard(['A', 'B'], [org('A', a), org('B', b)], 'pt');
     const union = new Set([...Object.keys(a), ...Object.keys(b)]);
     expect(card.census!.tracts.length).toBe(union.size);
-    expect(card.censusLine!.text).toMatch(/pessoas a até ~300 m dos 2 lugares · \d+% pretas ou pardas/);
+    expect(card.censusLine!.text).toMatch(/Os 2 lugares somam cerca de [\d.]+ moradores num raio de 300 m; \d+% se declaram pretos ou pardos/);
     expect(card.censusLine!.text).toMatch(/ruas sem árvores/);
     // No tracts known → no line, nothing invented.
     expect(projectCard(['A'], [org('A', undefined)], 'pt').censusLine).toBeNull();
@@ -158,6 +170,38 @@ test.describe('the combined project (coordination views)', () => {
 });
 
 test.describe('Encontro 4, live', () => {
+  test('scale chips anchored on the census: "quase todo mundo" records their choice with our number as context', async ({ page }) => {
+    test.setTimeout(120_000);
+    const { TestApi } = await import('./helpers/testApi');
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cboId } = await api.newSession();
+    await api.seedState(cboId, { phase: 4, language: 'pt', sections: [
+      { sectionId: 'org_profile', field: 'org_name', value: 'Coletivo Teste' },
+      { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+      { sectionId: 'intervention_site', field: '_site_lat', value: String(RESTINGA.lat) },
+      { sectionId: 'intervention_site', field: '_site_lng', value: String(RESTINGA.lng) },
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+      { sectionId: 'intervention_type', field: '_e4_recap_done', value: 'yes' },
+      { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'jardins-de-chuva' },
+      { sectionId: 'intervention_type', field: '_visit_json', value: JSON.stringify({ solutionId: 'jardins-de-chuva', areaM2: 120, date: '2026-10-20', recordedAt: 'x' }) },
+    ] });
+    let labels: string[] = [], q = '';
+    for (const [m, k] of [['Vamos começar o Encontro 4.', 'text'], ['É essa ✓', 'chip'], ['Isso ✓', 'chip'], ['Isso ✓', 'chip']] as const) {
+      const r = await page.request.post(`/api/cbo/${cboId}/chat`, { data: { message: m, lang: 'pt', turnKind: k } });
+      const ev = (await r.text()).split('\n\n').filter(b => b.startsWith('data:')).map(b => { try { return JSON.parse(b.slice(5)); } catch { return null; } }).filter(Boolean);
+      const ask = ev.filter((e: any) => e.type === 'ask_user').pop();
+      q = String(ask?.question ?? ''); labels = (ask?.options ?? []).map((o: any) => o.label);
+      if (/quem sofre mais/.test(q)) break;
+    }
+    expect(labels).toEqual([expect.stringMatching(/^Quase todo mundo daqui \(~[\d.]+\)$/), 'Uma parte — umas centenas', 'Um grupo específico', 'Não sei dizer']);
+    const people = Number(labels[0].match(/~([\d.]+)/)![1].replace(/\./g, ''));
+    expect(people).toBeGreaterThan(500);
+    await page.request.post(`/api/cbo/${cboId}/chat`, { data: { message: labels[0], lang: 'pt', turnKind: 'chip' } }).then(x => x.text());
+    const st: any = await (await page.request.get(`/api/cbo/${cboId}`)).json();
+    expect((st.state ?? st).sections.intervention_site.fields.beneficiaries_note.value).toMatch(/^Quase todas as ~[\d.]+ pessoas que moram num raio de 300 m \(Censo 2022\), segundo a organização$/);
+  });
+
   test('before "quem é atingido", the census is offered as a starting point — and only while it is unanswered', async ({ page }) => {
     test.setTimeout(120_000);
     const { TestApi } = await import('./helpers/testApi');
@@ -181,7 +225,14 @@ test.describe('Encontro 4, live', () => {
       q = String(ev.filter((e: any) => e.type === 'ask_user').pop()?.question ?? '');
       msg = i === 0 ? 'É essa ✓' : 'Isso ✓'; kind = 'chip';
     }
-    expect(q).toMatch(/^Pelo Censo 2022, cerca de [\d.]+ pessoas moram a até uns 300 m daqui/);
+    expect(q).toMatch(/^Pelo Censo 2022, cerca de [\d.]+ pessoas moram num raio de 300 m daqui/);
     expect(q).toMatch(/Quando esse problema acontece, quem sofre mais\?/);
+    // Their scale, our number as context (round 3, E1).
+    const r = await page.request.post(`/api/cbo/${cboId}/chat`, { data: { message: 'Um grupo específico', lang: 'pt', turnKind: 'chip' } });
+    const ev2 = (await r.text()).split('\n\n').filter(b => b.startsWith('data:')).map(b => { try { return JSON.parse(b.slice(5)); } catch { return null; } }).filter(Boolean);
+    expect(String(ev2.filter((e: any) => e.type === 'ask_user').pop()?.question ?? '')).toBe('Qual grupo, e mais ou menos quantas pessoas?');
+    await page.request.post(`/api/cbo/${cboId}/chat`, { data: { message: 'As crianças da creche, umas 60', lang: 'pt', turnKind: 'text' } }).then(x => x.text());
+    const st: any = await (await page.request.get(`/api/cbo/${cboId}`)).json();
+    expect((st.state ?? st).sections.intervention_site.fields.beneficiaries_note.value).toBe('As crianças da creche, umas 60');
   });
 });

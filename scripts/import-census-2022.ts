@@ -71,6 +71,13 @@ async function main() {
   const health = await get('cem_malha_estabelecimentos_saude_2026', `id_municipio_gestor_2026=eq.${CD_MUN}&select=str_tipo_estabelecimento,str_nome_fantasia,geom`, true);
   const schools = await get('cem_malha_escolas_publicas_2025', `id_municipio=eq.${CD_MUN}&tp_dependencia=neq.Privada&select=no_escola,tp_dependencia,in25_edu02_mat_tot_0,geom`, true);
   const quilombos = await get('incra_malha_quilombos_2024', 'select=name,fase,nr_familia,geom', true);
+  // Fresh-food shops (Overture): patchy in the periphery and sometimes
+  // miscategorised, so only confidence ≥ 0.7, and only ever shown as NAMED
+  // places nearby — never a count, never a "food desert" claim.
+  const food = [
+    ...(await get('overture_br_places_hortifrutis', `municipio_id=eq.${CD_MUN}&confidence=gte.0.7&select=names,category,geom`, true)).features,
+    ...(await get('overture_br_places_supermercados', `municipio_id=eq.${CD_MUN}&confidence=gte.0.7&select=names,category,geom`, true)).features,
+  ];
   const indigenous = await get('funai_malha_terras_indigenas_2024', 'select=name,fase_ti,etnia_nome,geom', true);
 
   const by = <T extends { cd_setor: string }>(rows: T[]) => new Map(rows.map(r => [r.cd_setor, r]));
@@ -118,6 +125,10 @@ async function main() {
       type: 'Feature', geometry: geometry(f.geometry),
       properties: { kind: f.properties.str_tipo_estabelecimento === 'UNIDADE BASICA DE SAUDE' ? 'ubs' : f.properties.str_tipo_estabelecimento === 'HOSPITAL' ? 'hospital' : 'pronto-atendimento', name: f.properties.str_nome_fantasia, source: 'CNES 2026' },
     })),
+    ...food.filter((f: any) => f.geometry && f.properties?.names?.primary).map((f: any) => ({
+      type: 'Feature', geometry: geometry(f.geometry),
+      properties: { kind: 'alimento', name: f.properties.names.primary, source: 'Overture Maps 2025 (estabelecimentos)' },
+    })),
     ...schools.features.filter((f: any) => f.geometry).map((f: any) => ({
       type: 'Feature', geometry: geometry(f.geometry),
       properties: { kind: 'escola', name: f.properties.no_escola, network: f.properties.tp_dependencia, students: n(f.properties.in25_edu02_mat_tot_0), source: 'INEP, Censo Escolar 2025' },
@@ -145,6 +156,7 @@ async function main() {
       census: 'IBGE, Censo Demográfico 2022 — agregados por setor censitário (população, domicílios, renda, entorno)',
       health: 'CNES (Ministério da Saúde), 2026',
       schools: 'INEP, Censo Escolar 2025 — public schools only',
+      food: 'Overture Maps places (hortifrútis, mercados) — confidence ≥ 0.7, names only',
       territories: 'INCRA (quilombos, 2024) and FUNAI (terras indígenas, 2024)',
     },
     counts: { tracts: tracts.features.length, people: total, services: svc.length, territories: terr.length },

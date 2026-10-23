@@ -48,7 +48,7 @@ import { buildConceptNote, applyStoredAuthoring, conceptNoteFacts, type ConceptS
 import type { W3Input } from './w3-dossier';
 import { FIELD_DESTINY } from './field-destiny';
 import { answeredByCoordination, COORD_LABEL, COORD_SOURCE, type CoordKey } from './e4-options';
-import { censusLines, relevanceFor, type CensusAround } from './census';
+import { censusPeopleLine, censusImpactLines, nearbyLine, indicatorReferences, relevanceFor, type CensusAround } from './census';
 
 type Lang = 'pt' | 'en';
 type Rec = Record<string, string | undefined>;
@@ -89,8 +89,8 @@ export interface E4Solution {
   units?: number;
 }
 
-export type PrenoteSectionId = 'organizacao' | 'problema' | 'territorio' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
-export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['organizacao', 'problema', 'territorio', 'solucao', 'impacto', 'indicadores', 'orcamento', 'financiamento', 'parceiros', 'pendencias'];
+export type PrenoteSectionId = 'organizacao' | 'problema' | 'territorio' | 'entorno' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
+export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['organizacao', 'problema', 'territorio', 'entorno', 'solucao', 'impacto', 'indicadores', 'orcamento', 'financiamento', 'parceiros', 'pendencias'];
 
 /** The five things Encontro 4 asks — one per gap, in the order it asks them. */
 export type PrenoteGap = 'beneficiarios' | 'mudancas' | 'quem-faz' | 'contrapartida' | 'parceiros';
@@ -270,6 +270,9 @@ export function prenoteGaps(input: PrenoteInput): PrenoteGap[] {
 
 /** The household count inside "umas 40 famílias, as da rua de baixo". */
 export function householdsFrom(note: string | undefined): number | null {
+  // A note built from the census scale chips carries OUR number of residents —
+  // not their count of households, never a target.
+  if (/Censo 2022/.test(note ?? '')) return null;
   const m = (note ?? '').replace(/\./g, '').match(/\b(\d{1,5})\b/);
   return m ? Number(m[1]) : null;
 }
@@ -282,14 +285,14 @@ export function editIsStale(edit: PrenoteEdit, basis: string): boolean {
 const T = {
   pt: {
     organizacao: 'A organização e o território',
-    problema: 'O problema', territorio: 'O lugar nos mapas da cidade', solucao: 'A solução', impacto: 'Impacto esperado', indicadores: 'Indicadores',
+    problema: 'O problema', territorio: 'O lugar nos mapas da cidade', entorno: 'Quem mora perto', solucao: 'A solução', impacto: 'Impacto esperado', indicadores: 'Indicadores',
     orcamento: 'Orçamento básico', financiamento: 'Caminhos de financiamento', parceiros: 'Parceiros e autorizações', pendencias: 'Pendências',
     estimate: 'estimativa técnica', reviewed: (by?: string, at?: string) => `revisada${by ? ` por ${by}` : ''}${at ? ` em ${fmtDate(at)}` : ''}`,
     waived: 'revisão técnica dispensada pela coordenação',
   },
   en: {
     organizacao: 'The organisation and the territory',
-    problema: 'The problem', territorio: "The site on the city's maps", solucao: 'The solution', impacto: 'Expected impact', indicadores: 'Indicators',
+    problema: 'The problem', territorio: "The site on the city's maps", entorno: 'Who lives nearby', solucao: 'The solution', impacto: 'Expected impact', indicadores: 'Indicators',
     orcamento: 'Basic budget', financiamento: 'Funding paths', parceiros: 'Partners and approvals', pendencias: 'Open items',
     estimate: 'technical estimate', reviewed: (by?: string, at?: string) => `reviewed${by ? ` by ${by}` : ''}${at ? ` on ${fmtDate(at)}` : ''}`,
     waived: 'technical review waived by the coordination',
@@ -310,6 +313,8 @@ function basisOf(id: PrenoteSectionId, input: PrenoteInput, sol: Prenote['soluti
     financiamento: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), input.org?.has_cnpj, input.org?.funding_history, (input.cohort ?? []).join('|')],
     problema: [s.site_worry, s.site_story, s.beneficiaries_note],
     territorio: [(input.cityMap ?? []).map(x => x.text).join('|')],
+    // The census section is computed from public data, not from anything they answered.
+    entorno: [],
     solucao: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t.construction_model],
     impacto: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes],
     indicadores: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes, s.beneficiaries_note],
@@ -417,6 +422,8 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   }
   const indicators = noteIndicators(sol.id, (type._e4_changes ?? '').split(',').map(x => x.trim()).filter(Boolean), site.site_worry, size, lang);
   const chosenChanges = indicators.filter(i => i.kind === 'efeito' && (type._e4_changes ?? '').split(',').includes(i.id));
+  // Why THIS solution here, from public data (round 3, C1-A).
+  for (const x of censusImpactLines(input.census, relevanceFor(sol.id), lang)) impact.push(W(x.text, x.source));
   if (chosenChanges.length) {
     impact.push(W(pt ? `O que a organização quer ver mudar: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.` : `What the organisation wants to see change: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.`, byCoord('mudancas', theirs)));
   }
@@ -427,10 +434,12 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
 
   // ── 4 · Indicadores ───────────────────────────────────────────────────────
   const households = householdsFrom(site.beneficiaries_note);
+  const refs = indicatorReferences(input.census, lang);
   const indLines = indicators.map(i => {
     const target = i.id === 'familias-atendidas' && households ? `${households} ${i.unit}` : i.target;
     const head = `**${i.label}**${target ? ` — meta: ${target}` : ''}${i.estimate ? ` — ${pt ? 'estimativa' : 'estimate'}: ${i.estimate.replace(/\.$/, '')}` : ''}`;
-    return F(`${head}. ${pt ? 'Como medir' : 'How to measure'}: ${i.how} ${pt ? 'Linha de base' : 'Baseline'}: ${i.baseline}`, `${i.source}${INDICATOR_MENU_REVIEW ? '' : pt ? ' · proposta técnica, a revisar' : ' · technical proposal, to review'}`);
+    const ref = refs[i.id];
+    return F(`${head}. ${pt ? 'Como medir' : 'How to measure'}: ${i.how} ${pt ? 'Linha de base' : 'Baseline'}: ${i.baseline}${ref ? ` (${ref}.)` : ''}`, `${i.source}${INDICATOR_MENU_REVIEW ? '' : pt ? ' · proposta técnica, a revisar' : ' · technical proposal, to review'}`);
   });
   sections.push({ id: 'indicadores', title: L.indicadores, lines: indLines, missing: null });
 
@@ -531,12 +540,15 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   // Its own section, before the record's paragraphs are placed, so the same
   // lines the concept note prints under "a organização e o território" are
   // recognised as already said and not repeated there.
-  // Pretos e pardos stay in the coordination's views (decision D3) — this page is the organisation's.
-  const census = censusLines(input.census, { lang, relevance: relevanceFor(sol?.id) }).map(x => W(x.text, x.source));
-  const cityMap = [...(input.cityMap ?? []).map(x => W(x.text, x.source)), ...census];
-  // The census is not "the city's maps": with it, the section says what it holds.
-  const territoryTitle = census.length ? (pt ? 'O lugar nos mapas e quem mora perto' : 'The site on the maps, and who lives nearby') : L.territorio;
-  if (cityMap.length) sections.splice(sections.findIndex(x => x.id === 'problema') + 1, 0, { id: 'territorio', title: territoryTitle, lines: cityMap, missing: null });
+  // Two sections (round 3, P1-A): the city's maps, then who lives nearby —
+  // pretos e pardos stay in the coordination's views (D3), this page is the organisation's.
+  const cityMap = (input.cityMap ?? []).map(x => W(x.text, x.source));
+  if (cityMap.length) sections.splice(sections.findIndex(x => x.id === 'problema') + 1, 0, { id: 'territorio', title: L.territorio, lines: cityMap, missing: null });
+  const rel = relevanceFor(sol?.id);
+  const people = censusPeopleLine(input.census, { lang });
+  const near = input.census ? nearbyLine(input.census.nearby, lang, rel) : null;
+  const entorno = [people, near].filter((x): x is { text: string; source: string } => !!x).map(x => W(x.text, x.source));
+  if (entorno.length) sections.splice(sections.findIndex(x => x.id === (cityMap.length ? 'territorio' : 'problema')) + 1, 0, { id: 'entorno', title: L.entorno, lines: entorno, missing: null });
 
   const extra = recordParagraphs(input, sol, lang);
   const seen = new Set<string>();
