@@ -48,6 +48,7 @@ import { buildConceptNote, applyStoredAuthoring, conceptNoteFacts, type ConceptS
 import type { W3Input } from './w3-dossier';
 import { FIELD_DESTINY } from './field-destiny';
 import { answeredByCoordination, COORD_LABEL, COORD_SOURCE, type CoordKey } from './e4-options';
+import { censusLines, relevanceFor, type CensusAround } from './census';
 
 type Lang = 'pt' | 'en';
 type Rec = Record<string, string | undefined>;
@@ -69,6 +70,14 @@ export interface PrenoteInput {
   cohort?: string[];
   /** What the city's maps say about the marked site (server/services/siteContext.ts). */
   cityMap?: Array<{ text: string; source: string }>;
+  /**
+   * Who lives around the site, from the 2022 Census (server/services/
+   * censusContext.ts). Printed in Território beside the map facts, never in
+   * the organisation's mouth (docs/census-2022.md). Deliberately NOT part of
+   * the section's edit basis: a rewrite made before the census arrived stays
+   * valid and keeps winning.
+   */
+  census?: CensusAround | null;
 }
 
 /** What Encontro 4 stores about the solution it confirmed. */
@@ -522,8 +531,12 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   // Its own section, before the record's paragraphs are placed, so the same
   // lines the concept note prints under "a organização e o território" are
   // recognised as already said and not repeated there.
-  const cityMap = (input.cityMap ?? []).map(x => W(x.text, x.source));
-  if (cityMap.length) sections.splice(sections.findIndex(x => x.id === 'problema') + 1, 0, { id: 'territorio', title: L.territorio, lines: cityMap, missing: null });
+  // Pretos e pardos stay in the coordination's views (decision D3) — this page is the organisation's.
+  const census = censusLines(input.census, { lang, relevance: relevanceFor(sol?.id) }).map(x => W(x.text, x.source));
+  const cityMap = [...(input.cityMap ?? []).map(x => W(x.text, x.source)), ...census];
+  // The census is not "the city's maps": with it, the section says what it holds.
+  const territoryTitle = census.length ? (pt ? 'O lugar nos mapas e quem mora perto' : 'The site on the maps, and who lives nearby') : L.territorio;
+  if (cityMap.length) sections.splice(sections.findIndex(x => x.id === 'problema') + 1, 0, { id: 'territorio', title: territoryTitle, lines: cityMap, missing: null });
 
   const extra = recordParagraphs(input, sol, lang);
   const seen = new Set<string>();

@@ -56,7 +56,7 @@ test.describe('the facts carry what Encontro 3 now collects', () => {
 
   test('⚠️ both hand-assembled member lists spread the same helper — nothing new can be left out of one', () => {
     const extras = synergyExtrasFrom(synergyFactsFrom(CALDAS));
-    expect(Object.keys(extras).sort()).toEqual(['choiceCriteria', 'fileNotesPt', 'studiesDone', 'technicalNote', 'tested']);
+    expect(Object.keys(extras).sort()).toEqual(['choiceCriteria', 'fileNotesPt', 'studiesDone', 'technicalNote', 'tested', 'visitPt']);
     expect(extras.technicalNote).toBe('Solo argiloso; dreno de fundo obrigatório.');
     for (const file of ['server/routes/cohortRoutes.ts', 'server/services/projectContext.ts']) {
       expect(fs.readFileSync(path.join(process.cwd(), file), 'utf8'), file).toContain('...synergyExtrasFrom(');

@@ -69,6 +69,8 @@ export interface BriefShared {
   pooledBodies: Array<{ body: string; orgNames: string[] }>;
   sharedFundingBarriers: Array<{ path: string; orgNames: string[] }>;
   gaps: string[];
+  /** Who lives around the places, 2022 Census, each tract once — set server-side. The organisations read this: no race (D3). */
+  census?: { text: string; source: string } | null;
 }
 
 export interface ProjectBrief {

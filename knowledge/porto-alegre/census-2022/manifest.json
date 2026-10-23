@@ -1,0 +1,51 @@
+{
+  "importedAt": "2026-10-23",
+  "via": "GeoReDUS open API (https://dev-geoapi-metadata.orioro.design) — CEM/USP's organisation of public data",
+  "sources": {
+    "census": "IBGE, Censo Demográfico 2022 — agregados por setor censitário (população, domicílios, renda, entorno)",
+    "health": "CNES (Ministério da Saúde), 2026",
+    "schools": "INEP, Censo Escolar 2025 — public schools only",
+    "territories": "INCRA (quilombos, 2024) and FUNAI (terras indígenas, 2024)"
+  },
+  "counts": {
+    "tracts": 2744,
+    "people": 1332845,
+    "services": 515,
+    "territories": 7
+  },
+  "withheld": {
+    "c": 191,
+    "e": 54,
+    "pp": 52,
+    "r": 49,
+    "t": 67,
+    "w": 71
+  },
+  "checks": [
+    {
+      "check": "people sum to IBGE's total for Porto Alegre (1332845)",
+      "ok": true,
+      "got": 1332845
+    },
+    {
+      "check": "every tract has a population figure",
+      "ok": true,
+      "got": 0
+    },
+    {
+      "check": "tract count is 2,744 (IBGE malha 2022)",
+      "ok": true,
+      "got": 2744
+    },
+    {
+      "check": "homes without sewage never exceed homes",
+      "ok": true,
+      "got": null
+    },
+    {
+      "check": "street-tree shares are between 0 and 1",
+      "ok": true,
+      "got": null
+    }
+  ]
+}

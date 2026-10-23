@@ -45,6 +45,7 @@ export function renderProjectBriefHtml(b: ProjectBrief, lang: 'pt' | 'en' = 'pt'
 
   <section class="shared">
     <h2>${esc(t.shared)}</h2>
+    ${b.shared.census ? `<p>${esc(b.shared.census.text)} <span class="muted">(${esc(b.shared.census.source)})</span></p>` : ''}
     ${b.shared.groups.length ? `<h3>${esc(t.groups)}</h3>${li(b.shared.groups.map(g => `**${g.axis} — ${g.key}**: ${g.orgNames.join(', ')}${g.because.length ? ` (${g.because.join('; ')})` : ''}`))}` : ''}
     ${b.shared.pooledStudies.length ? `<h3>${esc(t.studies)}</h3>${li(b.shared.pooledStudies.map(p => `${p.need}: ${p.orgNames.join(', ')}`))}` : ''}
     ${b.shared.pooledInstruments.length ? `<h3>${esc(t.instruments)}</h3>${li(b.shared.pooledInstruments.map(p => `${p.instrument}: ${p.orgNames.join(', ')}`))}` : ''}

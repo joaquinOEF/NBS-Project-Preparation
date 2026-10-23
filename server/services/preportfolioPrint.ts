@@ -115,6 +115,7 @@ export function renderPreportfolioHtml(input: {
     ${g.narrative?.synergies.length ? `<h3>O que fazem melhor juntas</h3><ul>${g.narrative.synergies.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     ${outsideOf([c]).length ? `<p class="outside">Fora da soma: ${esc(outsideOf([c]).join('; '))}.</p>` : ''}
     <p class="chips">${c.riskLabels.length ? `<span>${esc(c.riskLabels.join(' · '))}</span>` : ''}<span>${c.budget ? esc(`${brl(c.budget.low)}–${brl(c.budget.high)}`) : 'sem estimativa'}</span><span>${esc(c.horizonLabel)}</span></p>
+    ${c.censusLine ? `<p class="census">${esc(c.censusLine.text)} <span class="src">${esc(c.censusLine.source)}</span></p>` : ''}
     ${g.story ? `<h3>A história</h3><p>${md(g.story)}</p>` : ''}
     ${g.quote ? `<blockquote>${esc(g.quote)}</blockquote>` : ''}
     ${c.places.length ? placesMap(c.places.map((p, k) => ({ ...p, n: k + 1 })), c.places.map((p, k) => `${k + 1}. ${p.label}`).join(' · ')) : ''}
@@ -157,6 +158,7 @@ export function renderPreportfolioHtml(input: {
   .project h3 { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 4px; }
   .why { color: #4c574f; margin: 0 0 6px; }
   .outside { color: #4c574f; font-size: 12px; }
+  .census { font-size: 11.5px; margin: 2px 0 8px; } .census .src { color: #6b7b71; }
   .chips span { display: inline-block; border: 1px solid #cfd8d1; border-radius: 999px; padding: 1px 8px; margin-right: 4px; font-size: 11.5px; }
   blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid #9fb3a6; font-style: italic; }
   .src { color: #6d776f; font-size: 10.5px; }

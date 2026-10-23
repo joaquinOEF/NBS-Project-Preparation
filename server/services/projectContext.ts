@@ -18,7 +18,9 @@
 // be in a room together, and the room is the project.
 // ============================================================================
 
-import { cityMapFor } from './siteContext';
+import { cityMapFor, sitePoint } from './siteContext';
+import { censusAroundMany, censusForSite } from './censusContext';
+import { combinedCensusLine, censusLines, relevanceFor } from '@shared/census';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import { cohortMembers, cohortProjects, cohorts, type CohortProject } from '@shared/cohort-schema';
@@ -107,6 +109,7 @@ export async function loadProjectMembers(project: CohortProject): Promise<Projec
       currentUse: facts?.currentUse ?? null,
       photoNotesPt: facts?.photoNotesPt ?? [],
       cityMapPt: cityMapFor(site).map(x => x.text),
+      censusPt: censusLines(censusForSite(site), { lang: 'pt', relevance: { heat: true, water: true }, withRace: true }).map(x => x.text),
       worry: worries[0] ?? null,
       familias: facts?.familias ?? [],
       solutions: facts?.solutions ?? [],
@@ -147,13 +150,22 @@ export async function loadProjectMembers(project: CohortProject): Promise<Projec
 
 export async function projectBrief(project: CohortProject, lang: 'pt' | 'en' = 'pt'): Promise<ProjectBrief> {
   const members = await loadProjectMembers(project);
-  return buildProjectBrief({ id: project.id, title: project.title }, members, lang);
+  return withCensus(buildProjectBrief({ id: project.id, title: project.title }, members, lang), members, lang);
+}
+
+/** The 2022 Census around the members' places, each tract once (docs/census-2022.md). */
+function withCensus(brief: ProjectBrief, members: ProjectMemberFacts[], lang: 'pt' | 'en'): ProjectBrief {
+  const pins = members.map(m => sitePoint(m.input.site as Record<string, string | undefined>)).filter((p): p is { lat: number; lng: number } => !!p);
+  const census = pins.length ? censusAroundMany(pins) : null;
+  const heat = members.some(m => (m.input.solutions ?? []).some(id => relevanceFor(id)?.heat));
+  brief.shared.census = combinedCensusLine(census, pins.length, { lang, heat });
+  return brief;
 }
 
 /** The brief and the members it was built from — one read for the checkpoint's beats. */
 export async function projectFacts(project: CohortProject, lang: 'pt' | 'en' = 'pt'): Promise<{ brief: ProjectBrief; members: ProjectMemberFacts[] }> {
   const members = await loadProjectMembers(project);
-  return { brief: buildProjectBrief({ id: project.id, title: project.title }, members, lang), members };
+  return { brief: withCensus(buildProjectBrief({ id: project.id, title: project.title }, members, lang), members, lang), members };
 }
 
 /** The choices the project encontro wrote on the project's own state. */

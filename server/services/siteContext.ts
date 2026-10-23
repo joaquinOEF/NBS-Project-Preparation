@@ -149,7 +149,8 @@ export function siteFacts(lat: number, lng: number): SiteFact[] {
 
 /** The point a pre-note's territory is read from: the site marked on the map. */
 export function sitePoint(site: Record<string, string | undefined>): { lat: number; lng: number } | null {
-  const rawLat = site.site_lat ?? site._site_lat, rawLng = site.site_lng ?? site._site_lng;
+  // `||`, not `??`: some readers hand an empty field over as '' — and an empty site_lat must not hide _site_lat.
+  const rawLat = site.site_lat || site._site_lat, rawLng = site.site_lng || site._site_lng;
   const lat = Number(rawLat), lng = Number(rawLng);
   if (!rawLat || !rawLng || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   // Porto Alegre's box, generously: a pin dropped in the ocean is not a site.

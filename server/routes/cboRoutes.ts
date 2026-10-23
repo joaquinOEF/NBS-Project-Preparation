@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { recordedSolutionIds, testsOf } from '@shared/recorded-solutions';
 import { cityMapFor } from '../services/siteContext';
+import { censusForSite } from '../services/censusContext';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
@@ -707,6 +708,7 @@ export function registerCboRoutes(app: Express): void {
       // Same layer the authoring pass saw. See runConceptNoteAuthor.
       cohort: await cohortLinesFor(req.params.id, lang).catch(() => []),
       cityMap: cityMapFor(site),
+      census: censusForSite(site),
     }, lang);
 
     // Prose written at the close, re-checked against the facts as they stand
