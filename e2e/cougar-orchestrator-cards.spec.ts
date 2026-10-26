@@ -98,6 +98,39 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
     await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${member.id}`)).toHaveCount(0);
   });
 
+  test("⚠️ the REAL Ksa Rosa shape: first-era chosen_solutions, no tests list — past Encontro 2 from phase 3, not before", async ({ page }) => {
+    // The spec above modelled Ksa Rosa with `solution_tests_json`; the prod
+    // record (copy of 23 Oct) has none — only `chosen_solutions`, written by the
+    // chat model on 30 Sep, one of them not in the catalogue. #600 therefore
+    // never moved it (prod, 26 Oct 2026).
+    test.setTimeout(120_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`Cards ${randomUUID().slice(0, 8)}`)).cohort;
+    await api.createCoordinator({ email: `cards-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const seed = async (orgName: string, phase: number) => {
+      const m = (await api.inviteMember(cohort.id, { orgName, neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3, 4] })).member;
+      await api.seedState(m.cboStateId, {
+        phase,
+        language: 'pt',
+        sections: [
+          { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+          { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'captacao-agua-da-chuva, compostagem, cozinha-comunitaria-biodigestor, aquecedor-solar' },
+        ],
+      });
+      return m;
+    };
+    const ksa = await seed('Ksa Rosa', 3);
+    const early = await seed('Ainda no Encontro 2', 2);
+
+    await page.goto('/orchestrator');
+    await expect(page.getByTestId(`card-orchestrator-project-${ksa.id}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`button-visit-${ksa.id}`)).toContainText('visita técnica');
+    await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${ksa.id}`)).toHaveCount(0);
+    // The same list at phase 2 does not move an organisation on.
+    await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${early.id}`)).toBeVisible();
+  });
+
   test('an org that has not started W2 shows no empty badges', async ({ page }) => {
     test.setTimeout(120_000);
     const api = new TestApi(page.request);
