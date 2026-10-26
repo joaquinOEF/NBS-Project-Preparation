@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { getFamilia, getSolution } from './nbs-catalog';
+import { SOLUTION_STRENGTHS, addresses } from './solution-strengths';
 
 export type Lang = 'pt' | 'en';
 
@@ -96,15 +97,20 @@ export const CENSUS_SOURCE: Record<Lang, string> = {
 export interface CensusRelevance { heat: boolean; water: boolean; food?: boolean }
 
 /**
- * From the solution's família weights (shared/nbs-catalog.ts — the same ones
- * that rank famílias): ≥ 0.5 on heat → the street-tree line; ≥ 0.5 on flood →
- * the sewage line. Unknown solution → null (people only).
+ * From Robson's rating of THIS solution (shared/solution-strengths.ts, 26 Oct):
+ * Forte or Média on heat → the street-tree line; on flood → the sewage line.
+ * A solution he has not rated falls back to its família's weights (≥ 0.5) —
+ * none today, the invariant there covers the catalog. Unknown solution → null
+ * (people only).
  */
 export function relevanceFor(solutionId: string | null | undefined): CensusRelevance | null {
   const sol = solutionId ? getSolution(solutionId) : undefined;
   const fam = sol ? getFamilia(sol.familiaId) : undefined;
-  if (!fam) return null;
-  return { heat: (fam.hazards.heat ?? 0) >= 0.5, water: (fam.hazards.flood ?? 0) >= 0.5, food: fam.id === 'agricultura-urbana' };
+  if (!sol || !fam) return null;
+  const food = fam.id === 'agricultura-urbana';
+  const rated = SOLUTION_STRENGTHS[sol.id];
+  if (rated) return { heat: addresses(rated.heat), water: addresses(rated.flood), food };
+  return { heat: (fam.hazards.heat ?? 0) >= 0.5, water: (fam.hazards.flood ?? 0) >= 0.5, food };
 }
 
 const round = (v: number) => (v >= 1000 ? Math.round(v / 100) * 100 : Math.round(v / 10) * 10);
