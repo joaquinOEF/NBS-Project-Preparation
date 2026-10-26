@@ -4,6 +4,15 @@ import { db } from '../db';
 import { documents, type DocumentRow, type DocumentKind, type DocumentPurpose, type DocumentMeta } from '@shared/document-schema';
 import { cboStates } from '@shared/cbo-db-schema';
 import { eq, desc, and, or, inArray, sql } from 'drizzle-orm';
+import { readableFilename } from '@shared/readable-filename';
+
+// ⚠️ Every read hands back the name as the organisation typed it. Uploads made
+// before the multipart fix were stored with UTF-8 read as Latin-1
+// ("CROQUI_PraÃ§a…" — 9 of Conceito Arte's files, 1 of SDV's in prod, 26 Oct
+// 2026). The screens repaired it, but the name also reaches model prompts, the
+// E3 notes' sources, the synergy report and download headers, so it is repaired
+// here, once, where every one of them reads it. The stored row is not rewritten.
+const readable = <T extends { filename: string }>(r: T): T => ({ ...r, filename: readableFilename(r.filename) });
 
 // A document "belongs" to a CBO if it matches the member's org (cross-session
 // evidence locker) OR the specific working-profile/session it was uploaded in.
@@ -23,9 +32,10 @@ function scopeConds(scope: DocumentScope) {
 export async function listDocumentsForScope(scope: DocumentScope): Promise<DocumentRow[]> {
   const conds = scopeConds(scope);
   if (conds.length === 0) return [];
-  return db.select().from(documents)
+  const rows = await db.select().from(documents)
     .where(conds.length === 1 ? conds[0] : or(...conds))
     .orderBy(desc(documents.createdAt));
+  return rows.map(readable);
 }
 
 /** A single document, accepted only if it falls within the given scope. */
@@ -95,7 +105,7 @@ export async function createDocument(input: {
 
 /** All of an org's documents, newest first. The evidence locker for the agent. */
 export async function listDocumentsByOrg(orgId: string): Promise<DocumentRow[]> {
-  return db.select().from(documents).where(eq(documents.orgId, orgId)).orderBy(desc(documents.createdAt));
+  return (await db.select().from(documents).where(eq(documents.orgId, orgId)).orderBy(desc(documents.createdAt))).map(readable);
 }
 
 /** Summary metadata only — distinctly typed so `.fullText` misuse is a compile
@@ -127,7 +137,8 @@ export async function listDocumentSummariesForScope(scope: DocumentScope): Promi
     })
     .from(documents)
     .where(conds.length === 1 ? conds[0] : or(...conds))
-    .orderBy(desc(documents.createdAt));
+    .orderBy(desc(documents.createdAt))
+    .then(rows => rows.map(readable));
 }
 
 /** Remove one document row (its original blob, if any, is left to storage). */
@@ -147,7 +158,8 @@ export async function listDocumentSummariesByOrg(orgId: string): Promise<Documen
     })
     .from(documents)
     .where(eq(documents.orgId, orgId))
-    .orderBy(desc(documents.createdAt));
+    .orderBy(desc(documents.createdAt))
+    .then(rows => rows.map(readable));
 }
 
 /** Document counts for a set of orgs, in one grouped query — powers the per-CBO
@@ -199,13 +211,13 @@ export async function getDocumentForOrg(id: string, orgId: string): Promise<Docu
   const [doc] = await db.select().from(documents)
     .where(and(eq(documents.id, id), eq(documents.orgId, orgId)))
     .limit(1);
-  return doc ?? null;
+  return doc ? readable(doc) : null;
 }
 
 /** A single document by id (UUID). Used by the original-file download route. */
 export async function getDocumentById(id: string): Promise<DocumentRow | null> {
   const [doc] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
-  return doc ?? null;
+  return doc ? readable(doc) : null;
 }
 
 /** Record the durable-storage key for a document's original blob (Phase 2b). */
@@ -254,7 +266,7 @@ export async function docPreviewForMembers(
       // Only images with a durable original can render — without a storageKey
       // the card would show a broken frame, so it falls back to the count.
       imageIds: mine.filter(r => r.kind === 'image' && r.storageKey).slice(0, maxImages).map(r => r.id),
-      filenames: mine.filter(r => r.kind !== 'image').slice(0, maxNames).map(r => r.filename),
+      filenames: mine.filter(r => r.kind !== 'image').slice(0, maxNames).map(r => readableFilename(r.filename)),
       teiaSprint: mine.some(r => r.purpose === 'teia_sprint'),
     });
   }

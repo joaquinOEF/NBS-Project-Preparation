@@ -249,7 +249,11 @@ export function registerUploadRoutes(app: Express): void {
       const buf = await getObject(doc.storageKey);
       if (!buf) { res.status(404).json({ error: "original not available" }); return; }
       res.setHeader("Content-Type", doc.mimeType || "application/octet-stream");
-      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(doc.filename)}"`);
+      // RFC 6266: a percent-encoded name only decodes as `filename*=UTF-8''…`;
+      // `filename="%C3%A7…"` saved the file under the literal escapes. The plain
+      // `filename` is an ASCII fallback for clients that ignore `filename*`.
+      const ascii = doc.filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+      res.setHeader("Content-Disposition", `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(doc.filename)}`);
       res.send(buf);
     } catch (error: any) {
       console.error('[upload] original download error:', error.message);

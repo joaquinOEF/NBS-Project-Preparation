@@ -26,6 +26,7 @@
 // ============================================================================
 
 import { readableNotes } from './cbo-field-catalog';
+import { readableFilename } from './readable-filename';
 
 /** 'dito' is never the model's: it marks a line the organisation SAID, placed by the platform (see notesFromInput). */
 export type NoteStance = 'a-favor' | 'contra' | 'condicao' | 'dito';
@@ -118,7 +119,9 @@ export function parseDocumentNotes(json: string | undefined | null): DocumentNot
     return notes.filter((n: any) =>
       n && typeof n.solutionId === 'string' && STORED_STANCES.includes(n.stance)
       && typeof n.textPt === 'string' && n.textPt.trim()
-      && typeof n.quote === 'string' && typeof n.sourceFilename === 'string');
+      && typeof n.quote === 'string' && typeof n.sourceFilename === 'string')
+      // Stored before file names were repaired on read ("PraÃ§a…"): every reader gets it readable.
+      .map((n: DocumentNote) => ({ ...n, sourceFilename: readableFilename(n.sourceFilename) }));
   } catch { return []; }
 }
 
@@ -127,7 +130,8 @@ export function parseDocumentMeasures(json: string | undefined | null): Document
   try {
     const ms = JSON.parse(json)?.measures;
     if (!Array.isArray(ms)) return [];
-    return ms.filter((m: any) => m && typeof m.labelPt === 'string' && typeof m.quote === 'string' && typeof m.sourceFilename === 'string' && Number(m.m2) > 0);
+    return ms.filter((m: any) => m && typeof m.labelPt === 'string' && typeof m.quote === 'string' && typeof m.sourceFilename === 'string' && Number(m.m2) > 0)
+      .map((m: DocumentMeasure) => ({ ...m, sourceFilename: readableFilename(m.sourceFilename) }));
   } catch { return []; }
 }
 

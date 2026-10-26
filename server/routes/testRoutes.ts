@@ -36,7 +36,7 @@ import {
 import { setFakeScript, clearFakeScript, peekFakeScript, type FakeTurn } from '../services/fakeCboModel';
 import { createCoordinator, login, COORD_COOKIE } from '../services/coordinatorAuth';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
-import { getOrgIdForCboState, listDocumentsByOrg } from '../services/documentPersistence';
+import { getOrgIdForCboState, listDocumentsByOrg, createDocument } from '../services/documentPersistence';
 import { cohorts, cohortMembers, DEFAULT_WORKSHOPS } from '@shared/cohort-schema';
 import { coordinators, coordinatorSessions } from '@shared/coordinator-schema';
 import { prepareAskUser } from '../services/askUserGuards';
@@ -231,6 +231,17 @@ export function registerTestRoutes(app: Express): void {
     if (!orgId) { res.json({ orgId: null, documents: [] }); return; }
     const documents = await listDocumentsByOrg(orgId);
     res.json({ orgId, documents });
+  }));
+
+  // A document row written exactly as given — how uploads were stored before
+  // the multipart name fix ("PraÃ§a…"), so a spec can prove every read repairs it.
+  app.post('/__test/cbo/:id/documents', wrap(async (req, res) => {
+    const orgId = await getOrgIdForCboState(req.params.id);
+    const doc = await createDocument({
+      orgId, cboStateId: req.params.id, filename: String(req.body?.filename ?? 'x.pdf'),
+      kind: (req.body?.kind ?? 'pdf') as any, fullText: req.body?.fullText ?? null, summary: req.body?.summary ?? null,
+    });
+    res.json({ id: doc.id, stored: doc.filename });
   }));
 
   // ── Coordinators ──────────────────────────────────────────────────────────
