@@ -90,13 +90,18 @@ export function journeyClosed(p: Pick<JourneyCardData, 'w3'>): { e2: boolean; e3
 }
 
 /** The one rule: the next thing that has to happen for this organisation, and who does it. */
-export function nextStepOf(p: Pick<JourneyCardData, 'phase' | 'w3'>): NextStep {
+export function nextStepOf(p: Pick<JourneyCardData, 'phase' | 'w3'> & { hasPlace?: boolean }): NextStep {
   const c = journeyClosed(p);
   if (!c.e2) {
     const n = Math.max(1, Math.min(2, p.phase));
+    // "— marcar o lugar" only when the place is missing. Misturaí and IECAM
+    // marked theirs in August and stopped before Encontro 2's closing beat; the
+    // card told the coordination to have them mark it again (prod, 26 Oct 2026).
     return n === 1
       ? { actor: 'early', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 1', en: 'Finish Encontro 1' } }
-      : { actor: 'early', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 2 — marcar o lugar', en: 'Finish Encontro 2 — mark the place' } };
+      : p.hasPlace
+        ? { actor: 'early', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 2', en: 'Finish Encontro 2' } }
+        : { actor: 'early', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 2 — marcar o lugar', en: 'Finish Encontro 2 — mark the place' } };
   }
   if (!c.e3 && !c.tested) return { actor: 'organisation', who: 'org', tone: 'stone', text: { pt: 'Terminar o Encontro 3 — testar as soluções', en: 'Finish Encontro 3 — test the solutions' } };
   if (!p.w3.visit && !c.e4) return { actor: 'coordination', who: 'visit', tone: 'amber', isVisit: true, text: { pt: 'Registrar a visita técnica', en: 'Record the technical visit' } };
