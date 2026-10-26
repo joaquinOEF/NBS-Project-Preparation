@@ -363,7 +363,7 @@ const EMPTY_W3: MemberW3Signal = {
  *  the comparison, the org's closing card is the COMPARISON, not the dossier —
  *  they agree on money only because both price each solution through `sizeOf`
  *  (shared/w3-tests.ts), at the size it was tested. */
-function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
+function w3SignalFrom(sections: CboState['sections'], phase = 0): MemberW3Signal {
   const asRecord = (id: string) =>
     Object.fromEntries(
       Object.entries(((sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
@@ -385,7 +385,14 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     e4: encontroClosed({ sections, maturityScores: [] } as any, 4),
   };
   const tests = allTests.map(t => ({ id: t.solutionId, reaction: t.reaction ?? null }));
-  const testedInE3 = realTests.some(t => !!t.reaction);
+  // ⚠️ Every era of record counts, from phase 3 on. #600 read only the loop's
+  // `solution_tests_json` — and the real Ksa Rosa has none: its four solutions
+  // (30 Sep) were written by the chat model straight into `chosen_solutions`,
+  // the first-era shape, so the fix never reached it and the board kept it in
+  // "Ainda nos Encontros 1–2" (prod, 26 Oct 2026). Phase 3 is the guard: an
+  // organisation still in Encontro 2 is not moved on by a stray list.
+  const firstEra = phase >= 3 && !realTests.length && (allTests.length > 0 || !!(type.solution_types ?? '').trim() || !!(type.chosen_solutions ?? '').trim());
+  const testedInE3 = realTests.some(t => !!t.reaction) || firstEra;
   const skipped = { e2: encontroSkipped({ sections } as any, 2), e3: encontroSkipped({ sections } as any, 3) };
   // ⚠️ No verdict before Encontro 3 closes. Computed from Encontro 2's tenure
   // alone, it told the coordination that Instituto de Estudos Culturais —
@@ -442,7 +449,7 @@ async function attachDerivedSections<
   const synergyByState = new Map<string, SynergyFacts>();
   if (ids.length > 0) {
     const rows = await db
-      .select({ id: cboStates.id, sections: cboStates.sections })
+      .select({ id: cboStates.id, sections: cboStates.sections, phase: cboStates.phase })
       .from(cboStates)
       .where(inArray(cboStates.id, ids));
     for (const row of rows) {
@@ -474,7 +481,7 @@ async function attachDerivedSections<
         console.error(`[cohort] synergy facts failed for ${row.id}:`, err);
       }
       try {
-        w3ByState.set(row.id, w3SignalFrom(sections));
+        w3ByState.set(row.id, w3SignalFrom(sections, row.phase ?? 0));
       } catch (err) {
         console.error(`[cohort] w3 signal failed for ${row.id}:`, err);
       }
