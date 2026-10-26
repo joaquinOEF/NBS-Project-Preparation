@@ -3,10 +3,12 @@
 // compare it to the committed copy.
 import { NBS_SOLUTIONS } from './nbs-catalog';
 import { INDICATORS, SOLUTION_INDICATORS, INDICATOR_MENU_REVIEW, indicatorMenu } from './e4-indicators';
+import { SOLUTION_STRENGTHS, ROBSON_INDICATORS_PT, STRENGTH_SOURCE, type Strength } from './solution-strengths';
 
 const WHO = { organizacao: 'a organização', tecnico: 'técnico' } as const;
 const KIND = { pessoas: 'Pessoas', entrega: 'Entrega', efeito: 'Efeito' } as const;
 const cell = (s: string) => s.replace(/\|/g, '/').replace(/\n/g, ' ');
+const FORCA: Record<Strength, string> = { forte: 'Forte', media: 'Média', fraca: 'Fraca', nenhum: '—' };
 
 export function reviewSheetMarkdown(): string {
   const out: string[] = [];
@@ -40,14 +42,28 @@ export function reviewSheetMarkdown(): string {
   out.push('## Por solução');
   out.push('');
   out.push('Efeitos = as opções da pergunta “O que vocês querem ver mudar?”. Pessoas e entrega entram sempre.');
+  out.push(`Força = alagamento / calor / deslizamento (${STRENGTH_SOURCE}). Um efeito só vem pré-marcado quando responde à preocupação da organização e a força da solução nessa ameaça é Forte ou Média.`);
   out.push('');
-  out.push('| Solução | Entrega | Efeitos que a organização pode escolher | Ok? |');
-  out.push('|---|---|---|---|');
+  out.push('| Solução | Força | Entrega | Efeitos que a organização pode escolher | Ok? |');
+  out.push('|---|---|---|---|---|');
   for (const s of NBS_SOLUTIONS) {
     const menu = indicatorMenu(s.id, { areaM2: 100, units: 10 }, 'pt');
     const delivery = menu.filter(i => i.kind === 'entrega').map(i => i.label).join(' · ') || '—';
     const effects = SOLUTION_INDICATORS[s.id].effects.map(id => INDICATORS[id].pt.label).join(' · ');
-    out.push(`| ${cell(s.pt.label)} | ${cell(delivery)} | ${cell(effects)} | ☐ |`);
+    const f = SOLUTION_STRENGTHS[s.id];
+    const forca = f ? [f.flood, f.heat, f.landslide].map(x => FORCA[x]).join(' / ') : '—';
+    out.push(`| ${cell(s.pt.label)} | ${forca} | ${cell(delivery)} | ${cell(effects)} | ☐ |`);
+  }
+  out.push('');
+  out.push('## Referência: indicadores técnicos sugeridos por Robson');
+  out.push('');
+  out.push('Do texto do portfólio (26/10/2026). Medidos por técnico; ficam aqui como referência e não entram na nota da organização.');
+  out.push('');
+  out.push('| Solução | Indicadores sugeridos |');
+  out.push('|---|---|');
+  for (const s of NBS_SOLUTIONS) {
+    const r = ROBSON_INDICATORS_PT[s.id];
+    if (r) out.push(`| ${cell(s.pt.label)} | ${cell(r)} |`);
   }
   out.push('');
   return out.join('\n');

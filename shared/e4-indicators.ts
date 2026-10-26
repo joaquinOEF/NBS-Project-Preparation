@@ -27,6 +27,7 @@ import { NBS_SOLUTIONS } from './nbs-catalog';
 import { SOLUTION_COSTS } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { familiesOfWorries, type HazardKey } from './site-knowledge';
+import { SOLUTION_STRENGTHS, addresses } from './solution-strengths';
 
 type Lang = 'pt' | 'en';
 
@@ -164,28 +165,37 @@ export const INDICATORS: Record<string, IndicatorDef> = {
 };
 
 /**
- * The menu per solution: the EFFECTS an organisation can choose between (1–3).
+ * The menu per solution: the EFFECTS an organisation can choose between (1–4).
  * People (`familias-atendidas`) and delivery (area or units, from the cost
  * basis) are added by `indicatorMenu` for every solution, so they are not
  * repeated here. `extraDelivery` adds a second delivery indicator where the
  * built count alone hides the risk (seedlings that die).
+ *
+ * ⚠️ Add, never remove or rename. An organisation's picks are stored as ids
+ * (`_e4_changes`) and the note keeps only ids still on the menu, so a removed
+ * effect silently leaves their page; a chip is matched by its label when
+ * tapped, so a renamed one asked before a deploy and answered after it is
+ * read as typed text. The fourth effect on seven solutions came from Robson's
+ * rating (shared/solution-strengths.ts, 26 Oct): a threat he rates Forte or
+ * Média that the menu could not measure got its effect — the strongest first,
+ * alagamento before calor on a tie, one per solution already at three.
  */
 export const SOLUTION_INDICATORS: Record<string, { effects: string[]; extraDelivery?: string[] }> = {
   'jardins-de-chuva': { effects: ['alagamentos', 'agua-segurada'] },
   'biovaletas': { effects: ['alagamentos'] },
   'canteiro-pluvial': { effects: ['alagamentos', 'agua-segurada'] },
-  'bacia-de-retencao': { effects: ['alagamentos', 'agua-segurada'] },
-  'wetland-construido': { effects: ['qualidade-agua', 'especies', 'carbono'] },
+  'bacia-de-retencao': { effects: ['alagamentos', 'agua-segurada', 'temperatura'] },
+  'wetland-construido': { effects: ['qualidade-agua', 'especies', 'carbono', 'alagamentos'] },
   'pavimentos-permeaveis': { effects: ['alagamentos'] },
   'escada-hidraulica-vegetada': { effects: ['erosao', 'alagamentos'] },
   'terracos-de-chuva': { effects: ['erosao', 'alagamentos'] },
   'ilhas-filtrantes-flutuantes': { effects: ['qualidade-agua', 'especies'] },
   'barraginha': { effects: ['erosao', 'alagamentos'] },
   'captacao-agua-da-chuva': { effects: ['agua-captada', 'alagamentos'] },
-  'parques-e-florestas-urbanas': { effects: ['temperatura', 'uso-do-espaco', 'carbono'], extraDelivery: ['mudas-vivas'] },
+  'parques-e-florestas-urbanas': { effects: ['temperatura', 'uso-do-espaco', 'carbono', 'alagamentos'], extraDelivery: ['mudas-vivas'] },
   'teto-verde': { effects: ['temperatura', 'alagamentos'] },
-  'corredores-verdes': { effects: ['temperatura', 'carbono'], extraDelivery: ['mudas-vivas'] },
-  'parques-lineares': { effects: ['uso-do-espaco', 'especies', 'alagamentos'] },
+  'corredores-verdes': { effects: ['temperatura', 'carbono', 'alagamentos'], extraDelivery: ['mudas-vivas'] },
+  'parques-lineares': { effects: ['uso-do-espaco', 'especies', 'alagamentos', 'temperatura'] },
   'escola-verde': { effects: ['temperatura', 'alunos', 'alagamentos'] },
   'parque-naturalizado': { effects: ['temperatura', 'uso-do-espaco', 'especies'] },
   'hortas-urbanas': { effects: ['alimento', 'uso-do-espaco'] },
@@ -196,8 +206,8 @@ export const SOLUTION_INDICATORS: Record<string, { effects: string[]; extraDeliv
   'muro-de-arrimo-verde': { effects: ['erosao'] },
   'solo-grampeado-verde': { effects: ['erosao'] },
   'contencoes-em-geocelulas': { effects: ['erosao'] },
-  'reflorestamento': { effects: ['erosao', 'especies', 'carbono'], extraDelivery: ['mudas-vivas'] },
-  'restauracao-areas-umidas': { effects: ['especies', 'qualidade-agua', 'carbono'] },
+  'reflorestamento': { effects: ['erosao', 'especies', 'carbono', 'alagamentos'], extraDelivery: ['mudas-vivas'] },
+  'restauracao-areas-umidas': { effects: ['especies', 'qualidade-agua', 'carbono', 'alagamentos'] },
 };
 
 /**
@@ -314,8 +324,10 @@ export interface ImpactChip {
 /**
  * The chips for "O que vocês querem ver mudar?" — one per effect indicator on
  * the menu, pre-ticked when it answers a worry named in Encontro 2 (`site_worry`,
- * comma-separated ids). A design-estimate effect that the size cannot close is
- * not offered: a chip for a change we cannot describe is a promise.
+ * comma-separated ids) AND the solution acts on that threat (Robson's rating,
+ * Forte or Média): a horta does not pre-tick "menos alagamento" for a place
+ * that floods. A design-estimate effect that the size cannot close is not
+ * offered: a chip for a change we cannot describe is a promise.
  */
 export function impactChips(
   solutionId: string,
@@ -323,7 +335,9 @@ export function impactChips(
   size: { areaM2?: number; units?: number } = {},
   lang: Lang = 'pt',
 ): ImpactChip[] {
-  const families = familiesOfWorries((siteWorry ?? '').split(',').map(s => s.trim()).filter(Boolean));
+  const named = familiesOfWorries((siteWorry ?? '').split(',').map(s => s.trim()).filter(Boolean));
+  const rated = SOLUTION_STRENGTHS[solutionId];
+  const families = rated ? named.filter(h => addresses(rated[h])) : named;
   return indicatorMenu(solutionId, size, lang)
     .filter(i => i.kind === 'efeito')
     .map(i => {
@@ -367,7 +381,7 @@ export function noteIndicators(
 for (const s of NBS_SOLUTIONS) {
   const e = SOLUTION_INDICATORS[s.id];
   if (!e) throw new Error(`e4-indicators: solution "${s.id}" has no indicator menu`);
-  if (e.effects.length < 1 || e.effects.length > 3) throw new Error(`e4-indicators: "${s.id}" needs 1–3 effects`);
+  if (e.effects.length < 1 || e.effects.length > 4) throw new Error(`e4-indicators: "${s.id}" needs 1–4 effects`);
   for (const id of [...e.effects, ...(e.extraDelivery ?? [])]) {
     if (!INDICATORS[id]) throw new Error(`e4-indicators: "${s.id}" names unknown indicator "${id}"`);
   }

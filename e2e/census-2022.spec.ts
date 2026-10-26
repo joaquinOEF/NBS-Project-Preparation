@@ -74,7 +74,7 @@ test.describe('what a document says', () => {
   };
 
   test('people always; trees only for a heat solution; sewage only for a water one (D2)', () => {
-    const heat = censusLines(c, { lang: 'pt', relevance: relevanceFor('corredores-verdes') }).map(l => l.text).join('\n');
+    const heat = censusLines(c, { lang: 'pt', relevance: relevanceFor('escola-verde') }).map(l => l.text).join('\n');
     expect(heat).toContain('Cerca de 10.300 pessoas moram num raio de 300 m');
     expect(heat).toContain('68% das casas estão em ruas sem árvores');
     expect(heat).not.toContain('esgoto');
@@ -83,6 +83,17 @@ test.describe('what a document says', () => {
     expect(water).not.toContain('árvores');
     const slope = censusLines(c, { lang: 'pt', relevance: relevanceFor('grade-viva') }).map(l => l.text).join('\n');
     expect(slope).not.toMatch(/árvores|esgoto/);
+  });
+
+  test("relevance is Robson's rating of the solution, not its família (26 Oct): Forte or Média counts", () => {
+    // Same família (verde urbano), different answers.
+    expect(relevanceFor('teto-verde')).toMatchObject({ heat: true, water: true }); // Média alagamento, Forte calor
+    expect(relevanceFor('parque-naturalizado')).toMatchObject({ heat: false, water: false }); // Fraca, Fraca
+    // Água pluvial, but captação is rated Fraca on alagamento: no sewage argument for it.
+    expect(relevanceFor('captacao-agua-da-chuva')).toMatchObject({ heat: false, water: false });
+    expect(relevanceFor('bacia-de-retencao')).toMatchObject({ heat: true, water: true });
+    expect(relevanceFor('hortas-urbanas')).toMatchObject({ heat: false, water: false, food: true });
+    expect(relevanceFor('nao-existe')).toBeNull();
   });
 
   test('⚠️ race only where the coordination reads it (D3)', () => {

@@ -52,8 +52,10 @@ two independent area-weighted counts agreeing within 10%.
 | Encontro 4, "quem é atingido" — only while unanswered | hint + scale chips: "Quase todo mundo daqui (~N)", "Uma parte — umas centenas", "Um grupo específico", "Não sei dizer". A chip records THEIR choice with our number as context; a census note never becomes a household target | no |
 | Combined project, pre-portfolio, synergy report (coordination) | one sentence, each tract once | yes (D3) |
 
-- Relevance comes from the solution's família weights (`relevanceFor`):
-  heat ≥ 0.5 → trees; flood ≥ 0.5 → sewage.
+- Relevance comes from Robson's rating of the solution itself
+  (`relevanceFor` → `shared/solution-strengths.ts`, 26 Oct): Forte or Média on
+  calor → trees; on alagamento → sewage. Until then it was the família's
+  weights, which still rank famílias in Encontro 2.
 - **Their record is never written.** Documents are computed when opened, so
   every organisation's pages gain the lines on the next view (D4).
 - The census is **not** part of Território's edit basis: a coordinator's

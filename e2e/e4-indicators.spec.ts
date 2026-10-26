@@ -11,7 +11,7 @@ import { reviewSheetMarkdown } from '../shared/e4-indicators-review';
 // or not at all, and what Robson reviews is what the code prints.
 
 test.describe('E4 indicators — a fixed menu, reviewed once', () => {
-  test('every solution has people, something countable and 1–3 effects', () => {
+  test('every solution has people, something countable and 1–4 effects', () => {
     for (const s of NBS_SOLUTIONS) {
       const menu = indicatorMenu(s.id, { areaM2: 200, units: 10 });
       expect(menu[0]?.id, s.id).toBe('familias-atendidas');
@@ -69,6 +69,45 @@ test.describe('E4 indicators — a fixed menu, reviewed once', () => {
     // No worry, nothing pre-ticked — and the note still falls back to an effect.
     expect(impactChips('compostagem', '').every(c => !c.preselected)).toBe(true);
     expect(noteIndicators('compostagem', undefined, '').some(i => i.kind === 'efeito')).toBe(true);
+  });
+
+  test("a worry pre-ticks only what the solution acts on (Robson's rating, 26 Oct)", () => {
+    // Escola verde is Fraca on alagamento: a place that floods does not pre-tick it…
+    expect(impactChips('escola-verde', 'alagamento').find(c => c.indicatorId === 'alagamentos')?.preselected).toBe(false);
+    // …and the note still carries an effect: the first on the menu.
+    expect(noteIndicators('escola-verde', undefined, 'alagamento').filter(i => i.kind === 'efeito').map(i => i.id)).toEqual(['temperatura']);
+    // Captação is Fraca on alagamento: storing water is not presented as fewer floods.
+    expect(impactChips('captacao-agua-da-chuva', 'alagamento').every(c => !c.preselected)).toBe(true);
+    // Teto verde is Média on alagamento and Forte on calor: both answer.
+    const teto = impactChips('teto-verde', 'alagamento,heat');
+    expect(teto.filter(c => c.preselected).map(c => c.indicatorId).sort()).toEqual(['alagamentos', 'temperatura']);
+  });
+
+  test('effects are only ever added: a pick stored before 26 Oct still prints', () => {
+    // Every (solution, effect) pair offered before Robson's rating — a stored pick must survive.
+    const before: Record<string, string[]> = {
+      'jardins-de-chuva': ['alagamentos', 'agua-segurada'], 'biovaletas': ['alagamentos'], 'canteiro-pluvial': ['alagamentos', 'agua-segurada'],
+      'bacia-de-retencao': ['alagamentos', 'agua-segurada'], 'wetland-construido': ['qualidade-agua', 'especies', 'carbono'],
+      'pavimentos-permeaveis': ['alagamentos'], 'escada-hidraulica-vegetada': ['erosao', 'alagamentos'], 'terracos-de-chuva': ['erosao', 'alagamentos'],
+      'ilhas-filtrantes-flutuantes': ['qualidade-agua', 'especies'], 'barraginha': ['erosao', 'alagamentos'], 'captacao-agua-da-chuva': ['agua-captada', 'alagamentos'],
+      'parques-e-florestas-urbanas': ['temperatura', 'uso-do-espaco', 'carbono'], 'teto-verde': ['temperatura', 'alagamentos'],
+      'corredores-verdes': ['temperatura', 'carbono'], 'parques-lineares': ['uso-do-espaco', 'especies', 'alagamentos'],
+      'escola-verde': ['temperatura', 'alunos', 'alagamentos'], 'parque-naturalizado': ['temperatura', 'uso-do-espaco', 'especies'],
+      'hortas-urbanas': ['alimento', 'uso-do-espaco'], 'compostagem': ['residuo-desviado'], 'cozinha-comunitaria-biodigestor': ['residuo-desviado', 'gas-economizado'],
+      'sistema-alimentar-local': ['alimento'], 'grade-viva': ['erosao'], 'muro-de-arrimo-verde': ['erosao'], 'solo-grampeado-verde': ['erosao'],
+      'contencoes-em-geocelulas': ['erosao'], 'reflorestamento': ['erosao', 'especies', 'carbono'], 'restauracao-areas-umidas': ['especies', 'qualidade-agua', 'carbono'],
+    };
+    for (const [id, effects] of Object.entries(before)) {
+      expect(SOLUTION_INDICATORS[id].effects.slice(0, effects.length), id).toEqual(effects);
+      // (A design estimate the size cannot close is never on the menu — that rule is older than this one.)
+      const size = { areaM2: 150, units: 5 };
+      for (const e of effects.filter(x => indicatorMenu(id, size).some(i => i.id === x))) {
+        expect(noteIndicators(id, [e], '', size).map(i => i.id), `${id} · ${e}`).toContain(e);
+      }
+    }
+    // Labels a person may have been shown before a deploy are unchanged.
+    expect(INDICATORS.alagamentos.pt.change).toBe('Menos água parada / menos alagamento');
+    expect(INDICATORS.temperatura.pt.change).toBe('Mais sombra / menos calor');
   });
 
   test('the chosen effects are the ones on the note', () => {
