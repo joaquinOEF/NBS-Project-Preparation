@@ -131,6 +131,25 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
     await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${early.id}`)).toBeVisible();
   });
 
+  test('an Encontro 2 with the place already marked is not told to mark it (Misturaí, IECAM — prod 26 Oct)', async ({ page }) => {
+    test.setTimeout(120_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`Cards ${randomUUID().slice(0, 8)}`)).cohort;
+    await api.createCoordinator({ email: `cards-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const placed = (await api.inviteMember(cohort.id, { orgName: 'Com lugar', neighborhood: 'Santana', withSession: true, unlockedPhases: [1, 2] })).member;
+    const noPlace = (await api.inviteMember(cohort.id, { orgName: 'Sem lugar', neighborhood: 'Santana', withSession: true, unlockedPhases: [1, 2] })).member;
+    for (const m of [placed, noPlace]) await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [{ sectionId: 'intervention_site', field: 'bairro', value: 'Santana' }] });
+    const put = await page.request.put(`/api/cbo-member/${placed.memberSlug}/site`, { data: { name: 'Ponto marcado', coordinates: [-30.0451, -51.2096] } });
+    expect(put.ok()).toBe(true);
+
+    await page.goto('/orchestrator');
+    await expect(page.getByTestId(`journey-next-${placed.id}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`journey-next-${placed.id}`)).toContainText(/Terminar o Encontro 2|Finish Encontro 2/);
+    await expect(page.getByTestId(`journey-next-${placed.id}`)).not.toContainText(/marcar o lugar|mark the place/);
+    await expect(page.getByTestId(`journey-next-${noPlace.id}`)).toContainText(/marcar o lugar|mark the place/);
+  });
+
   test('an org that has not started W2 shows no empty badges', async ({ page }) => {
     test.setTimeout(120_000);
     const api = new TestApi(page.request);
