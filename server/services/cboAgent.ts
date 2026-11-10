@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cityMapFor } from './siteContext';
 import { censusForSite } from './censusContext';
 import { healSite } from './siteHealing';
+import { placeKey } from '@shared/site-of-record';
 import { suggestionsFor } from './e4Suggestions';
 import { searchCityDocs } from './cityDocs';
 import type { Response } from "express";
@@ -4455,7 +4456,12 @@ async function runPrenoteAuthor(cboId: string): Promise<void> {
     const fresh = getCboState(cboId);
     if (!fresh?.sections?.intervention_type) return;
     fresh.sections.intervention_type.fields._prenote_authoring = { value: out ? 'done' : 'skipped', confidence: 'high', source: 'agent', userEdited: false } as any;
-    if (out) fresh.sections.intervention_type.fields._prenote_authored_json = { value: out.stored, confidence: 'medium', source: 'agent', userEdited: false } as any;
+    if (out) {
+      fresh.sections.intervention_type.fields._prenote_authored_json = { value: out.stored, confidence: 'medium', source: 'agent', userEdited: false } as any;
+      // The place it was written about: a later correction retires it (shared/site-of-record.ts).
+      const siteNow: any = (fresh.sections as any).intervention_site?.fields ?? {};
+      fresh.sections.intervention_type.fields._prenote_authored_place = { value: placeKey(Object.fromEntries(Object.entries(siteNow).map(([k, v]: [string, any]) => [k, v?.value]))), confidence: 'high', source: 'agent', userEdited: false } as any;
+    }
     setCboState(cboId, fresh);
     debouncedPersist(cboId);
     console.log(`[prenote-author] ${cboId}: ${out ? `${out.accepted} parágrafo(s) aceitos, ${out.rejected} recusado(s)` : 'nada escrito — a página determinística fica'} em ${Date.now() - started}ms`);

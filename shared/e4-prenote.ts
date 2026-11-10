@@ -29,6 +29,7 @@
 //   · Written register: third person, a nota técnica (docs/document-register.md).
 // ============================================================================
 
+import { placeKey } from './site-of-record';
 import { readableSource } from './source-label';
 import { readableSpeech } from './readable-speech';
 import { getSolution, type NbsSolution } from './nbs-catalog';
@@ -636,7 +637,11 @@ export function conceptInputFor(input: PrenoteInput, sol: NonNullable<Prenote['s
 function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solution']>, lang: Lang) {
   const pt = lang === 'pt';
   const ci = conceptInputFor(input, sol);
-  const note = applyStoredAuthoring(buildConceptNote(ci, lang), input.type._prenote_authored_json, lang).note;
+  // A summary written about another place is not this page's (shared/site-of-record.ts).
+  const writtenFor = input.type._prenote_authored_place;
+  const current = writtenFor != null ? placeKey(input.site) : '';
+  const stored = writtenFor != null && writtenFor !== current ? undefined : input.type._prenote_authored_json;
+  const note = applyStoredAuthoring(buildConceptNote(ci, lang), stored, lang).note;
   const facts = conceptNoteFacts(ci, lang);
   const sec = (id: ConceptSectionId): Paragraph[] => note.sections.find(x => x.id === id)?.paragraphs ?? [];
   const line = (p: Paragraph): PrenoteLine => ({

@@ -4,6 +4,7 @@ import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
 import { censusForSite, tractStatsAround } from '../services/censusContext';
 import { censusLines } from '@shared/census';
 import { healSite, healStateSite } from '../services/siteHealing';
+import { siteOfRecord } from '@shared/site-of-record';
 import { suggestionsFor } from '../services/e4Suggestions';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
@@ -222,9 +223,12 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
   // shows the wrong encontro). Prefer the live state, and self-heal the cache so
   // the coordinator roster (which reads snapshotPhase directly) stays correct too.
   let statePhase = 0;
+  let liveSiteFields: Record<string, unknown> = {};
   if (member.cboStateId) {
     const live = getCboState(member.cboStateId) ?? (await loadCboFromDb(member.cboStateId))?.state;
     if (live && typeof live.phase === 'number') statePhase = live.phase;
+    const f: any = (live?.sections as any)?.intervention_site?.fields ?? {};
+    liveSiteFields = Object.fromEntries(Object.entries(f).map(([k, v]: [string, any]) => [k, v?.value]));
   }
   const snapPhase = typeof member.snapshotPhase === 'number' ? member.snapshotPhase : 0;
   const effectivePhase = Math.max(statePhase, snapPhase);
@@ -248,7 +252,7 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
     unlockedPhases: unlocked,
     cboStateId: member.cboStateId,
     cohort: cohort ? { id: cohort.id, name: cohort.name, language: (cohort.settings as CohortSettings | null)?.language ?? null } : null,
-    site: (member.site as MemberSite | null) ?? null,
+    site: siteOfRecord((member.site as MemberSite | null) ?? null, liveSiteFields),
     workshops,
     nextWorkshop,
     focusWorkshop,
@@ -447,6 +451,7 @@ async function attachDerivedSections<
   const w2ByState = new Map<string, MemberW2Signal>();
   const w3ByState = new Map<string, MemberW3Signal>();
   const synergyByState = new Map<string, SynergyFacts>();
+  const siteFieldsByState = new Map<string, Record<string, unknown>>();
   if (ids.length > 0) {
     const rows = await db
       .select({ id: cboStates.id, sections: cboStates.sections, phase: cboStates.phase })
@@ -460,6 +465,7 @@ async function attachDerivedSections<
       // Derived from the same rows we already fetched — no extra query.
       const f: any = (sections as any)?.intervention_site?.fields ?? {};
       const val = (k: string) => String(f[k]?.value ?? '').trim();
+      siteFieldsByState.set(row.id, Object.fromEntries(Object.entries(f).map(([k, v]: [string, any]) => [k, v?.value])));
       const worries = val('site_worry').split(',').map(w => w.trim()).filter(Boolean);
       w2ByState.set(row.id, {
         worry: worries[0] ?? null,
@@ -489,6 +495,8 @@ async function attachDerivedSections<
   }
   return members.map(m => ({
     ...m,
+    // The record's pin is the place (shared/site-of-record.ts).
+    ...('site' in m ? { site: siteOfRecord(((m as any).site as MemberSite | null) ?? null, (m.cboStateId && siteFieldsByState.get(m.cboStateId)) || {}) } : {}),
     synergy: (m.cboStateId && synergyByState.get(m.cboStateId)) || null,
     derivedSectionsComplete:
       m.cboStateId && byState.has(m.cboStateId)
