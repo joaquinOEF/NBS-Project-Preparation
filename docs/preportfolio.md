@@ -18,6 +18,19 @@ in Projetos, as a board.
    Opus 5.5): a name, why together, what they do better together, what to
    watch. Facts-only guard; cached by member set + facts fingerprint.
 
+## A joint project is ONE unit (10 Nov 2026, J3 A)
+
+When a project's joint proposal is closed (docs/projects.md), `boardData`
+replaces its members with one card (`jointPortfolioUnit`): the joint
+solution, the joint budget, readiness from the joint record, the census over
+the union of the members' points (`tractStatsAroundMany`, each tract once),
+plan links read on the project's state. It is keyed by the first member's id,
+so a saved arrangement keeps its column. The members' own proposals are
+`unit.background` — shown on the card, never added to any sum. The data
+model is `PortfolioOrg.unit`: absent (an org alone) or `joint`; a grouping of
+units is a column (`projectCard`). A project counts only in the oldest joint
+project a member is in.
+
 ## The board
 
 Preferences (território / equilíbrio / tema · a framing risk · single-org

@@ -371,6 +371,8 @@
       "pilot": "pilot scale: {{n}}",
       "pilotTitle": "Estimated at the size given in Encontro 3 ({{names}}). Measuring at the technical visit sets the real size.",
       "noSolution": "no solution",
+      "jointBadge": "Joint project",
+      "jointBackground": "Own proposals (background, outside the sum):",
       "moveTo": "Move to",
       "project": "Project",
       "newProject": "Move to: a new project",

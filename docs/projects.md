@@ -89,11 +89,13 @@ set of organisations, which is exactly what a project is made of.
 Creating a project opens the share dialog straight away with the link and the
 WhatsApp message (`projectGreetingMessage`): the link is the point.
 
-## The project encontro (`serveProjectCheckpoint`, `shared/project-plan.ts`)
+## The project encontro (`serveProjectCheckpoint`, `shared/project-plan.ts`, `shared/project-proposal.ts`)
 
 Started from the door with **Montar o projeto** (or the line "Vamos começar o
-encontro do projeto."). Five templated beats, the step derived from fields on
-the project's own state, every turn ending on a question:
+encontro do projeto."). Templated beats, the step derived from fields on the
+project's own state, every turn ending on a question. Since 10 Nov 2026
+(JVP — J1 C, J2 A, J3 A) the encontro ends on Encontro 4's **proposta
+inicial**, one page for the organisations together, not on a page of its own:
 
 1. **A moldura** — *"por que essas organizações fazem esse projeto juntas?"*
    in their words (free text or voice; skippable), then the frame, offered
@@ -101,41 +103,79 @@ the project's own state, every turn ending on a question:
    axis, plus the first pooled study) — never a frame the records do not
    support; "Outra coisa" writes their own.
 2. **Os cenários** — one organisation at a time, over what IT tested in
-   Encontro 3: each tested solution as a chip (liked ones say so), "Todas
-   que fizeram sentido" when more than one did, "Nenhuma desta vez". An
-   organisation that never reached Encontro 3 is told so and joins without a
-   scenario; it is never asked what it tested.
-3. **O que se compartilha** — `show_project_plan`: the scenarios per
-   organisation with their verdicts and cost notes, what pooling saves (a
-   study contracted once for N, one conversation with a body, one instrument
-   request), the summed band, the gaps. Then *"Quem puxa o projeto?"* (the
-   organisations, the coordination, not yet).
-4. **O dinheiro** — the sum of the scenarios' bands, what has no band named,
-   and how the funding is sought (one line for everything · each seeks its
-   own with the project as the argument · not yet).
-5. **O documento** — `show_project_note` + `GET /api/project/:id/note`: as
-   organizações · por que juntas · a intervenção (one bullet per scenario) ·
-   o que exige e o que se compartilha · custo e caminho do recurso (with the
-   aggregation argument at the project's own number) · quem cuida ·
-   pendências. Then *"E agora?"* — adjust the scenarios (re-asks beat 2
-   onwards) or keep talking.
+   Encontro 3 (first-era `chosen_solutions` included): each tested solution
+   as a chip (liked ones say so), "Todas que fizeram sentido" when more than
+   one did, "Nenhuma desta vez". An organisation that never reached Encontro
+   3 is told so and joins without a scenario; it is never asked what it tested.
+3. **Encontro 4, for the joint solution** — `serveE4ForProject`, the SAME
+   checkpoint an organisation walks (`cboE4Checkpoint.ts`), with
+   `deps.project` set. It reads the **joint record** (`jointSections`: the
+   members' records underneath — the scenarios as tests, the worries and
+   bairros as a union, tenure / current use only where every member agrees,
+   each member's partners named with the member — and the project state's own
+   answers on top) and writes to the project state only. The beats: which
+   scenario becomes the proposal and its size · **the place of each member**
+   · the problem · the draft · the gaps (quem é atingido, o que querem ver
+   mudar, quem faz, quem cuida, contrapartida, parceiros) · the one check.
+   The close shows the card again, so the chat **ends on the proposal card**
+   (`CboPrenoteCard`, the one the organisations see); its PDF link is
+   `/api/cbo/<project state>/prenote` (also `/api/project/:id/prenote`).
 
-The choices live on the project state under private names (`PROJECT_FIELDS`
-in `shared/project-plan.ts`): the project state is not an organisation's
-record, and the project note is the document that carries every one of them.
-After the encontro the model's context gains "O projeto — o que o encontro
-definiu" (`planMarkdown`), so the model never re-asks a decision the room made;
-the `projeto` skill sends any "decide for us" request back to the encontro.
+### The place is the members' own (J2)
 
-Every figure on the plan and the note comes from the same fichas and
-`budgetLineFor` the organisations' own comparison cards use — a number on the
-project note cannot disagree with a number on an organisation's document.
+There is no "project pin". City-map facts are computed **per point** and
+printed with whose place they are; the census ("Quem mora perto", the
+"quem é atingido" anchor, the indicator reference) is the union of the
+points, each tract once (`censusAroundMany`, nearby places merged by name).
+A member with no pin is asked by name inside the project's Encontro 4: the
+address-geocode suggestion when it has an address (`É aqui?` — e.g. Ksa Rosa,
+"Voluntários da Pátria 1039, Floresta"), else the map, else "Seguir sem o
+lugar". Confirming writes **that member's** record (`_site_lat/_lng`,
+`_site_from_address`). "Mudar algo" never offers to clear a member's pin from
+the shared room. The corridor is named in words — the project's title and
+the room's "por que juntas" — never drawn.
+
+### The page (`buildJointPrenote`)
+
+`buildPrenote` over the joint record, plus **"As organizações e por que
+juntas"** first: each organisation with its place and what it brought, the
+frame, why together in their words, what pooling saves (one conversation with
+a body, one instrument request, one study). The rest of the page is said in
+the plural ("segundo as organizações"); the budget is the fichas at the joint
+size, like any pre-note. The written register applies.
+
+### What happened to beats 3–5
+
+"O que se compartilha", "o dinheiro" and "o documento" are **folded into the
+joint proposal**: the pooling lines print in its joint section; the money is
+its budget (one solution at one size — the old sum of every scenario's band
+added up alternatives as though all would be built); the document IS the
+proposal. "Quem puxa o projeto" is no longer asked; a session that answered
+it still prints it. The old chip handlers stay so a session mid-way on
+10 Nov is not stranded, and `/api/project/:id/note` still prints the old note.
+
+After the encontro the model's context still gains "O projeto — o que o
+encontro definiu" (`planMarkdown`), so the model never re-asks a decision the
+room made; after a model turn inside the joint Encontro 4 the encontro's own
+question is put back (`reaskE3IfSilent`, project branch).
+
+### The pre-portfolio (J3)
+
+Once the joint proposal is **closed**, the project enters the board as ONE
+unit (`jointPortfolioUnit`, `PortfolioOrg.unit.kind === 'joint'`) keyed by its
+first member's id: the joint solution and budget, the census over both points.
+Its members leave the board as separate cards; their own proposals are kept
+as `unit.background` (shown, linked, never summed). See docs/preportfolio.md.
 
 ## Not built yet
 
 - Per-scenario "who looks after it" beyond the ficha's upkeep sentence (each
   part follows the organisation that brought it, by default).
 - A project-level maturity score. The organisations' own scores are untouched.
+- The written summary over the joint proposal (an organisation's proposal gets
+  one from the concept-note author at its close; the joint one does not yet).
+- One board with three kinds of card (org alone · grouping · joint project):
+  the data model carries `unit`, the board UI only badges the joint unit.
 
 ## Operational
 
@@ -145,5 +185,8 @@ project note cannot disagree with a number on an organisation's document.
 - `e2e/cohort-projects.spec.ts` covers: create → link → by-token → brief; the
   door in the browser (brief card, roster confirm, reload lands on the same
   question); the board (empty state, create dialog, card); the project
-  encontro end to end with a reload mid-way, the note card and the printed
-  note; the skip paths.
+  encontro through the joint Encontro 4's draft card with reloads mid-way;
+  the skip paths. `e2e/project-joint-e4.spec.ts` walks the real prod shapes
+  (Ksa Rosa without a pin, Cooperativa 20 de Novembro at Garagem Popéia) to
+  the closed joint proposal, Ksa Rosa's pin from her address, the prints, and
+  the pre-portfolio counting the project once.

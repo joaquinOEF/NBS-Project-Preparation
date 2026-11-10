@@ -451,6 +451,23 @@ export function PreportfolioBoard({ cohortSlug, onConfirmed }: { cohortSlug: str
                           <p className="truncate text-[11px] text-muted-foreground">
                             {[o.solutionLabel ?? t('orchestrator.preportfolio.noSolution', { defaultValue: 'sem solução' }), o.bairro].filter(Boolean).join(' · ')}
                           </p>
+                          {/* A joint project (J3): one unit; each member's own proposal is background, outside the sum. */}
+                          {o.unit?.kind === 'joint' && (
+                            <div className="mt-0.5 text-[10.5px] text-muted-foreground" data-testid={`preportfolio-joint-${id}`}>
+                              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-px font-medium text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+                                {t('orchestrator.preportfolio.jointBadge')}
+                              </span>{' '}
+                              {o.unit.title}
+                              <p className="m-0 mt-0.5">
+                                {t('orchestrator.preportfolio.jointBackground')}{' '}
+                                {o.unit.background.map((b, bi) => (
+                                  <span key={b.memberId} data-testid={`preportfolio-background-${b.memberId}`}>
+                                    {bi > 0 ? ' · ' : ''}{b.orgName}{b.solutionLabel ? ` (${b.solutionLabel})` : ''}
+                                  </span>
+                                ))}
+                              </p>
+                            </div>
+                          )}
                         </div>
                         <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] ${HORIZON_CLS[o.horizon]}`}>{HORIZON_LABEL[o.horizon][lang]}</span>
                       </div>

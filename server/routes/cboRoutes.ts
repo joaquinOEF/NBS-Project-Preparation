@@ -12,6 +12,8 @@ import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { buildPrenote } from '@shared/e4-prenote';
 import { prenoteInputFor } from '../services/prenoteContext';
 import { renderPrenoteHtml } from '../services/prenotePrint';
+import { jointPrenoteFor } from '../services/projectProposal';
+import { findProjectByStateId } from '../services/projectContext';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import {
   streamCboChat,
@@ -641,6 +643,13 @@ export function registerCboRoutes(app: Express): void {
     if (!state) return res.status(404).send("Not found");
     const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    // A project's session: its joint proposal (shared/project-proposal.ts) — the card's link prints it.
+    if ((state as any)?.metadata?.project) {
+      const project = await findProjectByStateId(req.params.id);
+      const joint = project ? await jointPrenoteFor(project, lang) : null;
+      if (!joint) return res.status(404).send("Not found");
+      return res.send(renderPrenoteHtml(joint.prenote, lang));
+    }
     const full = await prenoteInputFor(req.params.id, state.sections, lang, { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
     res.send(renderPrenoteHtml(buildPrenote(full, lang), lang));
   });

@@ -88,6 +88,7 @@ import { prenoteInputFor, authorPrenote } from "./prenoteContext";
 import { reemitPending, withPendingQuestion, recordingPush } from "./pendingQuestion";
 import { parsePending, PENDING_FIELD } from "@shared/pending-question";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
+import { loadJointContext } from "./projectProposal";
 import { loadNamedSkill } from "./encontroSkills";
 import { warnIfOrphan, isGatedSection, routeModelWrite } from '@shared/field-destiny';
 import { neutraliseInjected, UNTRUSTED_RULE } from '@shared/untrusted-content';
@@ -3762,6 +3763,28 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
           normChip,
           brief: () => projectBrief(project, lang === 'en' ? 'en' : 'pt'),
           facts: () => projectFacts(project, lang === 'en' ? 'en' : 'pt'),
+          // The joint Encontro 4 (docs/projects.md, shared/project-proposal.ts):
+          // it READS the joint record and WRITES to the project's own state —
+          // the view is kept in step so a later read in the same turn sees it.
+          jointE4: async () => {
+            const L = lang === 'en' ? 'en' : 'pt';
+            const ctx = await loadJointContext(project, state, L);
+            const view = { ...state, phase: 4, sections: ctx.sections(state) } as typeof state;
+            return {
+              state: view,
+              deps: {
+                writeFields: (sectionId: string, fields: Record<string, string>) => {
+                  writeSectionFields(cboId, state, sectionId, fields, pushEvent);
+                  const sec = ((view.sections as any)[sectionId] ??= { fields: {} });
+                  sec.fields ??= {};
+                  for (const [k, v] of Object.entries(fields)) sec.fields[k] = { value: v };
+                },
+                recordCheckpoint: (step: string) => recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step: `joint-e4-${step}` }),
+                normChip,
+                project: ctx.hooks(L),
+              },
+            };
+          },
         });
         if (served) { res.end(); return; }
       }
@@ -3853,6 +3876,18 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // that happens inside an open Encontro 3, the encontro asks its own current
   // question again. Derived from the record, like every resume.
   const reaskE3IfSilent = async () => {
+    // A project inside its joint Encontro 4: after a model turn the encontro's
+    // own question goes back on screen, exactly as it was recorded.
+    if (state.metadata?.project) {
+      const fp = (state.sections as any).intervention_type?.fields ?? {};
+      if (String(fp._e4_opened?.value ?? '') !== 'yes') return;
+      const lastP = getCboMessages(cboId).slice(-1)[0];
+      let kindP = '';
+      if (lastP?.role === 'assistant' && lastP.messageType === 'composer') { try { kindP = JSON.parse(lastP.content)?.kind ?? ''; } catch { /* prose */ } }
+      if (kindP === 'open_map') return;
+      reemitPending(state, 'intervention_type', pushEvent);
+      return;
+    }
     // Encontro 4: same rule, shorter — after a model turn, the encontro's own
     // question goes back on screen (the model answered a doubt; the step is
     // still theirs to answer).
