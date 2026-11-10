@@ -456,3 +456,59 @@ test.describe('the place from an address, editable by the coordination (JVP, 10 
     expect(board.members.find((x: any) => x.id === m.id).site.coordinates[0]).toBeCloseTo(-30.0267, 3);
   });
 });
+
+test.describe('Levar ao Encontro 4 — the organisation finds the door', () => {
+  test.use({ locale: 'pt-BR' });
+
+  // ⚠️ Ksa Rosa, 10 Nov 2026: moved by the coordination mid-conversation, she
+  // tapped the intro's "Começar" and nothing started; the chat model told her it
+  // could not open Encontro 4, and the only button under the divider was the
+  // Encontro 3 selector's "Escolher o tipo de SbN".
+  async function movedMidConversation(page: any) {
+    const api = new TestApi(page.request);
+    const tag = randomUUID().slice(0, 8);
+    const cohort = (await api.createCohort(`Porta ${tag}`)).cohort;
+    await api.createCoordinator({ email: `porta-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3] })).member;
+    await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+      { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'captacao-agua-da-chuva, compostagem' },
+    ] });
+    // A conversation already under way (the model answers in the fake).
+    await api.scriptCbo(m.cboStateId, [[{ op: 'say', text: 'Oi, Ksa Rosa!' }]]);
+    expect((await page.request.post(`/api/cbo/${m.cboStateId}/chat`, { data: { message: 'oi', lang: 'pt', turnKind: 'text' } })).ok()).toBe(true);
+    const res = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4`, { data: {} })).json();
+    expect(res).toMatchObject({ ok: true, phase: 4 });
+    return m;
+  }
+
+  test('the intro\'s "Começar" opens Encontro 4 — not just closes the screen', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const m = await movedMidConversation(page);
+    await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
+    await page.getByText('Continuar de onde parei').click({ timeout: 30_000 }).catch(() => {});
+    await page.getByRole('button', { name: /Começar/ }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('cbo-chat-thread').getByText('Hoje a gente monta a proposta inicial', { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('cbo-open-tool-interventions')).toHaveCount(0);
+  });
+
+  test('intro already seen: a door in the chat, and no Encontro 3 selector nudge', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const m = await movedMidConversation(page);
+    const slug = (await (await page.request.get(`/api/cbo-member/by-token/${m.capabilityToken}`)).json()).memberSlug;
+    expect(slug).toBeTruthy();
+    await page.addInitScript(({ ids }) => {
+      try { for (const id of ids) if (id) localStorage.setItem(`cbo-encontro-4-preamble-seen-${id}`, '1'); } catch {}
+    }, { ids: [slug, m.cboStateId] });
+    await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
+    await page.getByText('Continuar de onde parei').click({ timeout: 30_000 }).catch(() => {});
+    const door = page.getByTestId('cbo-start-e4');
+    await expect(door).toBeVisible({ timeout: 30_000 });
+    await door.click();
+    await expect(page.getByTestId('cbo-chat-thread').getByText('Hoje a gente monta a proposta inicial', { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(door).toHaveCount(0);
+  });
+});
+

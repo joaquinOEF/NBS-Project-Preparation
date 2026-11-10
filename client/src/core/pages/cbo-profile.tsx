@@ -194,6 +194,13 @@ interface RightPanelToolDef {
   // (fake-E2 report 2026-07-08) and must never count as pending — else it
   // holds the advance banner hostage on a step the org shouldn't be in.
   minPhase: number;
+  /**
+   * The last phase it belongs to. ⚠️ Ksa Rosa (10 Nov 2026), moved to Encontro 4
+   * by the coordination, saw only "Escolher o tipo de SbN" under the Encontro 4
+   * divider — her E3 selector was still the persisted activeTool. Encontro 4
+   * chooses the solution in the chat; the selector is not a step there.
+   */
+  maxPhase?: number;
   nudge: { pt: string; en: string };
 }
 
@@ -226,11 +233,24 @@ const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
     tab: 'interventions',
     icon: Layers,
     defaultParams: () => null,  // wired when E3 (NBS-type selection) lands
-    isDone: (s) => fieldVal(s, 'intervention_type', 'intervention_type', 'nbs_type'),
+    // Any era of Encontro 3's record counts as done: first-era `chosen_solutions`
+    // / `solution_types`, or the tests list.
+    isDone: (s) => fieldVal(s, 'intervention_type', 'intervention_type', 'nbs_type', 'chosen_solutions', 'solution_types', 'solution_tests_json'),
     minPhase: 3,
+    maxPhase: 3,
     nudge: { pt: 'Escolher o tipo de SbN', en: 'Choose the NBS type' },
   },
 };
+
+/**
+ * Encontro 4 is where they are, and its first question has not been asked:
+ * the platform opens it on "Vamos começar o Encontro 4." (E4_ENTRY), which only
+ * the page's own advance used to send.
+ */
+function e4NotStarted(state: CboState | null): boolean {
+  const t = (state?.sections as any)?.intervention_type?.fields ?? {};
+  return (state?.phase ?? 0) === 4 && !String(t._e4_opened?.value ?? '') && String(t._e4_closed?.value ?? '') !== 'yes';
+}
 
 // The tool the agent has opened (persisted), if its task isn't done → drives the
 // chat nudge chip + the tab pulse.
@@ -241,6 +261,7 @@ function pendingTool(state: CboState | null): { kind: ToolKind; def: RightPanelT
   // Below the tool's phase = illegitimate residue of a role-played encontro;
   // never pending (the banner must stay available to do the REAL entry).
   if ((state.phase ?? 0) < def.minPhase) return null;
+  if (def.maxPhase != null && (state.phase ?? 0) > def.maxPhase) return null;
   return def.isDone(state) ? null : { kind, def };
 }
 // Has this tool's step been reached (active now, or already done)? → the tab
@@ -2258,7 +2279,14 @@ export default function CboProfilePage() {
               );
               return;
             }
-            if (wasFirstSession) kickoffChat();
+            if (wasFirstSession) { kickoffChat(); return; }
+            // ⚠️ Already IN this encontro, but it never started: the coordination
+            // took them here ("Levar ao Encontro 4"), so the page never advanced
+            // and "Começar" used to only close this screen — Ksa Rosa tapped it
+            // and got nothing (10 Nov 2026). Say the entry line, as an advance does.
+            if (preambleEncontro === 4 && e4NotStarted(state)) {
+              sendMessage(lang === 'pt' ? 'Vamos começar o Encontro 4.' : "Let's start Encontro 4.", true);
+            }
           }}
         />
       );
@@ -3124,6 +3152,22 @@ export default function CboProfilePage() {
               </div>
               );
             })()}
+
+            {/* The Encontro 4 door, in the chat: for an organisation the
+                coordination moved here whose intro was already seen (it shows
+                once per device), or who tapped it before this fix. */}
+            {!isStreaming && !currentQuestion && e4NotStarted(state) && (
+              <div className="flex justify-center py-2">
+                <Button
+                  size="sm"
+                  className="h-9 gap-1.5 bg-emerald-600 px-4 text-sm hover:bg-emerald-700"
+                  onClick={() => sendMessage(lang === 'pt' ? 'Vamos começar o Encontro 4.' : "Let's start Encontro 4.", true)}
+                  data-testid="cbo-start-e4"
+                >
+                  {lang === 'pt' ? 'Começar o Encontro 4 — a proposta inicial' : 'Start Encontro 4 — the initial proposal'}
+                </Button>
+              </div>
+            )}
 
             {/* Persistent tool affordance — while ANY right-panel tool task is
                 pending (agent opened it, not yet done), this chip is always

@@ -8,6 +8,21 @@ import { PostHogBoot } from '@/core/components/analytics/posthog-boot';
 import { ChakraProvider, createSystem, defaultConfig } from '@chakra-ui/react';
 import { appTheme } from './app-theme';
 
+// ⚠️ A tab opened before a deploy asks for code files the new build no longer
+// has; the import fails and the page goes white (Ksa Rosa, 10 Nov 2026, during
+// a Replit republish). Vite reports it as `vite:preloadError`: reload once to
+// pick up the new build. The session flag stops a loop if the file is truly gone.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    const key = 'cougar:reloaded-after-deploy';
+    const last = Number(sessionStorage.getItem(key) || 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch { /* storage blocked: still reload once below */ }
+  event.preventDefault();
+  window.location.reload();
+});
+
 // Read PostHog environment variables
 const PH_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY;
 const PH_HOST = import.meta.env.VITE_PUBLIC_POSTHOG_HOST;
