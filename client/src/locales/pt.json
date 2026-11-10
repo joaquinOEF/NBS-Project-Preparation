@@ -458,6 +458,8 @@
       "pilot": "escala piloto: {{n}}",
       "pilotTitle": "Estimado no tamanho dito no Encontro 3 ({{names}}). A medição na visita técnica fecha o tamanho.",
       "noSolution": "sem solução",
+      "jointBadge": "Projeto conjunto",
+      "jointBackground": "Propostas próprias (histórico, fora da soma):",
       "moveTo": "Mover para",
       "project": "Projeto",
       "newProject": "Mover para: um projeto novo",

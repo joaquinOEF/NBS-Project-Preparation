@@ -104,6 +104,76 @@ export interface PortfolioOrg {
    * board can count a combined project on every drop, each tract once.
    */
   censusTracts?: Record<string, WeightedTract>;
+  /**
+   * What this card stands for. Absent = one organisation alone. 'joint' = a
+   * project whose joint proposal exists (shared/project-proposal.ts, J3 A):
+   * ONE unit with the joint solution and budget; its members' own proposals
+   * are kept as `background`, linked, and never summed. A project GROUPING —
+   * several units in one column — is the board's group (`projectCard`).
+   */
+  unit?: PortfolioUnit;
+}
+
+/** The three kinds of card a board can hold: an org alone, a joint project, or (a column) a grouping of units. */
+export type PortfolioUnit =
+  | { kind: 'org' }
+  | {
+      kind: 'joint';
+      projectId: string;
+      title: string;
+      memberIds: string[];
+      orgNames: string[];
+      /** Each member's own proposal, as it stands — shown and linked, outside every sum. */
+      background: Array<{ memberId: string; orgName: string; solutionLabel: string | null; budget: { low: number; high: number } | null }>;
+    };
+
+/** A record with a pin set — the joint unit's place for the board's distance arithmetic. */
+function withPin(sections: unknown, lat: number, lng: number): unknown {
+  const src = (sections ?? {}) as Record<string, any>;
+  const site = src.intervention_site ?? { fields: {} };
+  return { ...src, intervention_site: { ...site, fields: { ...(site.fields ?? {}), _site_lat: { value: String(lat) }, _site_lng: { value: String(lng) } } } };
+}
+
+/**
+ * Layer 1 for a JOINT project (J3 A): one unit in place of its members. The
+ * solution, budget, gaps and readiness are the joint proposal's; the place is
+ * the first member with a pin (the board's distances need one point — the
+ * census is the union, set by the server); the hazards are every member's.
+ * Keyed by the first member's id, so a saved board keeps its columns.
+ */
+export function jointPortfolioUnit(args: {
+  projectId: string;
+  title: string;
+  /** The members' own layer-1 cards, in the project's order. */
+  members: PortfolioOrg[];
+  /** The joint record (shared/project-proposal.ts jointSections). */
+  sections: unknown;
+  prenote: Prenote;
+  lang?: Lang;
+}): PortfolioOrg {
+  const { members, prenote } = args;
+  const lang = args.lang ?? 'pt';
+  const pinned = members.find(m => m.lat != null && m.lng != null);
+  const names = members.map(m => m.orgName);
+  const base = portfolioOrg(members[0].memberId, names.join(' + '), pinned ? withPin(args.sections, pinned.lat!, pinned.lng!) : args.sections, lang);
+  return {
+    ...base,
+    bairro: members.map(m => m.bairro).find(Boolean) ?? base.bairro,
+    families: Array.from(new Set(members.flatMap(m => m.families))),
+    solutionId: prenote.solution?.id ?? base.solutionId,
+    solutionLabel: prenote.solution?.label ?? base.solutionLabel,
+    budget: prenote.total,
+    gaps: prenote.gaps.length,
+    ...(pinned?.places ? { places: pinned.places } : {}),
+    unit: {
+      kind: 'joint',
+      projectId: args.projectId,
+      title: args.title,
+      memberIds: members.map(m => m.memberId),
+      orgNames: names,
+      background: members.map(m => ({ memberId: m.memberId, orgName: m.orgName, solutionLabel: m.solutionLabel, budget: m.budget })),
+    },
+  };
 }
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && v !== '' && v != null ? n : undefined; };

@@ -72,4 +72,13 @@ menu (`shared/e4-indicators.ts`, reviewed once by Robson via
 per-section rewrites pinned to their inputs) and the print
 (`/api/cbo/:id/prenote`, `…/member/:id/document/prenota`).
 
+## A project's Encontro 4 (10 Nov 2026)
+
+A project's shared session runs these same beats for ONE joint solution
+(`serveE4ForProject`, `deps.project`), over the joint record
+(`shared/project-proposal.ts`), and produces the joint proposal — the same
+`Prenote` plus "As organizações e por que juntas". The place is each member's
+own pin (asked per member, written to that member's record); the census is the
+union of the points. No recap card. See docs/projects.md → "The project encontro".
+
 Walk it: `e2e/e4-encontro.spec.ts`; film it: `E4_VIDEO=1 npx playwright test e2e/quality/e4-walkthrough-video.spec.ts`.

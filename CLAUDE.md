@@ -271,7 +271,10 @@ session (`cbo_state` with `metadata.project`) and ONE link
 (`/cbo-profile?p=<token>`). The session is created with the project, the door
 is the brief rebuilt from every member's live record, and the model gets the
 project context instead of one organisation's state. ⚠️ New table
-`cohort_projects` — `db:push` before deploy.
+`cohort_projects` — `db:push` before deploy. Its encontro ends on Encontro 4
+for the JOINT solution (`serveE4ForProject`, `shared/project-proposal.ts`):
+one proposta inicial, the place = each member's own pin, and on the
+pre-portfolio a closed joint proposal is ONE unit (members = background).
 
 ### Encontro 4 is the pre-note — `docs/e4-flow.md`
 Input (one-tap confirmations) → the page drafted at once → only the open gaps →

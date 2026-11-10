@@ -173,13 +173,33 @@ export function censusAround(lat: number, lng: number): CensusAround | null {
   return summarise(L, w, nearbyOf(L, lat, lng));
 }
 
-/** Several points together — each tract counted ONCE (a combined project). */
-export function censusAroundMany(points: Array<{ lat: number; lng: number }>): CensusAround | null {
+/**
+ * Several points together — each tract counted ONCE (a combined project).
+ * `withNearby`: the health units, schools and territories near ANY of the
+ * points, each named once at its nearest distance (a joint proposal's page).
+ */
+export function censusAroundMany(points: Array<{ lat: number; lng: number }>, opts: { withNearby?: boolean } = {}): CensusAround | null {
   const L = load();
   if (!L) return null;
   const ok = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
   const w = ok.length ? weightsAround(L, ok) : new Map<string, number>();
-  return w.size ? summarise(L, w, []) : null;
+  if (!w.size) return null;
+  if (!opts.withNearby) return summarise(L, w, []);
+  const best = new Map<string, CensusNearby>();
+  for (const p of ok) for (const n of nearbyOf(L, p.lat, p.lng)) {
+    const k = `${n.kind}|${n.name}`;
+    if (!best.has(k) || best.get(k)!.distanceM > n.distanceM) best.set(k, n);
+  }
+  return summarise(L, w, Array.from(best.values()).sort((a, b) => a.distanceM - b.distanceM));
+}
+
+/** The tracts around several points with their figures, each tract once — a joint project on the board. */
+export function tractStatsAroundMany(points: Array<{ lat: number; lng: number }>): Record<string, WeightedTract> | null {
+  const L = load();
+  if (!L) return null;
+  const ok = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  const w = ok.length ? weightsAround(L, ok) : new Map<string, number>();
+  return w.size ? Object.fromEntries(Array.from(w.entries()).filter(([id]) => L.stats[id]).map(([id, x]) => [id, { ...L.stats[id], share: x }])) : null;
 }
 
 /** The census for a record's site fields — the same pin as the map facts (siteContext.sitePoint). */
