@@ -34,6 +34,8 @@ export interface SiteFact {
   key: string;
   /** For grouping layers: what two sites must share ("Polder EBAP 02"). */
   group?: { kind: 'polder' | 'bacia' | 'corredor'; name: string };
+  /** The feature's kept attributes, for readers that phrase a fact themselves (officialHazardFacts.ts). */
+  props?: Record<string, unknown>;
 }
 
 /** At most this many `near` features per layer, nearest first. */
@@ -123,7 +125,7 @@ export function siteFacts(lat: number, lng: number): SiteFact[] {
       for (const h of chosen) {
         const text = layer.describe(h.f.properties ?? {});
         const g = layer.group?.name(h.f.properties ?? {});
-        if (text) facts.push({ layerId: layer.id, topic: layer.topic, text, source, key: `${layer.id}#${h.i}`, distanceM: 0, ...(layer.group && g ? { group: { kind: layer.group.kind, name: g } } : {}) });
+        if (text) facts.push({ layerId: layer.id, topic: layer.topic, text, source, key: `${layer.id}#${h.i}`, distanceM: 0, props: h.f.properties ?? {}, ...(layer.group && g ? { group: { kind: layer.group.kind, name: g } } : {}) });
       }
       continue;
     }
@@ -140,7 +142,7 @@ export function siteFacts(lat: number, lng: number): SiteFact[] {
       if (!text || seen.has(text)) continue;
       seen.add(text);
       const where = d === 0 ? 'no próprio lugar' : d < 15 ? 'junto ao lugar' : `a cerca de ${round(d)} m`;
-      facts.push({ layerId: layer.id, topic: layer.topic, text: `${text.replace(/\.$/, '')} (${where}).`, source, distanceM: d, key: `${layer.id}#${x.i}` });
+      facts.push({ layerId: layer.id, topic: layer.topic, text: `${text.replace(/\.$/, '')} (${where}).`, source, distanceM: d, key: `${layer.id}#${x.i}`, props: x.f.properties ?? {} });
       if (seen.size >= NEAR_MAX) break;
     }
   }

@@ -172,8 +172,14 @@ export function describeRamp(spec: LegendSpec | undefined): string {
   const unit = spec.unit ? `, ${spec.unit}` : '';
   const sampled =
     spec.source === 'sampled' ? ', faixa p2–p98 observada em Porto Alegre' : '';
+  // Ameaça, not risco: the tour's tiles are the PLAC/ARVC hazard layers, and
+  // "menor risco → maior risco" invited the model to talk about exposure and
+  // vulnerability the map does not carry.
+  const fluvial = /flood/.test(spec.layerId)
+    ? ' — ameaça de inundação FLUVIAL (arroios) apenas; o Guaíba aparece à parte, como a área inundada em maio de 2024'
+    : '';
   return (
-    `${spec.layerId}: menor risco ${lo.color} (${lo.value}) → ` +
-    `maior risco ${hi.color} (${hi.value})${unit}${sampled}`
+    `${spec.layerId}: menor ameaça (PLAC) ${lo.color} (${lo.value}) → ` +
+    `maior ameaça (PLAC) ${hi.color} (${hi.value})${unit}${sampled}${fluvial}`
   );
 }

@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { cityMapFor } from './siteContext';
+import { guaibaLineAt, officialHazardFactsFor } from './officialHazardFacts';
+import { arvcHazardAtPin } from './arvcPointHazard';
 import { censusForSite } from './censusContext';
 import { healSite } from './siteHealing';
 import { suggestionsFor } from './e4Suggestions';
@@ -1672,6 +1674,8 @@ function buildFamiliaRecoItems(state: CboState, lang: string, modelItems?: Array
     siteName: String(f.site_name?.value ?? '') || undefined,
     corrections,
     worries: String(f.site_worry?.value ?? '').split(',').map(s => s.trim()).filter(Boolean),
+    // What a why line may say about hazard: official facts at the pin only.
+    officialFacts: officialHazardFactsFor(Object.fromEntries(Object.entries(f).map(([k, x]: [string, any]) => [k, x?.value == null ? undefined : String(x.value)]))),
   });
   const overrides = new Map((modelItems ?? []).map(i => [i.familiaId, i.why]));
   // All five ship. The old slice(0, 3) sat directly beneath a line promising
@@ -1798,6 +1802,8 @@ async function buildFamiliaReco(
     siteName: v('site_name') || undefined,
     corrections,
     worries,
+    // What a why line may say about hazard: official facts at the pin only.
+    officialFacts: officialHazardFactsFor({ site_lat: v('site_lat'), site_lng: v('site_lng'), _site_lat: v('_site_lat'), _site_lng: v('_site_lng') }),
   };
 
   const org = state.sections.org_profile?.fields ?? ({} as any);
@@ -2292,13 +2298,17 @@ async function serveE2Inner(
     const pending = hazardsToCheck(pickedWorries, risks).filter(h => !hazardChecks[h]);
     if (pending.length === 0) return false;
     const h = pending[0];
-    // No preamble: beat 0 already said the map is coarse, and the question
-    // itself repeats "isso é a média do bairro inteiro". Saying it a third time
-    // four turns later reads as filler — and the skill's own voice rules ban it.
+    // No preamble: beat 0 already said the maps are coarse. The question says
+    // only what the OFFICIAL maps record at the point (SGB sector, Guaíba
+    // cota, ponto de alagamento, erosion) — never our bairro percentile, which
+    // only chose WHICH hazard to ask about (hazardsToCheck above).
     const bn = bairro.split(',')[0].trim();
+    const facts = hasSite
+      ? officialHazardFactsFor({ site_lat: val('site_lat'), site_lng: val('site_lng'), _site_lat: val('_site_lat'), _site_lng: val('_site_lng') })
+      : [];
     ask(
-      hazardCheckQuestion(h, risks[h], bn || 'seu bairro', 'pt', hasSite),
-      hazardCheckQuestion(h, risks[h], bn || 'your neighborhood', 'en', hasSite),
+      hazardCheckQuestion(h, bn || 'seu bairro', 'pt', hasSite, facts),
+      hazardCheckQuestion(h, bn || 'your neighborhood', 'en', hasSite, facts),
       HAZARD_CHECK_OPTIONS.map(o => ({ pt: o.pt, en: o.en })),
     );
     return true;
@@ -2331,8 +2341,8 @@ async function serveE2Inner(
    */
   const startDiagnostic = (): true => {
     say(
-      `Agora uma coisa importante: o nosso mapa é **grosso** — cada quadradinho dele cobre uns quarteirões inteiros. Ele serve pra comparar bairros, mas não enxerga o ${hasSite ? 'pátio' : 'dia a dia'} de vocês. **Vocês conhecem esse ${placeWord()} muito melhor do que o nosso dado.** Então vou perguntar umas coisas.`,
-      `Now something important: our map is **coarse** — each of its squares covers whole blocks. It's useful for comparing neighborhoods, but it can't see your ${hasSite ? 'yard' : 'day to day'}. **You know this ${placeWord()} far better than our data does.** So let me ask you a few things.`,
+      `Agora uma coisa importante: os mapas oficiais mostram a cidade inteira, mas não enxergam o ${hasSite ? 'pátio' : 'dia a dia'} de vocês. **Vocês conhecem esse ${placeWord()} muito melhor do que qualquer mapa.** Então vou perguntar umas coisas.`,
+      `Now something important: the official maps show the whole city, but they can't see your ${hasSite ? 'yard' : 'day to day'}. **You know this ${placeWord()} far better than any map does.** So let me ask you a few things.`,
     );
     writeE2Fields(cboId, state, { _worry_offered: 'yes' }, pushEvent);
     askWorry([]);
@@ -2642,6 +2652,14 @@ async function serveE2Inner(
     // tells us nothing, but a geocode that lands on "Praça Itália" or "EMEF
     // Vila Nova" feeds the same keyword rules the picked-place path uses.
     const typeLabel = inferSiteTypeLabel(address || s.name, isPt ? 'pt' : 'en');
+    // What the card may say about hazard (JVP, 10 Nov 2026): the PLAC/ARVC
+    // ameaça sampled AT THE PIN, classed and worded here — never the bairro
+    // percentile above, which stays internal (família ranking, worry order,
+    // which hazard to check). Plus the Guaíba line when the pin is inside a
+    // SMAMUS contour the May 2024 flood reached, since the flood ameaça is
+    // fluvial only.
+    const pinHazard = arvcHazardAtPin(s.lat, s.lng);
+    const guaiba = guaibaLineAt(s.lat, s.lng);
     pushEvent({
       type: 'show_site_card',
       card: {
@@ -2652,12 +2670,13 @@ async function serveE2Inner(
         siteKind: s.kind,
         ...(address ? { address } : {}),
         ...(typeLabel ? { siteTypeLabel: typeLabel } : {}),
-        risks: { flood: z.flood, heat: z.heat, landslide: z.landslide },
+        ...(pinHazard.length ? { pinHazard } : {}),
+        ...(guaiba ? { guaiba } : {}),
       },
     } as any);
-    // "É isso mesmo?" over a card carrying three risk bars asked two questions
-    // at once and accepted an answer to neither — the chips are all about the
-    // PLACE, and the risk question belongs to the diagnostic beat that comes
+    // "É isso mesmo?" over a card carrying risk bars asked two questions at
+    // once and accepted an answer to neither — the chips are all about the
+    // PLACE, and the hazard question belongs to the diagnostic beat that comes
     // later and is built to receive an answer (pior / mais ou menos / mais
     // tranquilo). Name what is being confirmed.
     ask('Esse é o lugar certo?', 'Is this the right place?', [
@@ -4714,7 +4733,7 @@ ${await buildProjectContext(project, lang === 'en' ? 'en' : 'pt')}`;
   // back. The tool fence below already blocks everything else, but saying so
   // keeps the model from narrating an advance it cannot perform.
   const mapHelpDirective = turnKind === 'map_help'
-    ? `## THIS TURN\nO usuário está no tour de riscos do mapa e perguntou como ler as cores. Responda a pergunta em 2-3 frases curtas, usando as cores REAIS que a mensagem informa (elas variam por risco e às vezes contrariam a intuição — verde nem sempre é seguro). Não avance o encontro, não preencha campos, não reabra o mapa. Termine SEMPRE com ask_user, showMap: true, oferecendo "Voltar pro mapa" como primeira opção.\n\n`
+    ? `## THIS TURN\nO usuário está no tour de ameaças do mapa e perguntou como ler as cores. As camadas são a AMEAÇA do PLAC da Prefeitura (ARVC, cenário 2050) — não risco: chame de "ameaça (PLAC)", nunca de "risco do bairro". A de enchente é só inundação fluvial (arroios); o Guaíba aparece à parte, como a área inundada em maio de 2024. Responda a pergunta em 2-3 frases curtas, usando as cores REAIS que a mensagem informa (elas às vezes contrariam a intuição). Não avance o encontro, não preencha campos, não reabra o mapa. Termine SEMPRE com ask_user, showMap: true, oferecendo "Voltar pro mapa" como primeira opção.\n\n`
     : '';
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);

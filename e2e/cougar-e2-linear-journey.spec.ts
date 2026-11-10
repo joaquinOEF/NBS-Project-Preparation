@@ -28,19 +28,19 @@ const LANGS = [
     askSupport: 'Pedir apoio à coordenação',
     comeBack: 'Vou verificar e volto',
     knowNow: 'Já sei o lugar',
-    cardRisk: 'Enchente',
+    cardRisk: 'Ameaça no ponto (PLAC)',
     confirmSite: 'Confirmar ✓',
     currentUseText: 'Como é esse lugar hoje',
     currentUsePick: 'Abandonado / degradado',
     tenureText: 'acesso a esse espaço',
     tenurePick: 'É da prefeitura, mas a gente usa',
-    frameText: 'nosso mapa é',
+    frameText: 'mapas oficiais',
     worryText: 'mais preocupa',
     worryPick: '💧 Alagamento',
     storyText: 'palavras de vocês',
     skipStory: 'Prefiro pular',
     photosText: 'fotos ajudam',
-    checkText: 'média do bairro',
+    checkText: 'é mais ou menos isso, ou é mais tranquilo',
     checkPick: 'Aqui é pior',
     noPhotos: 'Não tenho agora',
     exampleMark: 'ex.:',
@@ -67,19 +67,19 @@ const LANGS = [
     askSupport: 'Ask the coordination for help',
     comeBack: "I'll check and come back",
     knowNow: 'I know the place now',
-    cardRisk: 'Flood',
+    cardRisk: 'Hazard at this point (PLAC)',
     confirmSite: 'Confirm ✓',
     currentUseText: 'What is this place like today',
     currentUsePick: 'Abandoned / degraded',
     tenureText: 'access to this space',
     tenurePick: "It's the city's, but we use it",
-    frameText: 'our map is',
+    frameText: 'official maps',
     worryText: 'worries you most',
     worryPick: '💧 Ponding',   // Alagamento — the pluvial mechanism (backlog #24)
     storyText: 'your own words',
     skipStory: "I'd rather skip",
     photosText: 'photos would help',
-    checkText: 'average over the whole neighbourhood',
+    checkText: 'about the same, or calmer',
     checkPick: "It's worse here",
     noPhotos: "I don't have any right now",
     exampleMark: 'e.g.:',
@@ -195,7 +195,7 @@ for (const L of LANGS) {
       await chip(L.skipStory).click();
       await expect(page.getByText(L.photosText, { exact: false })).toBeVisible({ timeout: 8_000 });
       await chip(L.noPhotos).click();
-      // The read-back: our data states a bairro average, they correct it.
+      // The read-back: asked against the rest of the bairro, no claim from our index.
       await expect(page.getByText(L.checkText, { exact: false })).toBeVisible({ timeout: 8_000 });
       await chip(L.checkPick).click();
       // The read-back can ask about TWO hazards: hazardsToCheck() adds any our

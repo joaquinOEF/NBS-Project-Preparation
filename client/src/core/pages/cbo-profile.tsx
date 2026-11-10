@@ -1809,7 +1809,7 @@ export default function CboProfilePage() {
     const text =
       `[MAP HELP] hazard=${family}\n` +
       `Escala real do mapa que ele está vendo agora — ${rampNote}\n` +
-      `O usuário está no tour de riscos e quer entender como ler as cores. ` +
+      `O usuário está no tour de ameaças (PLAC) e quer entender como ler as cores. ` +
       `Responda usando as cores reais acima, não as convenções habituais.`;
     setMobileActiveTab('chat'); // rightTab stays 'map' on purpose
     void sendMessage(text, false, false, display, 'map_help');

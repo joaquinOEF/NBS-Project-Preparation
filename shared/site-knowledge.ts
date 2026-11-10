@@ -25,6 +25,8 @@
 // participant, while broad prompts surface what the facilitator never thought to
 // ask.
 
+import { officialFactsFor, officialFactSentence, type OfficialHazardFact } from './official-hazard-facts';
+
 /** The three layers we hold data for. One raster each; nothing finer exists. */
 export type HazardKey = 'flood' | 'heat' | 'landslide';
 
@@ -276,41 +278,51 @@ const HAZARD_WORD: Record<HazardKey, { pt: string; en: string }> = {
   landslide: { pt: 'deslizamento', en: 'landslide' },
 };
 
-function level(pct: number, lang: 'pt' | 'en'): string {
-  const i = pct >= 66 ? 2 : pct >= 33 ? 1 : 0;
-  return (lang === 'pt' ? ['baixo', 'médio', 'alto'] : ['low', 'medium', 'high'])[i];
-}
-
 /**
- * Our side of the read-back: state what the data says, say plainly that it is a
- * bairro average, and ask whether their corner is worse, the same, or calmer.
+ * The read-back's question: is the hazard at their place worse, the same, or
+ * calmer than across the rest of the bairro?
  *
- * This is the cheapest possible attack on the resolution problem — it needs no
- * new geospatial work and produces the one thing the rasters cannot give us: a
- * site-versus-bairro delta, stated by someone standing in the place. When
- * point-level mechanism sampling lands, a sharper claim ("the flooding here
- * looks like rain that can't drain, not the stream rising") replaces the
- * generic one; the answer shape stays identical.
+ * ⚠️ It makes NO claim from our own data. Until 10 Nov 2026 it opened "Nosso
+ * mapa diz que o risco de enchente é **alto** no Floresta — mas isso é a média
+ * do bairro", quoting `_bairro_*_pct`: a within-city percentile rank of the
+ * ARVC RISCO composite that we computed ourselves. What an organisation is told
+ * about hazard rests on official data, so the municipality is accountable for
+ * it (stance first set in PR #470) — our index still decides WHICH hazard gets
+ * asked (`hazardsToCheck`), never what is said about it.
+ *
+ * So the question anchors on what the city's own maps record at the point —
+ * an SGB sector, the Guaíba cota, a ponto de alagamento, the erosion zoning —
+ * when there is one, and otherwise asks without a data claim at all. The
+ * comparison asked ("do lugar de vocês" against "o resto do bairro") and the
+ * four answers (HAZARD_CHECK_OPTIONS) are unchanged, so the pending-question
+ * contract and everything that reads `_hazard_check_json` keep working.
  */
 export function hazardCheckQuestion(
   hazard: HazardKey,
-  pct: number,
   bairro: string,
   lang: 'pt' | 'en',
-  /** False when no site is pinned yet — the check then validates the bairro
-   *  figure itself against what they live, which is still worth knowing. */
+  /** False when no site is pinned yet — the check then asks about the bairro
+   *  against the rest of the city, which is still worth knowing. */
   hasSite = true,
+  /** Official facts at the point (server/services/officialHazardFacts.ts). Only
+   *  the ones for `hazard` are used; at most two are said. */
+  facts: OfficialHazardFact[] = [],
 ): string {
   const w = HAZARD_WORD[hazard][lang];
-  const l = level(pct, lang);
   if (!hasSite) {
     return lang === 'pt'
-      ? `Nosso mapa diz que o risco de ${w} é **${l}** no ${bairro} — mas isso é uma média do bairro inteiro. No dia a dia de vocês, isso bate? É pior, é mais ou menos isso, ou é mais tranquilo?`
-      : `Our map says ${w} risk is **${l}** in ${bairro} — but that's an average over the whole neighbourhood. Does that match your day to day? Is it worse, about the same, or calmer?`;
+      ? `No dia a dia do ${bairro}, como é o ${w}, comparado com o resto de Porto Alegre? É pior, é mais ou menos isso, ou é mais tranquilo?`
+      : `Day to day in ${bairro}, how is ${w} compared with the rest of Porto Alegre? Is it worse, about the same, or calmer?`;
   }
+  const said = officialFactsFor(facts, hazard).slice(0, 2);
+  const anchor = said.length === 0
+    ? ''
+    : lang === 'pt'
+      ? `No mapa oficial, perto do lugar de vocês: ${said.map(f => officialFactSentence(f, 'pt')).join(' ')}\n\n`
+      : `On the official maps, near your place: ${said.map(f => officialFactSentence(f, 'en')).join(' ')}\n\n`;
   return lang === 'pt'
-    ? `Nosso mapa diz que o risco de ${w} é **${l}** no ${bairro} — mas isso é a média do bairro inteiro, não do lugar de vocês. No lugar de vocês, é pior, é mais ou menos isso, ou é mais tranquilo?`
-    : `Our map says ${w} risk is **${l}** in ${bairro} — but that's an average over the whole neighbourhood, not your place. At your place, is it worse, about the same, or calmer?`;
+    ? `${anchor}Comparando com o resto do ${bairro}, como é o ${w} no lugar de vocês? É pior, é mais ou menos isso, ou é mais tranquilo?`
+    : `${anchor}Compared with the rest of ${bairro}, how is ${w} at your place? Is it worse, about the same, or calmer?`;
 }
 
 /** Which hazards are worth checking: what they named, plus anything our data calls high. */

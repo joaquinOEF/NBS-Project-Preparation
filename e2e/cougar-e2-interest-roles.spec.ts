@@ -65,7 +65,7 @@ test.describe('COUGAR — E2 interest + role loops', () => {
     await chip('Prefiro pular').click();
     await expect(page.getByText('fotos ajudam', { exact: false })).toBeVisible({ timeout: 8_000 });
     await chip('Não tenho agora').click();
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText(/é mais ou menos isso, ou é mais tranquilo|about the same, or calmer/)).toBeVisible({ timeout: 8_000 });
     await chip('Não sei dizer').click();
 
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 15_000 });

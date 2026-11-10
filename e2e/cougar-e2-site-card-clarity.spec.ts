@@ -9,8 +9,9 @@ import { TestApi } from './helpers/testApi';
 // they read as this site's risk, invited a judgement, and offered no chip to
 // disagree — while the diagnostic asks exactly that ~10 turns later and has to
 // open by undoing the card ("isso é a média do bairro inteiro, NÃO do lugar de
-// vocês"). What this pins: the card names the place, shows it, and labels the
-// risk block as a neighbourhood average.
+// vocês"). What this pins: the card names the place, shows it, and — since
+// 10 Nov 2026 — shows the Prefeitura's PLAC ameaça at the pin instead of our
+// bairro percentile.
 
 const SITE_PAYLOAD = [
   'Map selection (composite mode):',
@@ -49,19 +50,26 @@ test.describe('COUGAR — E2 site card confirms the place, not the risk', () => 
     await expect(page.getByText('É isso mesmo?', { exact: false })).toHaveCount(0);
   });
 
-  test('risk is labelled as a bairro average and defers to the later beat', async ({ page, request }) => {
+  test('hazard is the PLAC ameaça at the pin, never a bairro average', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
     await toSiteCard(page, request);
 
     const card = page.getByTestId('cbo-site-card');
-    // The eyebrow no longer claims these numbers describe their place.
+    // The eyebrow names the place, not "seu lugar" risk.
     await expect(card).not.toContainText(/SEU LUGAR/i);
-    await expect(page.getByTestId('cbo-site-card-risk-label')).toContainText(/no bairro, em média/i);
-    // And the sequencing is stated, so the later hazard check doesn't read as a
-    // repeat of a question the card already asked.
-    await expect(card).toContainText(/daqui a pouco/i);
+    // The official ameaça sampled at the pin, with its source (JVP, 10 Nov 2026).
+    await expect(card).toContainText(/Ameaça no ponto \(PLAC\)/i);
+    await expect(card).toContainText('PLAC/ARVC, cenário 2050');
+    // Our bairro index is gone: no average, no bairro label, no percentile.
+    await expect(card).not.toContainText(/em média/i);
+    await expect(card).not.toContainText(/média do bairro/i);
+    await expect(card).not.toContainText(/no bairro/i);
+    await expect(card).not.toContainText(/\d+\s*%/);
+    await expect(page.getByTestId('cbo-site-card-risk-label')).toHaveCount(0);
+    // Flood is named as what the layer is — the arroios — never plain "Enchente".
+    await expect(card).not.toContainText(/Enchente/);
   });
 
   test('a dropped pin gets a map thumbnail, not just a latitude', async ({ page, request }) => {

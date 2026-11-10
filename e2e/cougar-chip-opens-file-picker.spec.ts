@@ -110,6 +110,6 @@ test.describe('COUGAR — a chip that needs a file opens the picker', () => {
 
     // The other chips must be untouched by all this — no picker, normal answer.
     await chip(page, 'Não tenho agora').click();
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/é mais ou menos isso, ou é mais tranquilo|about the same, or calmer/)).toBeVisible({ timeout: 15_000 });
   });
 });

@@ -49,8 +49,8 @@ export function DataProvenanceDialog({ lang, entries, className, compact }: Prop
           <DialogDescription>{ui.subtitle}</DialogDescription>
         </DialogHeader>
 
-        {/* Data-literacy: what "risk" means here (H×E×V). */}
-        {keys.some(k => k === 'flood' || k === 'heat' || k === 'landslide' || k === 'neighborhoods') && (
+        {/* Data-literacy: these are ameaça layers (PLAC), not risk. */}
+        {keys.some(k => k === 'flood' || k === 'heat' || k === 'landslide') && (
           <div className="rounded-md bg-muted/60 p-3 text-xs leading-relaxed text-muted-foreground">
             <div className="font-medium text-foreground mb-1">{ui.methodologyTitle}</div>
             {RISK_METHODOLOGY[lang]}

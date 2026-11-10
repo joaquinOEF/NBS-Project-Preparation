@@ -89,17 +89,19 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
   // site) and returned one blob. The linear flow splits it: each open does ONE
   // job and the chat (server-templated checkpoints) is the spine between them.
 
-  // Map 1 — understand the risks, confirm the bairro, done. The tour runs first;
-  // confirmAtZone ends the session right after the neighborhood pick (no site
-  // step, no hazard rasters over the bairro outlines — they're off post-tour
-  // already).
+  // Map 1 — understand the hazards, confirm the bairro, done. The tour runs
+  // first; confirmAtZone ends the session right after the neighborhood pick (no
+  // site step, no hazard rasters over the bairro outlines — they're off
+  // post-tour already).
   //
-  // `zoneRiskRamp` shades the bairros on ONE sequential scale by their
-  // within-city risk percentile. The old typology choropleth painted 67 of 94
-  // bairros the same red while 26 more carried hues the 3-chip legend never
-  // named; removing it left the map blank, which cannot answer the question the
-  // hazard tour just raised. One ramp, one legend, and a scale that separates
-  // the city. The caller passes `preselectZone` with the bairro E1 recorded.
+  // ⚠️ No `zoneRiskRamp` (removed 10 Nov 2026). It shaded each bairro by OUR
+  // percentile rank of the ARVC RISCO composite, under "A cor mostra o risco de
+  // cada bairro", with "Enchente: Muito alto" tooltips — our index presented as
+  // the org's risk. What an organisation sees about hazard rests on official
+  // data (stance, PR #470): the official ameaça is what the tour shows, and the
+  // zone step draws plain outlines with the bairro's name (MapMicroapp,
+  // getDefaultStyle). The caller passes `preselectZone` with the bairro E1
+  // recorded.
   e2_bairro: {
     params: {
       selectionMode: 'composite',
@@ -109,7 +111,6 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
       hazardTour: true,
       allowDeferSite: true,
       confirmAtZone: true,
-      zoneRiskRamp: true,
     },
     prompt: {
       pt: 'Conheça os riscos e confirme o bairro onde vocês atuam.',
@@ -158,13 +159,17 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
       tileLayers: E2_HAZARD_TILES,
       showLegendSimple: true,
     },
+    // Ameaça (PLAC), not "os riscos": these tiles are the Prefeitura's hazard
+    // layers, and all three share one yellow→red ramp — the old "Azul =
+    // enchente, Vermelho = calor, Marrom = deslizamento" described a map that
+    // is no longer drawn.
     prompt: {
-      pt: 'Olha o seu bairro. As cores mostram os riscos.',
-      en: 'Look at your neighborhood. The colors show the risks.',
+      pt: 'Olha o seu bairro. As cores mostram a ameaça (PLAC).',
+      en: 'Look at your neighborhood. The colors show the hazard (PLAC).',
     },
     narrationOverlay: {
-      pt: 'Azul = enchente. Vermelho = calor. Marrom = deslizamento. Toque "Voltar ao chat" quando quiser.',
-      en: 'Blue = flood. Red = heat. Brown = landslide. Tap "Back to chat" whenever you like.',
+      pt: 'Ameaça de enchente (arroios), calor e deslizamento do PLAC da Prefeitura, cenário 2050: amarelo = menor, vermelho = maior. Toque "Voltar ao chat" quando quiser.',
+      en: 'River-flood, heat and landslide hazard from the city\'s PLAC, 2050 scenario: yellow = lower, red = higher. Tap "Back to chat" whenever you like.',
     },
   },
 };

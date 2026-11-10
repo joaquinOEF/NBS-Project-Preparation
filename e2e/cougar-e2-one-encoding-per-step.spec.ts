@@ -5,7 +5,8 @@ import { TestApi } from './helpers/testApi';
 // tour the zones choropleth used to render fully colored UNDER the hazard
 // raster — two encodings at once. Contract now:
 //   tour  → raster only, bairros as thin inert outlines (fill 0, no taps)
-//   zone  → choropleth only (rasters already off), interactive
+//   zone  → uniform outlines (rasters already off), interactive — no risk
+//           shading since 10 Nov 2026 (our bairro index; stance PR #470)
 //   site  → selected bairro as a bold outline with NO fill; other bairros
 //           hidden and inert (taps go to point-dropping, not zone-select)
 
@@ -32,7 +33,7 @@ async function zoneFillOpacities(page: import('@playwright/test').Page): Promise
 test.describe('COUGAR — E2 map shows one encoding per step', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('tour: outlines only; zone step: choropleth; site step: selected outline, rest hidden', async ({ page, request }) => {
+  test('tour: outlines only; zone step: uniform outlines; site step: selected outline, rest hidden', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -63,14 +64,22 @@ test.describe('COUGAR — E2 map shows one encoding per step', () => {
     await page.mouse.click(tourBox.x + tourBox.width / 2, tourBox.y + tourBox.height / 2);
     await expect(page.getByRole('button', { name: /próximo: selecionar/i })).toHaveCount(0);
 
-    // Finish the tour → ZONE step: the choropleth is back and colored.
+    // Finish the tour → ZONE step: interactive outlines, all drawn alike. No
+    // risk choropleth since 10 Nov 2026 — it was our bairro index, shown to
+    // the org as its risk (stance, PR #470). A faint uniform fill is the tap
+    // target.
     await tourNext.click();
     await tourNext.click();
     await tourNext.click();
     await expect(tourNext).toHaveCount(0, { timeout: 10_000 });
+    // (The city boundary — dashed — is not a bairro; leave it out.)
+    const bairroFills = () => page.$$eval('.leaflet-overlay-pane path', paths =>
+      paths.filter(p => !p.getAttribute('stroke-dasharray'))
+        .map(p => parseFloat(p.getAttribute('fill-opacity') ?? '0')));
     await expect
-      .poll(async () => Math.max(...(await zoneFillOpacities(page))), { timeout: 10_000 })
-      .toBeGreaterThanOrEqual(0.3);
+      .poll(async () => new Set(await bairroFills()).size, { timeout: 10_000 })
+      .toBe(1);
+    expect(Math.max(...(await bairroFills()))).toBeLessThanOrEqual(0.1);
 
     // Select a bairro and advance to the SITE step. Re-measure the map: the
     // stepper + risk-chip rows appear when the tour ends and shift it down;

@@ -8,12 +8,20 @@
 //   1. the bairro's hazard profile (0–100 means, parsed from the map result)
 //   2. the família's hazard weights (shared/nbs-catalog.ts)
 //   3. what the org said about the place (current_use, site-type keywords)
+// ⚠️ Signal 1 ORDERS the famílias; it is never SAID. The `_bairro_*_pct` means
+// are our percentile ranks of the ARVC RISCO composite, and what an
+// organisation reads about hazard must rest on official data (stance, PR #470;
+// 10 Nov 2026). A why line therefore opens on the correction they made, the
+// worry they named, or an official fact at the point — or on nothing.
+// "Enchente é alta no Floresta" / "O dado do bairro aponta…" are gone.
+//
 // The "why" lines here are deterministic pt/en templates from structured data;
 // when the model has richer context (uploaded photos, free-text answers) it
 // calls the show_familia_recommendation tool with its own whys, which override
 // these per-família.
 
 import { familiesOfWorries } from './site-knowledge';
+import { officialFactsFor, officialFactSentence, type OfficialHazardFact } from './official-hazard-facts';
 import {
   NBS_FAMILIAS,
   solutionsForFamilia,
@@ -54,6 +62,12 @@ export interface FamiliaRecoInput {
    * because nothing is hidden — see the "sem sinal forte" group in the UI.
    */
   worries?: string[];
+  /**
+   * Official facts at the marked point (server/services/officialHazardFacts.ts).
+   * The only hazard claim a why line may make that the org did not make
+   * itself. Never affects the score.
+   */
+  officialFacts?: OfficialHazardFact[];
 }
 
 export interface RankedFamilia {
@@ -79,24 +93,21 @@ const HAZARD_WORDS = {
   landslide: { pt: 'deslizamento', en: 'landslide', em: 'no' },
 } as const;
 
-/** `fem` for "enchente é baixA" — the masculine form was printing for all three. */
-function levelWord(pct: number, lang: 'pt' | 'en', fem = false): string {
-  const idx = pct >= 66 ? 2 : pct >= 33 ? 1 : 0;
-  if (lang !== 'pt') return ['low', 'medium', 'high'][idx];
-  return (fem ? ['baixa', 'média', 'alta'] : ['baixo', 'médio', 'alto'])[idx];
-}
-
 /**
  * The opening sentence, varied by rank so three cards don't repeat one
  * sentence verbatim. Each variant states the SAME fact a different way —
- * rephrasing only, never an extra claim the data doesn't carry.
+ * rephrasing only, never an extra claim.
+ *
+ * Where the fact comes from, in order: their correction at the read-back,
+ * the worry they named, an official fact at the point. With none of those the
+ * card opens on what the família does (the tail) — never on our bairro index.
  */
 function openingLine(
   variant: number,
   hazard: 'flood' | 'heat' | 'landslide',
-  pct: number,
-  bairro: string,
   corrected: 'worse' | 'less' | null,
+  named: boolean,
+  fact: OfficialHazardFact | undefined,
   lang: 'pt' | 'en',
 ): string {
   const w = HAZARD_WORDS[hazard];
@@ -105,34 +116,37 @@ function openingLine(
       ? { pt: 'pior', en: 'worse' } : { pt: 'mais brando', en: 'milder' };
     if (lang === 'pt') {
       return [
-        `Vocês disseram que ${w.pt} aqui é ${dir.pt} que na média do bairro.`,
-        `Pelo que vocês contaram, ${w.pt} aqui é ${dir.pt} que a média do bairro.`,
+        `Vocês disseram que ${w.pt} aqui é ${dir.pt} que no resto do bairro.`,
+        `Pelo que vocês contaram, ${w.pt} aqui é ${dir.pt} que no resto do bairro.`,
         `Como vocês apontaram, aqui ${w.pt} é ${dir.pt} que no resto do bairro.`,
       ][variant % 3];
     }
     return [
-      `You told me ${w.en} is ${dir.en} here than the bairro average.`,
-      `From what you said, ${w.en} here is ${dir.en} than the bairro average.`,
+      `You told me ${w.en} is ${dir.en} here than across the rest of the bairro.`,
+      `From what you said, ${w.en} here is ${dir.en} than in the rest of the bairro.`,
       `As you pointed out, ${w.en} here is ${dir.en} than across the bairro.`,
     ][variant % 3];
   }
-  const fem = hazard === 'flood';
-  if (lang === 'pt') {
-    const L = levelWord(pct, 'pt', fem);
-    const Cap = w.pt.charAt(0).toUpperCase() + w.pt.slice(1);
+  if (named) {
+    if (lang === 'pt') {
+      return [
+        `Vocês disseram que ${w.pt} preocupa aqui.`,
+        `${w.pt.charAt(0).toUpperCase()}${w.pt.slice(1)} foi uma das preocupações que vocês apontaram.`,
+        `Como vocês contaram, ${w.pt} é uma preocupação nesse lugar.`,
+      ][variant % 3];
+    }
     return [
-      `${Cap} é ${L} no ${bairro}.`,
-      `No ${bairro}, ${w.pt} é ${L}.`,
-      `O dado do bairro aponta ${w.pt} ${L}.`,
+      `You told me ${w.en} worries you here.`,
+      `${w.en.charAt(0).toUpperCase()}${w.en.slice(1)} was one of the worries you named.`,
+      `As you said, ${w.en} is a concern at this place.`,
     ][variant % 3];
   }
-  const L = levelWord(pct, 'en');
-  const Cap = w.en.charAt(0).toUpperCase() + w.en.slice(1);
-  return [
-    `${Cap} risk is ${L} in ${bairro}.`,
-    `In ${bairro}, ${w.en} risk is ${L}.`,
-    `The bairro data puts ${w.en} risk at ${L}.`,
-  ][variant % 3];
+  if (fact) {
+    return lang === 'pt'
+      ? `No mapa oficial: ${officialFactSentence(fact, 'pt')}`
+      : `On the official map: ${officialFactSentence(fact, 'en')}`;
+  }
+  return '';
 }
 
 /** Two example variants per família — mutirão-buildable first, then cheapest. */
@@ -163,7 +177,6 @@ function correctedRisks(
 }
 
 export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
-  const bairro = input.bairro;
   const risks = correctedRisks(input.risks, input.corrections);
   const use = (input.currentUse ?? '').toLowerCase();
   const siteName = (input.siteName ?? '')
@@ -227,6 +240,10 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
     const corrected = input.corrections?.[top.h];
     const correctedDir: 'worse' | 'less' | null =
       corrected === 'worse' ? 'worse' : corrected === 'less' ? 'less' : null;
+    // The worry they named for the hazard driving this card, and the official
+    // fact at the point for it — the only two other things an opening may say.
+    const namedTop = familiesOfWorries(input.worries ?? []).includes(top.h);
+    const factTop = officialFactsFor(input.officialFacts, top.h)[0];
 
     // "a que mais dá conta de X" would be a superlative ACROSS famílias, and
     // `primary` is only this família's own strongest hazard — Agricultura
@@ -259,9 +276,9 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
     const spread = unsure ? 0.6 : 1;
 
     // Skip when the opening already attributes this same hazard to them — the
-    // corrected opening and this line otherwise both start "Vocês disseram
-    // que enchente…" in a single card.
-    const worryWhy = answersAWorry && !(correctedDir && answersAWorry === top.h)
+    // opening (corrected or named) and this line otherwise both start "Vocês
+    // disseram que enchente…" in a single card.
+    const worryWhy = answersAWorry && !((correctedDir || namedTop) && answersAWorry === top.h)
       ? {
           pt: ` Vocês disseram que ${HAZARD_WORDS[answersAWorry].pt} preocupa aqui.`,
           en: ` You told me ${HAZARD_WORDS[answersAWorry].en} worries you here.`,
@@ -280,7 +297,7 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
       score,
       // Assembled at the end, where the rank is known (openingLine varies by it).
       _parts: {
-        hazard: top.h, pct: risks[top.h], correctedDir,
+        hazard: top.h, correctedDir, namedTop, factTop,
         tail, worryWhy, boostWhy, unsureWhy,
       },
       why: { pt: '', en: '' },
@@ -293,12 +310,12 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
   .map((r: any, i: number) => {
     const p = r._parts;
     const build = (lang: 'pt' | 'en') => [
-      openingLine(i, p.hazard, p.pct, bairro, p.correctedDir, lang),
+      openingLine(i, p.hazard, p.correctedDir, p.namedTop, p.factTop, lang),
       p.tail[lang],
       p.worryWhy?.[lang],
       p.boostWhy?.[lang],
       p.unsureWhy?.[lang],
-    ].filter(Boolean).join('');
+    ].filter(Boolean).join('').trim();
     const { _parts, ...rest } = r;
     return {
       ...rest,
