@@ -281,14 +281,26 @@ test.describe('projects — the project encontro', () => {
     await expect(thread.getByText('Mais ou menos de que tamanho', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
     await input.fill('30 por 4');
     await input.press('Enter');
-    // Periferia Feminista has neither a pin nor an address: asked by name, skippable.
+    // Periferia Feminista has neither a pin nor an address: asked by name — and
+    // REQUIRED (10 Nov): the map is the only way on, no "Seguir sem o lugar".
     await expect(thread.getByText('O lugar da Periferia Feminista', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Marcar o lugar agora')).toBeVisible();
+    await expect(chip('Seguir sem o lugar')).toHaveCount(0);
 
     // A return lands on the same question — the joint Encontro 4's, not the door's.
     await page.reload();
-    await expect(chip('Seguir sem o lugar')).toBeVisible({ timeout: 30_000 });
+    await expect(chip('Marcar o lugar agora')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('cbo-project-brief')).toHaveCount(1);
-    await chip('Seguir sem o lugar').click();
+    await expect(chip('Seguir sem o lugar')).toHaveCount(0);
+    // The place marked on HER record (as the map or the coordinator's address finder would) — the flow moves on.
+    await api.seedState(fresh.cboStateId, { sections: [
+      { sectionId: 'intervention_site', field: '_site_lat', value: '-30.0560' },
+      { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1830' },
+    ] });
+    // Marked elsewhere (the coordinator's drawer): the next return moves on, not the same question again.
+    const back = await page.request.post(`/api/cbo/${project.cboStateId}/chat`, { data: { message: 'Vamos começar o projeto.', lang: 'pt', turnKind: 'system' } });
+    expect(back.ok()).toBe(true);
+    await page.reload();
     await expect(thread.getByText('continua sendo', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
     await chip('Isso ✓').click();
 

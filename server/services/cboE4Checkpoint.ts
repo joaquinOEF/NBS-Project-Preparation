@@ -773,6 +773,17 @@ async function serveE4Inner(
     // step of their own ("Qual solução? Escreve o nome", "O que mudou?", the
     // "Mudar algo" menu) and re-deriving the step would land somewhere else —
     // the fuzzer found 14 walks in 70 doing it (scripts/e4-fuzz.ts, I5).
+    // …unless the place it was asking for got marked elsewhere meanwhile (the
+    // coordinator's drawer, the member's own page): then the step moves on.
+    if (type('_e4_place_pending') === 'yes') {
+      const marked = P
+        ? !!P.members().find(x => x.memberId === type('_e4_place_member'))?.pinned
+        : !!(site('_site_lat') || site('site_lat'));
+      if (marked) {
+        writeType({ _e4_place_pending: '', _e4_place_member: '' });
+        return serve('place-marked-elsewhere');
+      }
+    }
     if (type('_e4_opened') && reemitPending(state, TYPE, pushEvent)) return finish('resume-pending');
     if (!type('_e4_opened')) writeType({ _e4_opened: 'yes' });
     return serve(type('_e4_step') ? 'resume' : 'open');
