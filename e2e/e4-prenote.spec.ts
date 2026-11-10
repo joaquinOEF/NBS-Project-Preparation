@@ -1,3 +1,4 @@
+import { placeKey } from '../shared/site-of-record';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
@@ -234,5 +235,16 @@ test.describe('the pre-note reads the whole record', () => {
     expect(buildPrenote({ ...RICH, type: { ...RICH.type, _prenote_authored_json: good } }).summary.length).toBe(1);
     const invented = JSON.stringify([{ section: 'resumo', paragraphs: [{ text: 'O projeto atende 900 famílias e custa R$ 2 milhões.', sources: ['Encontros 2 e 3'] }] }]);
     expect(buildPrenote({ ...RICH, type: { ...RICH.type, _prenote_authored_json: invented } }).summary).toEqual([]);
+  });
+
+  test('a stored summary written about another place is retired (Vila Flores, prod 9 Nov 2026)', () => {
+    // Written when Encontro 4 closed; the place was corrected afterwards, and
+    // the summary kept saying the address was not on the map.
+    const good = JSON.stringify([{ section: 'resumo', paragraphs: [{ text: 'A Ksa Rosa propõe jardins de chuva no pátio da Voluntários da Pátria, no bairro Floresta, para segurar a água que hoje alaga o pátio.', sources: ['Encontros 2 e 3'] }] }]);
+    const site = { ...RICH.site, _site_lat: '-30.0222082', _site_lng: '-51.2112536' };
+    const at = (place: string | undefined) => buildPrenote({ ...RICH, site, type: { ...RICH.type, _prenote_authored_json: good, ...(place === undefined ? {} : { _prenote_authored_place: place }) } }).summary.length;
+    expect(at(placeKey(site)), 'written about this place').toBe(1);
+    expect(at('-30.0175,-51.2139'), 'written about the old pin').toBe(0);
+    expect(at(undefined), 'a summary from before the key existed is kept').toBe(1);
   });
 });
