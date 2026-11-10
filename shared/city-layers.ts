@@ -109,7 +109,8 @@ export const CITY_LAYERS: CityLayer[] = [
   {
     id: 'pontos-alagamento', file: /PontosdeAlagamento/i, title: 'Pontos de alagamento', owner: 'SMAMUS',
     topic: 'agua', mode: 'near', radiusM: 600, keep: ['popupinfo', 'name'],
-    describe: p => `Ponto de alagamento registrado: ${s(p.popupinfo).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || s(p.name)}.`,
+    // The popup's first line is the address; the rest is the layer's attribute dump (FID, ITEM, ENDERECO…).
+    describe: p => `Ponto de alagamento registrado: ${s(p.popupinfo).split(/<br\s*\/?>/i)[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || s(p.name)}.`,
   },
   {
     id: 'diques', file: /Diques_/i, title: 'Diques', owner: 'DMAE',

@@ -92,8 +92,9 @@ function PinPicker({ at, onPick }: { at: [number, number] | null; onPick: (lat: 
         icon: L.divIcon({ className: '', html: '<div data-testid="e4a-pin" style="width:18px;height:18px;border-radius:50%;background:#0b3fb3;box-shadow:0 0 0 3px #fff,0 1px 4px rgba(0,0,0,.4)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
       }).addTo(m);
     } else pin.current.setLatLng(at);
-    // A point found from an address may be far from where the map is looking.
-    if (!m.getBounds().contains(at)) m.setView(at, 16);
+    // A point found from an address may be far from where the map is looking —
+    // or inside a whole-city view, too small to check: go to street level.
+    if (!m.getBounds().contains(at) || m.getZoom() < 15) m.setView(at, 16);
   }, [at]);
   return <div ref={el} style={{ height: 200 }} className="w-full overflow-hidden rounded-md border border-border/70" data-testid="e4a-map" />;
 }
@@ -375,7 +376,7 @@ export function E4AnswersPanel({
             {t('cboView.e4aTitle', { defaultValue: 'O que ainda falta' })}{openCount ? ` (${openCount})` : ''}
           </span>
           <span className="block text-[11.5px] leading-snug text-muted-foreground" data-testid="e4-answers-optional">
-            {t('cboView.e4aOptional', { defaultValue: 'Tudo aqui é opcional. Responda só o que já sabe — da visita, de uma conversa. O que ficar em branco, a organização responde no Encontro 4 dela, e o que vocês responderem aparece na proposta como registrado pela coordenação, para a organização conferir.' })}
+            {t('cboView.e4aOptional', { defaultValue: 'Tudo aqui é opcional, menos o lugar: sem ele a proposta não fecha. Responda só o que já sabe — da visita, de uma conversa. O que ficar em branco, a organização responde no Encontro 4 dela, e o que vocês responderem aparece na proposta como registrado pela coordenação, para a organização conferir.' })}
           </span>
         </span>
         {mode === 'documents' && (unfolded ? <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />)}
@@ -406,7 +407,10 @@ export function E4AnswersPanel({
             <div key={k} className="border-t border-border/50 pt-2 space-y-1" data-testid={`e4a-item-${k}`}>
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[12.5px] font-semibold">{TITLES[k]}</span>
-                {!answered(k) && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{t('cboView.e4aOptionalTag', { defaultValue: 'opcional' })}</span>}
+                {/* ⚠️ The place is required to close the proposta inicial (10 Nov 2026) — never "opcional". */}
+                {!answered(k) && (k === 'place'
+                  ? <span className="rounded-full bg-amber-100 px-1.5 py-px text-[10px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200" data-testid="e4a-place-required">{t('cboView.e4aRequiredTag', { defaultValue: 'precisa para fechar' })}</span>
+                  : <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{t('cboView.e4aOptionalTag', { defaultValue: 'opcional' })}</span>)}
                 {view.byCoordination.includes(k) && <span className="text-[10.5px] text-amber-700">{t('cboView.e4aByCoord', { defaultValue: 'registrado pela coordenação' })}</span>}
               </div>
               {isOpen(k) ? field(k) : (
