@@ -36,6 +36,7 @@ export interface JourneyCardData {
     state: 'ready' | 'needs_study' | 'needs_permission' | 'needs_site' | null;
     unblockedBy: string | null;
     gapCount: number;
+    gaps?: string[];
     visit: { solutionId: string; summary: string } | null;
     tests?: Array<{ id: string; reaction: string | null }>;
     closed?: { e2: boolean; e3: boolean; e4: boolean };
@@ -290,8 +291,11 @@ export function JourneyCard({
               </button>
             )}
             {p.w3.gapCount > 0 && (
-              <span data-testid={`w3-gaps-${p.id}`} title={t('orchestrator.w3.gapsTitle', { defaultValue: 'Open questions W3 named rather than left blank' }) as string}>
-                {t('orchestrator.w3.gaps', { defaultValue: '{{n}} em aberto', n: p.w3.gapCount })}
+              // ⚠️ "3 em aberto" read as nothing (Aline, 10 Nov 2026): it is the
+              // comparison's points still to resolve — named, and listed on hover.
+              <span data-testid={`w3-gaps-${p.id}`} className="cursor-help underline decoration-dotted underline-offset-2"
+                title={[t('orchestrator.w3.gapsTitle', { defaultValue: 'Pontos que a comparação do Encontro 3 deixou para resolver antes de orçar:' }) as string, ...(p.w3.gaps ?? []).map(g => `• ${g}`)].join('\n')}>
+                {t('orchestrator.w3.gaps', { defaultValue: '{{count}} pontos a resolver', count: p.w3.gapCount, n: p.w3.gapCount })}
               </span>
             )}
             {p.maturityScore > 0 && (

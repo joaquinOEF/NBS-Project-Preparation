@@ -324,6 +324,8 @@ export type MemberW3Signal = {
   areaM2: number | null;
   /** Named gaps — an honest count of what W3 could not produce, never zeroed. */
   gapCount: number;
+  /** What each open point is — the card says "N pontos a resolver" and lists them. */
+  gaps: string[];
   /** Items proposed for the COORDINATION rather than the organisation: the
    *  coordinator's actual queue out of this workshop. */
   coordinationItems: number;
@@ -361,7 +363,7 @@ export type MemberW3Signal = {
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
-  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false, visit: null,
+  solutions: [], areaM2: null, gapCount: 0, gaps: [], coordinationItems: 0, tested: 0, testedIds: [], detailed: false, visit: null,
   tests: [], closed: { e2: false, e3: false, e4: false }, testedInE3: false, skipped: { e2: false, e3: false },
 };
 
@@ -424,6 +426,7 @@ function w3SignalFrom(sections: CboState['sections'], phase = 0): MemberW3Signal
     solutions,
     areaM2: areaM2 || null,
     gapCount: dossier.gaps.length,
+    gaps: dossier.gaps,
     coordinationItems: dossier.items.filter(i => i.owner === 'coordination').length,
     tested,
     testedIds,
