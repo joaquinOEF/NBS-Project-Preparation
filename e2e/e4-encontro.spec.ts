@@ -168,9 +168,15 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     s = await step(r, cboId, '10 por 12', 'text');
     st = await stateOf(r, cboId);
     expect(parseE4Solution(st.sections.intervention_type.fields._e4_solution_json.value)?.areaM2).toBe(120);
-    // No place marked: offered, never forced.
-    expect(s.labels).toEqual(['Marcar o lugar agora', 'Seguir sem o lugar']);
+    // No place marked: REQUIRED since 10 Nov 2026 (JVP) — the map, or the address typed below.
+    expect(s.labels).toEqual(['Marcar o lugar agora']);
+    expect(s.ask.question).toMatch(/precisa dele/);
+    // The old chip, from a question asked before the change, is read and the place asked again.
     s = await step(r, cboId, 'Seguir sem o lugar');
+    expect(s.ask.question).toMatch(/não está marcado no mapa/);
+    s = await step(r, cboId, 'Map selection (1 site)\n- [custom] Pátio da sede at (-30.0412, -51.2001)', 'map');
+    st = await stateOf(r, cboId);
+    expect(st.sections.intervention_site.fields._site_lat.value).toBe('-30.0412');
     expect(s.ask.question).toMatch(/continua sendo/);
   });
 

@@ -34,6 +34,8 @@ interface View {
   closed: boolean;
   values: Record<CoordKey, string>;
   siteName: string;
+  /** The address on record (site_address). */
+  address?: string;
   open: CoordKey[];
   byCoordination: CoordKey[];
   suggested: string[];
@@ -47,6 +49,7 @@ interface Draft {
   lat?: number;
   lng?: number;
   siteName?: string;
+  address?: string;
   problem?: string;
   context?: string;
   beneficiarios?: string;
@@ -89,8 +92,47 @@ function PinPicker({ at, onPick }: { at: [number, number] | null; onPick: (lat: 
         icon: L.divIcon({ className: '', html: '<div data-testid="e4a-pin" style="width:18px;height:18px;border-radius:50%;background:#0b3fb3;box-shadow:0 0 0 3px #fff,0 1px 4px rgba(0,0,0,.4)"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
       }).addTo(m);
     } else pin.current.setLatLng(at);
+    // A point found from an address may be far from where the map is looking.
+    if (!m.getBounds().contains(at)) m.setView(at, 16);
   }, [at]);
   return <div ref={el} style={{ height: 200 }} className="w-full overflow-hidden rounded-md border border-border/70" data-testid="e4a-map" />;
+}
+
+/**
+ * Type the address, find it on the map. The point found is only a proposal
+ * on the map below — the coordinator can drag it with a tap before saving.
+ */
+function AddressFinder({ base, initial, onFound }: { base: string; initial: string; onFound: (lat: number, lng: number, address: string) => void }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const find = async () => {
+    if (q.trim().length < 4) return;
+    setBusy(true); setNote(null);
+    try {
+      const r = await fetch(`${base.replace(/\/member\/[^/]+$/, '')}/geocode?q=${encodeURIComponent(q.trim())}`, { credentials: 'include' });
+      if (!r.ok) { setNote(t('cboView.e4aAddrNotFound', { defaultValue: 'Não encontramos esse endereço — toque no mapa para marcar.' }) as string); return; }
+      const hit = await r.json();
+      onFound(hit.lat, hit.lng, q.trim());
+      setNote(hit.precise
+        ? (t('cboView.e4aAddrFound', { defaultValue: 'Encontrado. Confira o ponto no mapa e ajuste com um toque, se precisar.' }) as string)
+        : (t('cboView.e4aAddrApprox', { defaultValue: 'Encontramos a rua, não o número: o ponto é aproximado — ajuste com um toque no mapa.' }) as string));
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-1.5">
+        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void find(); } }}
+          placeholder={t('cboView.e4aAddrPh', { defaultValue: 'Endereço (ex.: Rua Voluntários da Pátria, 1039)' }) as string}
+          data-testid="e4a-input-address" className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[12.5px]" />
+        <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 text-xs" disabled={busy || q.trim().length < 4} onClick={find} data-testid="e4a-find-address">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('cboView.e4aAddrFind', { defaultValue: 'Localizar no mapa' })}
+        </Button>
+      </div>
+      {note && <p className="text-[11px] text-muted-foreground" data-testid="e4a-address-note">{note}</p>}
+    </div>
+  );
 }
 
 function Chips({ options, selected, onToggle, testid }: { options: Array<{ id: string; label: string }>; selected: string[]; onToggle: (id: string) => void; testid: string }) {
@@ -235,6 +277,7 @@ export function E4AnswersPanel({
         const at: [number, number] | null = draft.lat != null && draft.lng != null ? [draft.lat, draft.lng] : cur;
         return (
           <div className="space-y-1.5">
+            <AddressFinder base={base} initial={view.address ?? ''} onFound={(lat, lng, address) => set({ lat, lng, address })} />
             <PinPicker at={at} onPick={(lat, lng) => set({ lat, lng })} />
             <p className="text-[11px] text-muted-foreground">{t('cboView.e4aPlaceHint', { defaultValue: 'Toque no mapa para marcar o lugar.' })}</p>
             <input value={draft.siteName ?? ''} onChange={e => set({ siteName: e.target.value })} placeholder={t('cboView.e4aSiteName', { defaultValue: 'Nome do lugar (ex.: pátio da sede)' }) as string}
@@ -294,6 +337,7 @@ export function E4AnswersPanel({
       ...(Number(draft.size) > 0 ? { size: Number(draft.size) } : {}),
       ...(draft.lat != null && draft.lng != null ? { lat: draft.lat, lng: draft.lng } : {}),
       ...(draft.siteName?.trim() ? { siteName: draft.siteName.trim() } : {}),
+      ...(draft.address?.trim() ? { address: draft.address.trim() } : {}),
       ...(draft.problem ? { problem: draft.problem } : {}),
       ...(draft.context?.trim() ? { context: draft.context.trim() } : {}),
       ...(draft.beneficiarios?.trim() ? { beneficiarios: draft.beneficiarios.trim() } : {}),
