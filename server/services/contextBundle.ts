@@ -201,7 +201,7 @@ export function buildContextMarkdown(input: BundleInput): string {
     '',
     'Este pacote reúne tudo o que a plataforma tem sobre esta organização: o que ela respondeu, o que ela contou com as próprias palavras, os arquivos que enviou, e como a recomendação de famílias de SbN foi produzida.',
     '',
-    '> ⚠️ **Sobre os números de risco.** São médias do BAIRRO INTEIRO, calculadas sobre células que cobrem quarteirões. Nada aqui foi medido no terreno da organização. Onde a organização discordou dos nossos números, a resposta dela está registrada — e vale mais.',
+    '> ⚠️ **Sobre os números de risco.** São uma **estimativa da OEF**, não dados da Prefeitura: a posição do BAIRRO INTEIRO entre os 94 bairros (0–100), calculada sobre o índice de risco do PLAC/ARVC, em que a exposição da população pesa mais que a ameaça. Uso interno, para ordenar — não citar como risco do lugar. Nada aqui foi medido no terreno da organização. Onde a organização discordou, a resposta dela está registrada — e vale mais.',
     '',
   );
 
@@ -229,7 +229,7 @@ export function buildContextMarkdown(input: BundleInput): string {
 
   // 2 · The place.
   L.push('## O lugar', '');
-  const risk = (k: string, label: string) => (v(k) ? `- ${label}: **${v(k)}/100** _(média do bairro)_` : null);
+  const risk = (k: string, label: string) => (v(k) ? `- ${label}: **${v(k)}/100** _(estimativa OEF — posição do bairro entre 94)_` : null);
   L.push(
     ...[
       v('site_name') ? `- Local: **${v('site_name')}**` : null,

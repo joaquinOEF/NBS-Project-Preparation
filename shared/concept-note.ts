@@ -889,12 +889,12 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ? `${f.territory.povertyPct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% em situação de pobreza`
       : `${f.territory.povertyPct.toFixed(1)}% living in poverty`);
   }
-  const hazards = ([['floodPct', pt ? 'alagamento' : 'flooding'], ['heatPct', pt ? 'calor' : 'heat'], ['landslidePct', pt ? 'deslizamento' : 'landslide']] as const)
-    .map(([k, label]) => {
-      const v = f.territory[k];
-      return v && v >= 50 ? (pt ? `${label} (${v}º percentil)` : `${label} (${v}th percentile)`) : null;
-    })
-    .filter(Boolean) as string[];
+  // ⚠️ No bairro hazard percentile on the page. Those figures rank the ARVC
+  // *risco* composite between bairros — exposure is 92–95% of it, so it is one
+  // population map under three names — and the page called them "percentis de
+  // risco do município". What a funder reads about hazard here comes from the
+  // city's own layers at the site (cityMap, below). JVP, 10 Nov 2026: official
+  // data only, so the accountability is the municipality's.
   // ⚠️ Legal status leads, because it is the first thing a funder checks and it
   // decides eligibility before anything else on the page matters.
   const identity = [f.org.legalStatus, ...orgBits].filter(Boolean);
@@ -919,15 +919,6 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       : null,
     terr.length
       ? P(`${terr.join('; ')}.`, [pt ? 'dados oficiais do município' : 'official municipal data'], 'figure')
-      : null,
-    hazards.length
-      ? P(
-          pt
-            ? `Na comparação com os demais bairros de Porto Alegre, o território está entre os mais expostos a ${hazards.join(', ')}. A média é do bairro inteiro e situa o projeto; não descreve o terreno.`
-            : `Compared with the rest of Porto Alegre, the território is among the most exposed to ${hazards.join(', ')}. The average is for the whole neighbourhood and situates the project; it does not describe the site.`,
-          [pt ? 'percentis de risco do município' : 'municipal risk percentiles'],
-          'figure',
-        )
       : null,
     // ⚠️ The site itself, not the bairro average above: what the city's maps
     // record at the marked point. Each line keeps its own layer as source, so

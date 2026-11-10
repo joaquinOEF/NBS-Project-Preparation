@@ -166,8 +166,6 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0;
   const siteName = raw(SITE, 'site_name') || null;
   const bairro = raw(SITE, 'bairro') || (input.neighborhood ?? '').trim() || null;
-  const pct = (k: string) => { const n = parseInt(raw(SITE, k), 10); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; };
-  const flood = pct('_bairro_flood_pct'), heat = pct('_bairro_heat_pct'), landslide = pct('_bairro_landslide_pct');
   const placeFacts = facts(SITE, PLACE_FACTS);
   // Speech noise off a transcribed quote (shared/readable-speech.ts).
   const story = raw(SITE, 'site_story') ? readableSpeech(raw(SITE, 'site_story')) : null;
@@ -296,7 +294,10 @@ export function buildOrgProfile(input: OrgProfileInput): OrgProfile {
       facts: placeFacts,
       story,
       longer,
-      risks: flood != null || heat != null || landslide != null ? { flood: flood ?? 0, heat: heat ?? 0, landslide: landslide ?? 0 } : null,
+      // Never printed: the bairro figures rank the ARVC risco composite and the
+      // Perfil attributed them to "PLAC/ARVC" as means (10 Nov 2026 — official
+      // hazard data only). The place's official facts carry the hazard.
+      risks: null,
       areaM2,
       // The lines follow the first solution they tested (D2); none yet → people and what's nearby.
       census: censusLines(input.census, { lang, relevance: relevanceFor(tested[0]?.solutionId) }),

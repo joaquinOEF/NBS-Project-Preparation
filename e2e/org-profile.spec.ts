@@ -56,7 +56,8 @@ test.describe('the profile is right at any stage', () => {
     expect(p.stages).toEqual({ e1: true, e2: true, e3: false });
     expect(p.place!.name).toBe('Voluntários da Pátria 1039');
     expect(p.place!.story).toContain('entra pelo portão');
-    expect(p.place!.risks).toEqual({ flood: 78, heat: 64, landslide: 6 });
+    // Our bairro ranks of the ARVC risco composite never print (official hazard data only, 10 Nov 2026).
+    expect(p.place!.risks).toBeNull();
     expect(p.place!.areaM2).toBe(600);
     expect(p.place!.facts.find(f => f.field === 'prior_collaboration')!.value).toBe('Sim');
     const everything = JSON.stringify(p);
@@ -91,6 +92,8 @@ test.describe('nothing silently missing, nothing that should not travel', () => 
     s.maturityScores = [{ metric: 'site_control' as any, score: 2, justification: 'x' }];
     const text = JSON.stringify(buildOrgProfile({ orgName: 'Ksa Rosa', state: s }));
     expect(text).not.toContain('marlene@ksarosa.org');
+    // No hazard ranks of ours printed as the city's (10 Nov 2026).
+    expect(text).not.toMatch(/Risco climático no bairro|PLAC\/ARVC|percentil/);
     expect(text).not.toContain('_bairro_flood_pct');
     expect(text).not.toContain('solutionId\\"');
     expect(text).not.toMatch(/site_control|maturity/i);
@@ -132,7 +135,7 @@ test.describe('the printed page', () => {
     expect(one.ok()).toBe(true);
     const text = strip(await one.text());
     for (const s of ['Perfil da organização', 'Ksa Rosa', 'Quem somos', 'O lugar', 'Voluntários da Pátria 1039', 'Nas palavras da organização',
-      'Risco climático no bairro', 'não são medições deste lugar', 'Soluções testadas no Encontro 3', 'Jardins de chuva', 'Leitura técnica da coordenação',
+      'Soluções testadas no Encontro 3', 'Jardins de chuva', 'Leitura técnica da coordenação',
       'Anotações da visita', 'Fonte:', 'nos Encontros 1, 2, 3']) expect(text, s).toContain(s);
     // Written register; no ids; no contact details; no scores.
     expect(text).not.toMatch(/\bvocês\b/i);

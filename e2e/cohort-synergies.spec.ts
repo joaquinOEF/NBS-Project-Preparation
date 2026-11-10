@@ -91,7 +91,8 @@ test.describe('the grouping is derived, and it groups on three axes', () => {
     expect(a.gapsPt.length).toBeGreaterThan(2);
     expect(a.gapsPt.join(' ')).toMatch(/sem local marcado/i);
     // The risk caveat rides along every time.
-    expect(a.gapsPt.join(' ')).toMatch(/médias de bairro/i);
+    // The report shows no risk index, so it no longer caveats one (10 Nov 2026).
+    expect(a.gapsPt.join(' ')).not.toMatch(/médias de bairro|índices de risco/i);
   });
 
   test('transversal roles do not depend on geography', () => {

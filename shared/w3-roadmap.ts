@@ -342,14 +342,8 @@ export function buildRoadmap(
         : `${povN.toFixed(1)}% living in poverty.`,
     );
   }
-  const floodPct = Number(site._bairro_flood_pct);
-  if (Number.isFinite(floodPct) && floodPct > 0) {
-    ctxLines.push(
-      pt
-        ? `No risco de alagamento, o bairro está entre os ${100 - floodPct}% mais expostos de Porto Alegre.`
-        : `On flood risk the neighbourhood is in the most-exposed ${100 - floodPct}% of Porto Alegre.`,
-    );
-  }
+  // No "entre os N% mais expostos" line: it ranked our reading of the ARVC
+  // risco composite and was printed as official municipal data (10 Nov 2026).
   if (ctxLines.length) {
     what.push({
       title: t.context,
@@ -358,8 +352,8 @@ export function buildRoadmap(
         // A caveat about a figure belongs BESIDE the figure, not in the review
         // field: it is not something anyone can go and change.
         pt
-          ? '⚠️ Média do bairro inteiro, não do lugar da intervenção. Situa o projeto num edital; não descreve o terreno.'
-          : '⚠️ Whole-neighbourhood average, not the intervention site. It situates the project in a funding call; it does not describe the land.',
+          ? '⚠️ Dados do bairro inteiro, não do lugar da intervenção. Situam o projeto num edital; não descrevem o terreno.'
+          : '⚠️ Whole-neighbourhood figures, not the intervention site. They situate the project in a funding call; they do not describe the land.',
       ],
       from: pt
         ? 'dados oficiais do município, sobre o mapa confirmado no Encontro 2'
