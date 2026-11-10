@@ -415,20 +415,35 @@
       "inboxLabel": "Support"
     },
     "map": {
-      "flood": "Flood hazard",
-      "heat": "Heat hazard",
+      "flood": "Flood hazard (streams)",
+      "heat": "Heat wave hazard",
       "landslide": "Landslide hazard",
-      "riskByBairro": "Risk by neighborhood",
-      "riskView": "Risk view",
-      "zonePriority": "Zone priority",
-      "multiHazard": "Multi-hazard",
+      "riskByBairro": "Priority by neighborhood (OEF estimate)",
+      "riskView": "Map view",
+      "zonePriority": "Priority (OEF estimate, from the PLAC)",
+      "multiHazard": "Flood + heat",
       "landslideProne": "Landslide-prone terrain",
-      "intensityNote": "Stronger fill = higher risk",
+      "intensityNote": "Stronger fill = higher priority",
       "hazardIntensity": "Hazard intensity",
+      "hazardSource": "Source: PLAC/ARVC, 2050 hazard",
+      "fluvialOnlyNote": "Streams only. The May 2024 Guaíba flood is not in this layer; turn on \"Area flooded in May 2024\".",
+      "flood2024": "Area flooded in May 2024",
+      "flood2024Source": "Observed · Planet SkySat, 6 May 2024",
+      "legendFlood": "Flood",
+      "legendHeat": "Heat",
+      "people": "people",
+      "priorityTip": "priority {{score}} (OEF estimate, from the PLAC)",
+      "landslideProneTip": "landslide-prone terrain · slope stabilization",
+      "hazard": {
+        "flood": "flood",
+        "heat": "heat",
+        "landslide": "landslide",
+        "flood_heat": "flood + heat"
+      },
       "low": "low",
       "high": "high",
       "recruitFrom": "Recruit from {{name}}",
-      "recruitDesc": "{{hazard}} risk · {{pop}} people · priority {{score}}"
+      "recruitDesc": "{{hazard}} · {{pop}} people · priority {{score}} (OEF estimate, from the PLAC)"
     },
     "w2": {
       "worryTitle": "What they said worries them at this place",

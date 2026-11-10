@@ -60,6 +60,9 @@ export interface TileLayerDef {
   // That detail lives in the per-cell GeoJSON on S3; the ValueTooltip resolves
   // it through /api/geospatial/mechanism-mix/{mechanismHazard} on hover.
   mechanismHazard?: 'flood' | 'heat' | 'landslide';
+  // Shown as the layer button's tooltip in the site explorer — for a layer whose
+  // name alone could be misread (our own index, an exposure-dominated composite).
+  description?: string;
 }
 
 // snake_case mechanism keys (GeoJSON property names / nbs_rules.py identifiers)
@@ -84,11 +87,17 @@ export const MECHANISM_KEY_LABELS: Record<string, string> = {
 // Visual tiles: client/public/tiles/{name}/{z}/{x}/{y}.png
 // Value tiles:  client/public/tiles_values/{name}/{z}/{x}/{y}.png
 // Decode: value = (R + 256*G) / 1000 (scale=1000, offset=0, unit="index 0–1")
+// Hazard shown to users rests on official data (PLAC/ARVC ameaça, SMAMUS, SGB,
+// IBGE). Our own indices stay in the explorer for experts, labelled as ours.
+const OEF_ESTIMATE_DESCRIPTION =
+  'OEF estimate: our own hazard × exposure × vulnerability index on a 250 m grid, not an official dataset. For the hazard itself, read the PLAC/ARVC ameaça layers.';
+
 export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
   {
     // Catalog poa_flood_risk — validated H×E×V composite (S3, 24-bit, scale 10000).
     // Replaces the old locally-computed flood_score (_local_flood_risk).
-    id: 'risk_flood_250m', name: 'Flood Risk (H×E×V)', group: 'risk_analysis', color: '#1d4ed8',
+    id: 'risk_flood_250m', name: 'OEF estimate — Flood Risk (H×E×V)',
+    description: OEF_ESTIMATE_DESCRIPTION, group: 'risk_analysis', color: '#1d4ed8',
     tileLayerId: 'poa_flood_risk', available: true, hasValueTiles: true,
     valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/risk/tiles_values/{z}/{x}/{y}.png' },
@@ -96,7 +105,8 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
   {
     // Catalog poa_heat_risk — validated H×E×V composite (S3, 24-bit, scale 10000).
     // Replaces the old locally-computed heat_score (_local_heat_risk).
-    id: 'risk_heat_250m', name: 'Heat Risk (H×E×V)', group: 'risk_analysis', color: '#dc2626',
+    id: 'risk_heat_250m', name: 'OEF estimate — Heat Risk (H×E×V)',
+    description: OEF_ESTIMATE_DESCRIPTION, group: 'risk_analysis', color: '#dc2626',
     tileLayerId: 'poa_heat_risk', available: true, hasValueTiles: true,
     valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_values/{z}/{x}/{y}.png' },
@@ -105,13 +115,15 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
     // Catalog poa_landslide_risk — validated H×E×V composite (S3, 24-bit, scale 10000).
     // Replaces the old locally-computed landslide_score (_local_landslide_risk).
     // NOTE the catalog path is `landslides` (PLURAL, like `floods`).
-    id: 'risk_landslide_250m', name: 'Landslide Risk (H×E×V)', group: 'risk_analysis', color: '#a16207',
+    id: 'risk_landslide_250m', name: 'OEF estimate — Landslide Risk (H×E×V)',
+    description: OEF_ESTIMATE_DESCRIPTION, group: 'risk_analysis', color: '#a16207',
     tileLayerId: 'poa_landslide_risk', available: true, hasValueTiles: true,
     valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_values/{z}/{x}/{y}.png' },
   },
   {
-    id: 'risk_composite_hotspot', name: 'Risk Hotspots (all)', group: 'risk_analysis', color: '#8b5cf6',
+    id: 'risk_composite_hotspot', name: 'OEF estimate — Risk Hotspots (all)',
+    description: OEF_ESTIMATE_DESCRIPTION, group: 'risk_analysis', color: '#8b5cf6',
     tileLayerId: '_local_composite_hotspot', available: true,
     visualUrlTemplate: '/tiles/composite_hotspot/{z}/{x}/{y}.png',
   },
@@ -483,15 +495,22 @@ export interface ArvcLayerDef {
   hazard: string;
   name: string;
   color: string;
+  /** Shown as the layer button's tooltip in the site explorer. */
+  description?: string;
 }
 
+// The risco surfaces are exposure-dominated (docs/arvc-official.md): the six
+// cross-correlate at ~0.85, so they are NOT a per-hazard reading.
+const ARVC_RISCO_DESCRIPTION =
+  'PLAC/ARVC risco composite (2050, reconstructed from the plan figures). Exposure carries 92–95% of its variance and is shared by all six hazards, so it mostly maps where people are. To read a single hazard, use the ameaça (hazard) layers.';
+
 export const ARVC_LAYERS: ArvcLayerDef[] = [
-  { id: 'arvc_heat_risk_2050',      hazard: 'heat_risk_2050',      name: 'Heat Wave Risk 2050 (ARVC)',   color: '#c21618' },
-  { id: 'arvc_flood_risk_2050',     hazard: 'flood_risk_2050',     name: 'River Flood Risk 2050 (ARVC)', color: '#9d0d13' },
-  { id: 'arvc_landslide_risk_2050', hazard: 'landslide_risk_2050', name: 'Landslide Risk 2050 (ARVC)',   color: '#e32e28' },
-  { id: 'arvc_storm_risk_2050',     hazard: 'storm_risk_2050',     name: 'Storm Risk 2050 (ARVC)',       color: '#f4553e' },
-  { id: 'arvc_drought_risk_2050',   hazard: 'drought_risk_2050',   name: 'Drought Risk 2050 (ARVC)',     color: '#fb7b5a' },
-  { id: 'arvc_arbovirus_risk_2050', hazard: 'arbovirus_risk_2050', name: 'Arbovirus Risk 2050 (ARVC)',   color: '#fc9e7f' },
+  { id: 'arvc_heat_risk_2050',      hazard: 'heat_risk_2050',      name: 'Heat Wave Risk 2050 (ARVC)',   color: '#c21618', description: ARVC_RISCO_DESCRIPTION },
+  { id: 'arvc_flood_risk_2050',     hazard: 'flood_risk_2050',     name: 'River Flood Risk 2050 (ARVC)', color: '#9d0d13', description: ARVC_RISCO_DESCRIPTION },
+  { id: 'arvc_landslide_risk_2050', hazard: 'landslide_risk_2050', name: 'Landslide Risk 2050 (ARVC)',   color: '#e32e28', description: ARVC_RISCO_DESCRIPTION },
+  { id: 'arvc_storm_risk_2050',     hazard: 'storm_risk_2050',     name: 'Storm Risk 2050 (ARVC)',       color: '#f4553e', description: ARVC_RISCO_DESCRIPTION },
+  { id: 'arvc_drought_risk_2050',   hazard: 'drought_risk_2050',   name: 'Drought Risk 2050 (ARVC)',     color: '#fb7b5a', description: ARVC_RISCO_DESCRIPTION },
+  { id: 'arvc_arbovirus_risk_2050', hazard: 'arbovirus_risk_2050', name: 'Arbovirus Risk 2050 (ARVC)',   color: '#fc9e7f', description: ARVC_RISCO_DESCRIPTION },
 ];
 
 // ── Reference Data Layers (GeoJSON, loaded from sample-data) ──────────────────
@@ -527,38 +546,38 @@ export interface SpatialQueryDef {
 export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   {
     id: 'sq_parks_flood',
-    name: 'Parks in Flood Risk > 0.3',
+    name: 'Parks in Flood Risk > 0.3 (OEF)',
     color: '#ef4444',
     vectorSource: '/api/osm/parks',
     rasterLayerId: 'risk_flood_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk',
+    tooltipLabel: 'High flood risk (OEF estimate)',
     tooltipIcon: '⚠',
   },
   {
     id: 'sq_schools_flood',
-    name: 'Schools in Flood Risk > 0.3',
+    name: 'Schools in Flood Risk > 0.3 (OEF)',
     color: '#dc2626',
     vectorSource: '/api/osm/schools',
     rasterLayerId: 'risk_flood_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk',
+    tooltipLabel: 'High flood risk (OEF estimate)',
     tooltipIcon: '⚠',
   },
   {
     id: 'sq_hospitals_flood',
-    name: 'Hospitals in Flood Risk > 0.3',
+    name: 'Hospitals in Flood Risk > 0.3 (OEF)',
     color: '#b91c1c',
     vectorSource: '/api/osm/hospitals',
     rasterLayerId: 'risk_flood_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk',
+    tooltipLabel: 'High flood risk (OEF estimate)',
     tooltipIcon: '⚠',
   },
   {
@@ -587,14 +606,14 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   },
   {
     id: 'sq_wetlands_flood',
-    name: 'Wetlands in Flood Risk > 0.3',
+    name: 'Wetlands in Flood Risk > 0.3 (OEF)',
     color: '#7c3aed',
     vectorSource: '/api/osm/wetlands',
     rasterLayerId: 'risk_flood_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk',
+    tooltipLabel: 'High flood risk (OEF estimate)',
     tooltipIcon: '⚠',
   },
   // ── Spatial queries using local 250m risk scores (more accurate than FRI) ──
@@ -602,14 +621,14 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
     id: 'sq_parks_flood_250m',
     // Catalog poa_flood_risk (H×E×V). Threshold recalibrated 0.4→0.3: catalog risk maxes
     // ~0.585 (p95≈0.55), so 0.4 was ~p90; 0.3 captures the meaningfully at-risk band.
-    name: 'Parks in Flood Risk > 0.3',
+    name: 'Parks in Flood Risk > 0.3 (OEF)',
     color: '#b91c1c',
     vectorSource: '/api/osm/parks',
     rasterLayerId: 'risk_flood_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk',
+    tooltipLabel: 'High flood risk (OEF estimate)',
     tooltipIcon: '🌊',
   },
   {
@@ -617,39 +636,39 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
     // Catalog poa_heat_risk (H×E×V). Threshold recalibrated 0.4→0.3 to match the
     // flood card: an H×E×V geometric mean sits lower than the old single-factor
     // heat score, so 0.3 captures the meaningfully at-risk band.
-    name: 'Schools in Heat Risk > 0.3',
+    name: 'Schools in Heat Risk > 0.3 (OEF)',
     color: '#991b1b',
     vectorSource: '/api/osm/schools',
     rasterLayerId: 'risk_heat_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'heat_risk_250m',
-    tooltipLabel: 'High heat risk',
+    tooltipLabel: 'High heat risk (OEF estimate)',
     tooltipIcon: '🔥',
   },
   {
     id: 'sq_hospitals_flood_250m',
-    name: 'Hospitals in Flood Risk > 0.3',
+    name: 'Hospitals in Flood Risk > 0.3 (OEF)',
     color: '#7f1d1d',
     vectorSource: '/api/osm/hospitals',
     rasterLayerId: 'risk_flood_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk',
+    tooltipLabel: 'High flood risk (OEF estimate)',
     tooltipIcon: '🌊',
   },
   {
     // Landslide parity (catalog poa_landslide_risk). Same 0.3 cutoff as flood/heat.
     id: 'sq_schools_landslide_250m',
-    name: 'Schools in Landslide Risk > 0.3',
+    name: 'Schools in Landslide Risk > 0.3 (OEF)',
     color: '#92400e',
     vectorSource: '/api/osm/schools',
     rasterLayerId: 'risk_landslide_250m',
     threshold: 0.3,
     comparator: '>',
     valueKey: 'landslide_risk_250m',
-    tooltipLabel: 'High landslide risk',
+    tooltipLabel: 'High landslide risk (OEF estimate)',
     tooltipIcon: '⛰️',
   },
 ];
