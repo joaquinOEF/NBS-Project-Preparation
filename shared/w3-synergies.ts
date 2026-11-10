@@ -540,7 +540,6 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
       `${orgs(noDocs.length)} sem nenhum arquivo ou foto enviada: ${listNames(noDocs.map(m => m.id), members)}.`,
     );
   }
-  gapsPt.push('Os índices de risco são médias de bairro, calculadas em células que cobrem quarteirões. Onde a organização discordou, a percepção dela vale mais.');
 
   return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, pooledInstruments, sharedFundingBarriers, sharedObstacles, partnerNeeds, studiesHeld, solutionInterest, gapsPt };
 }
