@@ -19,6 +19,7 @@ const T = {
   pt: {
     docLabel: 'Proposta inicial de projeto',
     audience: 'Uma página por organização — base para o pré-portfólio da Rede',
+    audienceJoint: 'Proposta conjunta das organizações — base para o pré-portfólio da Rede',
     draft: 'RASCUNHO — para validar e ajustar',
     status: 'Situação',
     summary: 'Resumo',
@@ -36,6 +37,7 @@ const T = {
   en: {
     docLabel: 'Initial project proposal',
     audience: "One page per organisation — the basis for the Rede's pre-portfolio",
+    audienceJoint: "The organisations' joint proposal — the basis for the Rede's pre-portfolio",
     draft: 'DRAFT — to validate and adjust',
     status: 'Status',
     summary: 'Summary',
@@ -52,7 +54,7 @@ const T = {
   },
 };
 
-export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt'): string {
+export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt', opts: { joint?: boolean } = {}): string {
   const t = T[lang];
   const sections = p.sections.map(s => {
     const isBudget = s.id === 'orcamento' && !s.edited;
@@ -82,7 +84,7 @@ export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt'): string 
     docLabel: t.docLabel,
     heading: p.title,
     sub: [p.place, p.orgName].filter(Boolean).join(' — '),
-    audience: t.audience,
+    audience: opts.joint ? t.audienceJoint : t.audience,
     verdict: null,
     bodyHtml: body,
     foot: t.foot,

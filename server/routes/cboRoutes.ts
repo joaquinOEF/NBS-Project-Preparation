@@ -648,7 +648,7 @@ export function registerCboRoutes(app: Express): void {
       const project = await findProjectByStateId(req.params.id);
       const joint = project ? await jointPrenoteFor(project, lang) : null;
       if (!joint) return res.status(404).send("Not found");
-      return res.send(renderPrenoteHtml(joint.prenote, lang));
+      return res.send(renderPrenoteHtml(joint.prenote, lang, { joint: true }));
     }
     const full = await prenoteInputFor(req.params.id, state.sections, lang, { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
     res.send(renderPrenoteHtml(buildPrenote(full, lang), lang));

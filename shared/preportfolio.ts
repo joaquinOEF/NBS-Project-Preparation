@@ -123,6 +123,8 @@ export type PortfolioUnit =
       title: string;
       memberIds: string[];
       orgNames: string[];
+      /** Every member's point — the board map shows them all, not just the one the distances use. */
+      points: Array<{ memberId: string; lat: number; lng: number; label: string }>;
       /** Each member's own proposal, as it stands — shown and linked, outside every sum. */
       background: Array<{ memberId: string; orgName: string; solutionLabel: string | null; budget: { low: number; high: number } | null }>;
     };
@@ -171,6 +173,7 @@ export function jointPortfolioUnit(args: {
       title: args.title,
       memberIds: members.map(m => m.memberId),
       orgNames: names,
+      points: members.filter(m => m.lat != null && m.lng != null).map(m => ({ memberId: m.memberId, lat: m.lat!, lng: m.lng!, label: m.orgName })),
       background: members.map(m => ({ memberId: m.memberId, orgName: m.orgName, solutionLabel: m.solutionLabel, budget: m.budget })),
     },
   };
@@ -324,7 +327,11 @@ export function suggestGroups(orgs: PortfolioOrg[], prefs: PortfolioPrefs = DEFA
 /** Why these organisations sit together — what they actually share. */
 export function reasonFor(members: PortfolioOrg[], lang: Lang = 'pt'): string {
   const pt = lang === 'pt';
-  if (members.length === 1) return pt ? 'Projeto de uma organização só' : 'A single-organisation project';
+  if (members.length === 1) {
+    const u = members[0].unit;
+    if (u?.kind === 'joint') return pt ? `Projeto conjunto: ${u.orgNames.join(' + ')}` : `Joint project: ${u.orgNames.join(' + ')}`;
+    return pt ? 'Projeto de uma organização só' : 'A single-organisation project';
+  }
   const parts: string[] = [];
   const bairros = Array.from(new Set(members.map(m => m.bairro).filter(Boolean)));
   if (bairros.length === 1) parts.push(pt ? `mesmo bairro (${bairros[0]})` : `same neighbourhood (${bairros[0]})`);
@@ -403,7 +410,10 @@ export function projectCard(memberIds: string[], orgs: PortfolioOrg[], lang: Lan
   return {
     memberIds: ms.map(m => m.memberId),
     orgNames: ms.map(m => m.orgName),
-    places: ms.filter(m => m.lat != null && m.lng != null).map(m => ({ memberId: m.memberId, lat: m.lat!, lng: m.lng!, label: m.orgName })),
+    // A joint unit carries every member's point; an organisation, its own.
+    places: ms.flatMap(m => (m.unit?.kind === 'joint' && m.unit.points?.length
+      ? m.unit.points
+      : m.lat != null && m.lng != null ? [{ memberId: m.memberId, lat: m.lat, lng: m.lng, label: m.orgName }] : [])),
     risks,
     riskLabels: risks.map(h => HAZARD_LABEL[h][lang]),
     solutions: Array.from(new Set(ms.map(m => m.solutionLabel).filter((x): x is string => !!x))),
