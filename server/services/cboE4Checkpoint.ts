@@ -34,7 +34,7 @@ import { SOLUTION_COSTS, roundAreaM2 } from '@shared/w3-sizing';
 import { parseSpokenArea } from '@shared/w3-area-speech';
 import { WHO, type WhoId } from '@shared/w3-criteria';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
-import { parseVisit, visitSummary } from '@shared/e4-visit';
+import { parseVisit, visitSummary, visitSolutionIds } from '@shared/e4-visit';
 import { impactChips } from '@shared/e4-indicators';
 import { BUILD, MAINTAIN, CONTRIBUTION, PARTNERS, COORD_LABEL } from '@shared/e4-options';
 import type { E4Suggestion } from '@shared/e4-suggestions';
@@ -374,6 +374,20 @@ async function serveE4Inner(
             `Hoje a gente monta a **proposta inicial** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta. Primeiro, a solução.`,
             `Today we put together your **initial proposal**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing. First, the solution.`,
           );
+          // Several indicated: which one becomes THE proposal — one per organisation.
+          if (visit.also?.length) {
+            const ids = visitSolutionIds(visit);
+            ask(
+              `Depois da visita técnica, foram indicadas: ${ids.map(id => `**${label(id)}**`).join(', ')}. Qual delas vira a proposta inicial?`,
+              `After the technical visit, these were recommended: ${ids.map(id => `**${label(id)}**`).join(', ')}. Which one becomes the initial proposal?`,
+              [
+                ...ids.map((id, i) => ({ pt: label(id), en: label(id), dPt: i === 0 ? 'A principal indicação da visita' : 'Também indicada na visita', dEn: i === 0 ? "The visit's main recommendation" : 'Also recommended by the visit' })),
+                { pt: E4C.outra.pt, en: E4C.outra.en, dPt: 'A coordenação fica sabendo', dEn: 'The coordination will see it' },
+              ],
+            );
+            writeType({ _e4_solution_pending: 'visita' });
+            return finish(detail);
+          }
           ask(
             `Depois da visita técnica, a indicação foi: **${visitSummary(visit, L)}**. É essa?`,
             `After the technical visit, the recommendation was: **${visitSummary(visit, L)}**. Is that the one?`,
@@ -1053,6 +1067,9 @@ async function serveE4Inner(
   if (pendingSolution === 'visita') {
     const visit = parseVisit(type('_visit_json'));
     if (is(E4C.eEssa) && visit) return pickSolution(visit.solutionId, 'visita');
+    // One of several the visit indicated, by name.
+    const named = visit ? visitSolutionIds(visit).find(id => deps.normChip(label(id)) === msg) : undefined;
+    if (named) return pickSolution(named, 'visita');
     if (is(E4C.outra)) {
       writeType({ _e4_visit_declined: 'yes', _e4_solution_pending: '' });
       return serve('visit-declined');

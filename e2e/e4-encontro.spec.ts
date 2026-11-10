@@ -57,6 +57,26 @@ async function step(request: APIRequestContext, cboId: string, message: string, 
 }
 
 test.describe('Encontro 4 — the pre-note, walked', () => {
+  test('a visit that indicated several: "Qual delas vira a proposta inicial?", and the one picked is the visit\'s', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cboId } = await api.newSession();
+    await api.seedState(cboId, { phase: 4, language: 'pt', sections: [
+      ...BASE_FIELDS, ...PLACE,
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+      { sectionId: 'intervention_type', field: '_visit_json', value: JSON.stringify({ solutionId: 'jardins-de-chuva', also: ['biovaletas'], areaM2: 140, recordedAt: 'x' }) },
+    ] });
+    const r = page.request;
+    let s = await step(r, cboId, 'Vamos começar o Encontro 4.', 'text');
+    expect(s.ask.question).toBe('Depois da visita técnica, foram indicadas: **Jardins de chuva**, **Biovaletas**. Qual delas vira a proposta inicial?');
+    expect(s.labels).toEqual(['Jardins de chuva', 'Biovaletas', 'Queremos outra']);
+    s = await step(r, cboId, 'Biovaletas');
+    const sol = JSON.parse((await stateOf(r, cboId)).sections.intervention_type.fields._e4_solution_json.value);
+    expect(sol).toMatchObject({ solutionId: 'biovaletas', source: 'visita' });
+    // The visit's size was for its main one — not carried onto another solution.
+    expect(sol.areaM2).toBeUndefined();
+  });
+
   test('the polite path: the visit\'s choice, confirmations, five gaps, one check', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');

@@ -33,6 +33,8 @@ function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: st
   const initial = parseVisit(str('_visit_json'));
   const options = visitOptions(str('solution_tests_json'), lang);
   const [solutionId, setSolutionId] = useState(initial?.solutionId ?? '');
+  // Other solutions the visit also indicated; Encontro 4 asks which becomes the proposal.
+  const [also, setAlso] = useState<string[]>(initial?.also ?? []);
   const [size, setSize] = useState(String(initial?.areaM2 ?? initial?.units ?? ''));
   const [date, setDate] = useState(initial?.date ?? '');
   const [note, setNote] = useState(str('technical_note'));
@@ -42,6 +44,7 @@ function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: st
   const byUnits = solutionId ? sizedByUnits(solutionId) : false;
   const dirty =
     solutionId !== (saved.visit?.solutionId ?? '') ||
+    also.filter(id => id !== solutionId).join(',') !== (saved.visit?.also ?? []).join(',') ||
     size !== String(saved.visit?.areaM2 ?? saved.visit?.units ?? '') ||
     date !== (saved.visit?.date ?? '') ||
     note.trim() !== saved.note.trim();
@@ -50,7 +53,7 @@ function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: st
   const save = async () => {
     setBusy(true); setFailed(false);
     const body = solutionId
-      ? { solutionId, ...(byUnits ? { units: size } : { areaM2: size }), date, note: note.trim() }
+      ? { solutionId, also: also.filter(id => id !== solutionId), ...(byUnits ? { units: size } : { areaM2: size }), date, note: note.trim() }
       : { solutionId: null, note: note.trim() };
     const r = await fetch(`/api/cohort/${cohortSlug}/member/${memberId}/visit`, {
       method: 'PATCH', credentials: 'include',
@@ -61,6 +64,7 @@ function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: st
     if (!r?.ok) { setFailed(true); return; }
     const data = await r.json().catch(() => ({}));
     setSaved({ visit: data.visit ?? null, note: note.trim() });
+    setAlso(data.visit?.also ?? []);
     onSaved?.();
   };
 
@@ -77,7 +81,7 @@ function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: st
         </span>
       </div>
       <p className="text-[11.5px] leading-snug text-muted-foreground">
-        {t('cboView.visitHint', { defaultValue: 'A solução indicada abre o Encontro 4 ("É essa?"). Sem ela, a organização escolhe sozinha entre as que testou, e o card marca "sem visita". Pode ser preenchida ou mudada a qualquer momento.' })}
+        {t('cboView.visitHint', { defaultValue: 'A solução indicada abre o Encontro 4 ("É essa?"; com mais de uma, "Qual delas?"). Sem ela, a organização escolhe sozinha entre as que testou, e o card marca "sem visita". Pode ser preenchida ou mudada a qualquer momento.' })}
       </p>
       <label className="block text-[11.5px] font-medium" htmlFor={`visit-solution-${memberId}`}>
         {t('cboView.visitSolution', { defaultValue: 'Solução indicada' })}
@@ -108,6 +112,38 @@ function VisitEditor({ cohortSlug, memberId, fields, onSaved }: { cohortSlug: st
           {options.others.map(o => <option key={o.solutionId} value={o.solutionId}>{o.label}</option>)}
         </optgroup>
       </select>
+      {solutionId && (() => {
+        const all = [...options.tested, ...options.others];
+        const name = (id: string) => all.find(o => o.solutionId === id)?.label ?? id;
+        const tested = options.tested.filter(o => o.solutionId !== solutionId);
+        const extra = also.filter(id => id !== solutionId && !tested.some(o => o.solutionId === id));
+        const toggle = (id: string) => setAlso(a => (a.includes(id) ? a.filter(x => x !== id) : [...a, id]));
+        return (
+          <div className="space-y-1" data-testid="visit-also">
+            <span className="block text-[11.5px] font-medium">{t('cboView.visitAlso', { defaultValue: 'Também indicadas (opcional)' })}</span>
+            <p className="m-0 text-[11px] leading-snug text-muted-foreground">
+              {t('cboView.visitAlsoHint', { defaultValue: 'Se a visita indicou mais de uma, marque as outras. No Encontro 4 a organização escolhe qual delas vira a proposta inicial — uma por organização.' })}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[...tested.map(o => o.solutionId), ...extra].map(id => (
+                <label key={id} className={`inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] ${also.includes(id) ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200' : 'border-border'}`}>
+                  <input type="checkbox" className="h-3 w-3" checked={also.includes(id)} onChange={() => toggle(id)} data-testid={`visit-also-${id}`} />
+                  {name(id)}
+                </label>
+              ))}
+              <select
+                value=""
+                onChange={e => { const id = e.target.value; if (id && !also.includes(id)) setAlso(a => [...a, id]); }}
+                className="rounded-full border border-dashed border-border bg-background px-2 py-0.5 text-[12px]"
+                data-testid="visit-also-add"
+              >
+                <option value="">{t('cboView.visitAlsoAdd', { defaultValue: '+ outra do catálogo' })}</option>
+                {options.others.filter(o => o.solutionId !== solutionId && !also.includes(o.solutionId)).map(o => <option key={o.solutionId} value={o.solutionId}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+        );
+      })()}
       {solutionId && (
         <div className="flex gap-2">
           <div className="flex-1">

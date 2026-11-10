@@ -49,6 +49,16 @@ test.describe('the visit choice — pure', () => {
     expect(visitSummary({ solutionId: 'corredores-verdes', units: 25, recordedAt: '' })).toBe('Corredores verdes · 25 árvores');
   });
 
+  test('a visit may indicate several (Aline, 10 Nov): the main one first, known ids once, never the main twice', () => {
+    const v = visitFromInput({ solutionId: 'captacao-agua-da-chuva', also: ['hortas-urbanas', 'captacao-agua-da-chuva', 'jardim-magico', 'jardins-de-chuva', 'jardins-de-chuva'] });
+    expect((v as any).also).toEqual(['hortas-urbanas', 'jardins-de-chuva']);
+    const back = parseVisit(JSON.stringify(v));
+    expect(back?.also).toEqual((v as any).also);
+    expect(visitSummary({ solutionId: 'jardins-de-chuva', also: ['biovaletas'], recordedAt: '' })).toBe('Jardins de chuva · também: Biovaletas');
+    // An old record with no `also` reads as before.
+    expect(parseVisit('{"solutionId":"jardins-de-chuva","recordedAt":"x"}')?.also).toBeUndefined();
+  });
+
   test('the printed Perfil carries it', () => {
     const s = createEmptyCboState('porto-alegre');
     (s.sections as any).intervention_type.fields._visit_json = { value: JSON.stringify({ solutionId: 'jardins-de-chuva', areaM2: 120, recordedAt: 'x' }), confidence: 'high', source: 'coordinator', userEdited: false };
@@ -130,6 +140,11 @@ test.describe('the visit choice — the drawer', () => {
     await page.getByTestId('technical-note-input').fill('Solo argiloso; dreno de fundo.');
     await page.getByTestId('visit-save').click();
     await expect(page.getByTestId('visit-status')).toHaveText('Registrada: Jardins de chuva · 120 m² · visita em 23/10/2026');
+    // More than one: tick another she tested, and one from the catalogue.
+    await page.getByTestId('visit-also-corredores-verdes').check();
+    await page.getByTestId('visit-also-add').selectOption('hortas-urbanas');
+    await page.getByTestId('visit-save').click();
+    await expect(page.getByTestId('visit-status')).toHaveText(/também: Corredores verdes, Hortas urbanas/);
     if (process.env.DRAWER_SHOTS) await editor.screenshot({ path: `${process.env.DRAWER_SHOTS}/visit-editor.png` });
 
     await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
