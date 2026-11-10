@@ -349,3 +349,34 @@ test.describe('projects — the project encontro', () => {
     await expect(page.getByTestId('cbo-project-note').getByTestId('note-section-pendencias')).toContainText('sem cenário neste projeto por enquanto');
   });
 });
+
+test.describe('projects — the dialog holds a long name', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('"Cooperativa Habitacional do Trabalho 20 de Novembro" stays inside the dialog (JVP, prod 10 Nov 2026)', async ({ page }) => {
+    // The member list's names are one line (truncate). In the dialog's grid a
+    // nowrap line sized the column to the whole name, so the content ran past
+    // the dialog's own box: inputs and rows spilled over the edge and the
+    // unpicked rows showed the backdrop through them.
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    await page.setViewportSize({ width: 820, height: 760 });
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Longo ${tag}`)).cohort;
+    await api.createCoordinator({ email: `long-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    for (const [orgName, neighborhood] of [['Cooperativa Habitacional do Trabalho 20 de Novembro', 'Floresta'], ['Ksa Rosa', 'Floresta'], ['Misturaí', 'Santana']]) {
+      await api.inviteMember(cohort.id, { orgName, neighborhood, withSession: true });
+    }
+    await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}&view=projects`);
+    await page.getByTestId('button-create-project').click({ timeout: 30_000 });
+    const dialog = page.getByTestId('create-project-dialog');
+    await expect(dialog).toBeVisible();
+    const box = (await dialog.boundingBox())!;
+    for (const id of ['input-project-title', 'project-member-list', 'button-create-project-submit']) {
+      const b = (await dialog.getByTestId(id).boundingBox())!;
+      expect(b.x + b.width, `${id} ends inside the dialog`).toBeLessThanOrEqual(box.x + box.width + 0.5);
+    }
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth), 'no horizontal overflow').toBe(true);
+    await dialog.screenshot({ path: 'test-results/project-dialog-long-name.png' });
+  });
+});
