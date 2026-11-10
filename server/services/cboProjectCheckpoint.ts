@@ -9,10 +9,16 @@
 // Two things live here (docs/projects.md):
 //   · THE DOOR — opens on the aggregated context of every organisation in the
 //     project (the brief) and asks the room to confirm the roster.
-//   · THE PROJECT ENCONTRO — five beats that turn several organisations'
-//     Encontro 3 tests into one project: por que juntas (a moldura) · os
-//     cenários de cada uma · o que se compartilha · o dinheiro · o documento.
-//     Pure derivation in shared/project-plan.ts; this file asks and writes.
+//   · THE PROJECT ENCONTRO — por que juntas (a moldura) · os cenários de cada
+//     uma · then ENCONTRO 4 ITSELF over the joint record (10 Nov 2026, J1 C):
+//     the solution and its size, the place of each member, the problem, the
+//     gaps, the one check — and the room leaves with ONE proposta inicial, the
+//     same page an organisation produces, plus "As organizações e por que
+//     juntas" (shared/project-proposal.ts). The old beats 3–5 (o que se
+//     compartilha · o dinheiro · o documento) are folded into that page: what
+//     pooling saves prints in its joint section, the money is the page's budget
+//     at the joint size, the document IS the page. Their chip handlers stay for
+//     sessions that were mid-way on 10 Nov; nothing serves those beats now.
 //
 // The step is derived, never stored: a reload, a park or a return lands on
 // the same question. Every served turn ends on an ask_user.
@@ -21,9 +27,11 @@
 import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion } from './pendingQuestion';
+import { serveE4ForProject, type E4Deps, type E4ProjectHooks } from './cboE4Checkpoint';
+import { PENDING_FIELD } from '@shared/pending-question';
 import type { ProjectBrief, ProjectMemberFacts } from '@shared/project-brief';
 import {
-  PROJECT_FIELDS, parseChoices, frameOptions, buildProjectPlan, buildProjectNote,
+  PROJECT_FIELDS, parseChoices, frameOptions, buildProjectPlan,
   type ProjectChoices, type ProjectPlan,
 } from '@shared/project-plan';
 
@@ -37,6 +45,12 @@ export interface ProjectDeps {
   brief(): Promise<ProjectBrief>;
   /** The brief AND the member facts it was built from — one read, both products. */
   facts(): Promise<{ brief: ProjectBrief; members: ProjectMemberFacts[] }>;
+  /**
+   * Encontro 4 over the joint record (server/services/projectProposal.ts):
+   * the state it reads (members under, the project on top) and its deps.
+   * Built per call — the members' records are read live.
+   */
+  jointE4?(): Promise<{ state: CboState; deps: E4Deps & { project: E4ProjectHooks } }>;
 }
 
 /** The chips the project session speaks. */
@@ -89,7 +103,10 @@ const F = {
 
 type Step =
   | { kind: 'why' } | { kind: 'frame' } | { kind: 'scen'; memberId: string }
-  | { kind: 'plan' } | { kind: 'lead' } | { kind: 'money' } | { kind: 'note' } | { kind: 'done' };
+  | { kind: 'e4' };
+
+/** The line that opens the joint Encontro 4 (cboE4Checkpoint E4_ENTRY). */
+const E4_START = 'Vamos começar o Encontro 4.';
 
 /** Same contract as every templated checkpoint: shared/pending-question.ts. */
 export async function serveProjectCheckpoint(
@@ -193,17 +210,28 @@ async function serveProjectInner(
     const answered = new Set(choices().scenarios.map(s => s.memberId));
     const next = members.find(m => !answered.has(m.memberId));
     if (next) return { kind: 'scen', memberId: next.memberId };
-    if (!type(F.planShown)) return { kind: 'plan' };
-    if (!type(PROJECT_FIELDS.lead)) return { kind: 'lead' };
-    if (!type(PROJECT_FIELDS.funding)) return { kind: 'money' };
-    if (!type(F.noteShown)) return { kind: 'note' };
-    return { kind: 'done' };
+    return { kind: 'e4' };
+  };
+
+  /** Inside the joint Encontro 4 — nothing of the project's own beats is pending. */
+  const inE4 = () => type('_e4_opened') === 'yes'
+    && type(F.whyPending) !== 'yes' && type(F.framePending) !== 'yes' && type(F.frameFreePending) !== 'yes' && !type(F.scenPending);
+
+  /**
+   * One turn of the joint Encontro 4. `fresh`: arriving from a project beat —
+   * the question on record is the project's, already answered, and must not be
+   * re-emitted as though it were Encontro 4's.
+   */
+  const runE4 = async (message: string, kind: string | undefined, fresh: boolean): Promise<boolean> => {
+    if (!deps.jointE4) return false;
+    const { state: view, deps: e4 } = await deps.jointE4();
+    if (fresh) delete (view.sections as any)?.[TYPE]?.fields?.[PENDING_FIELD];
+    return serveE4ForProject(cboId, message, view, pushEvent, lang, kind, e4);
   };
 
   const plan = (brief: ProjectBrief, members: ProjectMemberFacts[]): ProjectPlan =>
     buildProjectPlan(brief, members, choices(), L);
 
-  const money = (n: number) => `R$ ${Math.round(n).toLocaleString(isPt ? 'pt-BR' : 'en-US', { maximumFractionDigits: 0 })}`;
 
   /** Serve the current step. Always ends on an ask_user. */
   const serve = async (detail: string): Promise<true> => {
@@ -215,8 +243,8 @@ async function serveProjectInner(
         if (!type(F.encontroOpened)) {
           write({ [F.encontroOpened]: 'yes' });
           say(
-            `Vamos montar o projeto **${brief.title}**. São cinco passos: por que vocês estão juntas, o que cada organização traz, o que dá pra compartilhar, quanto custa e o resumo pra levar adiante. Nada aqui é decisão final — é o desenho pra discutir.`,
-            `Let's build the project **${brief.title}**. Five steps: why you are together, what each organisation brings, what can be shared, what it costs and the summary to take forward. Nothing here is a final decision — it is the design to discuss.`,
+            `Vamos montar o projeto **${brief.title}**. Primeiro, por que vocês estão juntas e o que cada organização traz. Depois, a **proposta inicial conjunta** — a mesma página do Encontro 4, uma só pras organizações juntas: a solução, o lugar de cada uma, o problema, quanto custa e com quem.`,
+            `Let's build the project **${brief.title}**. First, why you are together and what each organisation brings. Then the **joint initial proposal** — the same page as Encontro 4, one for the organisations together: the solution, each one's place, the problem, what it costs and who with.`,
           );
         }
         ask(
@@ -284,73 +312,16 @@ async function serveProjectInner(
         ]);
         return finish(detail);
       }
-      case 'plan': {
-        const p = plan(brief, members);
-        write({ [F.planShown]: 'yes', [F.leadPending]: 'yes' });
-        const n = p.orgs.reduce((a, o) => a + o.scenarios.length, 0);
-        say(
-          n
-            ? `Então o projeto tem ${n === 1 ? 'um cenário' : `${n} cenários`}. O que dá pra compartilhar entre as organizações está aqui:`
-            : 'Nenhum cenário entrou ainda — o projeto fica só com a moldura por enquanto. O que dá pra compartilhar está aqui:',
-          n
-            ? `So the project has ${n === 1 ? 'one scenario' : `${n} scenarios`}. What can be shared between the organisations is here:`
-            : 'No scenario has entered yet — the project keeps only its frame for now. What can be shared is here:',
-        );
-        pushEvent({ type: 'show_project_plan', plan: p } as any);
-        ask('Quem puxa o projeto?', 'Who leads the project?', [
-          ...members.map(m => ({ pt: m.orgName, en: m.orgName })),
-          { pt: PC.coordenacao.pt, en: PC.coordenacao.en },
-          { pt: PC.naoSabemos.pt, en: PC.naoSabemos.en },
-        ]);
-        return finish(detail);
-      }
-      case 'lead': {
-        write({ [F.leadPending]: 'yes' });
-        ask('Quem puxa o projeto?', 'Who leads the project?', [
-          ...members.map(m => ({ pt: m.orgName, en: m.orgName })),
-          { pt: PC.coordenacao.pt, en: PC.coordenacao.en },
-          { pt: PC.naoSabemos.pt, en: PC.naoSabemos.en },
-        ]);
-        return finish(detail);
-      }
-      case 'money': {
-        const p = plan(brief, members);
-        write({ [F.moneyPending]: 'yes' });
-        if (p.totals.lowBrl != null && p.totals.highBrl != null) {
-          say(
-            `Somando as faixas dos ${p.totals.priced === 1 ? 'cenário' : `${p.totals.priced} cenários`} com referência: **${money(p.totals.lowBrl)} a ${money(p.totals.highBrl)}**, à referência das fichas — faixa pra pedir cotação, não orçamento.${p.totals.unpriced.length ? ` Sem faixa: ${p.totals.unpriced.join('; ')}.` : ''}${p.pooled.length ? ` E o que se compartilha reduz: ${p.pooled[0]}` : ''}`,
-            `Adding the bands of the ${p.totals.priced === 1 ? 'scenario' : `${p.totals.priced} scenarios`} with a reference: **${money(p.totals.lowBrl)} to ${money(p.totals.highBrl)}**, at the fichas' reference — a band to request quotes against, not a budget.${p.totals.unpriced.length ? ` No band: ${p.totals.unpriced.join('; ')}.` : ''}${p.pooled.length ? ` And what is shared reduces it: ${p.pooled[0]}` : ''}`,
-          );
-        } else {
-          say(
-            'Nenhum cenário do projeto tem faixa de custo de referência ainda — o dinheiro entra quando os cenários entrarem.',
-            'No project scenario has a reference cost band yet — the money comes in when the scenarios do.',
-          );
-        }
-        ask('Como vocês imaginam o recurso?', 'How do you imagine the funding?', [
-          { pt: PC.editalUnico.pt, en: PC.editalUnico.en, dPt: 'O projeto inteiro numa proposta', dEn: 'The whole project in one proposal' },
-          { pt: PC.cadaUma.pt, en: PC.cadaUma.en, dPt: 'Com o projeto em comum como argumento', dEn: 'With the shared project as the argument' },
-          { pt: PC.naoSabemos.pt, en: PC.naoSabemos.en },
-        ]);
-        return finish(detail);
-      }
-      case 'note':
-      case 'done': {
-        const p = plan(brief, members);
-        const note = buildProjectNote(p, L);
-        write({ [F.noteShown]: 'yes' });
-        say(
-          s.kind === 'note'
-            ? 'Este é o resumo do projeto, com tudo o que vocês definiram — dá pra baixar em PDF e ajustar o que precisar.'
-            : 'Aqui está o resumo do projeto de novo:',
-          s.kind === 'note'
-            ? 'This is the project summary, with everything you decided — download it as PDF and adjust what needs adjusting.'
-            : 'Here is the project summary again:',
-        );
-        pushEvent({ type: 'show_project_note', note } as any);
-        ask('E agora?', 'And now?', [
-          { pt: PC.ajustar.pt, en: PC.ajustar.en, dPt: 'Refazer a escolha de cenários', dEn: 'Redo the scenario choice' },
-          { pt: PC.conversar.pt, en: PC.conversar.en, dPt: 'Perguntar, comparar, pedir ajuda', dEn: 'Ask, compare, get help' },
+      case 'e4': {
+        // ⚠️ Arriving from a project beat this is the joint Encontro 4's first
+        // question; on a return (detail ends in "resume") the question on
+        // record is re-emitted exactly (cboE4Checkpoint, E4_ENTRY).
+        const served = await runE4(E4_START, 'system', !/resume/.test(detail));
+        if (served) return true;
+        ask('Por onde?', 'Where to?', [
+          { pt: PC.emComum.pt, en: PC.emComum.en },
+          { pt: PC.cadaTraz.pt, en: PC.cadaTraz.en },
+          { pt: PC.perguntar.pt, en: PC.perguntar.en, dPt: 'Escreve aqui embaixo', dEn: 'Write below' },
         ]);
         return finish(detail);
       }
@@ -391,7 +362,10 @@ async function serveProjectInner(
   };
   if (turnKind !== 'chip') {
     const captured = captureFree();
-    return captured ? await captured : false;
+    if (captured) return await captured;
+    // Free text, a map point, a file — the joint Encontro 4's, when it is running.
+    if (inE4()) return await runE4(userMessage, turnKind, false);
+    return false;
   }
 
   // ── Chip taps ─────────────────────────────────────────────────────────────
@@ -500,7 +474,9 @@ async function serveProjectInner(
   }
   if (is(PC.verNota)) return serve('note-again');
   if (is(PC.ajustar)) {
-    write({ [PROJECT_FIELDS.scenarios]: '', [F.planShown]: '', [PROJECT_FIELDS.lead]: '', [PROJECT_FIELDS.funding]: '', [F.noteShown]: '' });
+    // Legacy chip (the old project note). The scenarios are asked again and the
+    // joint proposal picks its solution again; its other answers stay.
+    write({ [PROJECT_FIELDS.scenarios]: '', [F.planShown]: '', [F.noteShown]: '', _e4_solution_json: '', _e4_size_ok: '', _e4_opened: '', ...(type('_e4_closed') === 'yes' ? { _e4_reopened: 'yes' } : {}) });
     say('Vamos refazer os cenários, uma organização de cada vez.', "Let's redo the scenarios, one organisation at a time.");
     return serve('adjust');
   }
@@ -517,5 +493,7 @@ async function serveProjectInner(
     ]);
     return finish('converse');
   }
+  // Every other chip, inside the joint Encontro 4, is Encontro 4's.
+  if (inE4()) return await runE4(userMessage, turnKind, false);
   return false;
 }

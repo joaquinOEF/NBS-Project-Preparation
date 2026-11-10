@@ -1,7 +1,8 @@
 import { isPhotoCaption } from '@shared/photo-caption';
 import { createHash } from 'node:crypto';
 import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
-import { censusForSite, tractStatsAround } from '../services/censusContext';
+import { censusForSite, tractStatsAround, tractStatsAroundMany } from '../services/censusContext';
+import { jointPrenoteFor, jointClosed } from '../services/projectProposal';
 import { censusLines } from '@shared/census';
 import { healSite, healStateSite } from '../services/siteHealing';
 import { siteOfRecord } from '@shared/site-of-record';
@@ -75,7 +76,7 @@ import { getSolution, NBS_SOLUTIONS, orderSolutionsByMechanism } from '@shared/n
 import { SOLUTION_COSTS } from '@shared/w3-sizing';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { PENDING_FIELD } from '@shared/pending-question';
-import { portfolioOrg, suggestGroups, projectCard, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
+import { portfolioOrg, suggestGroups, projectCard, jointPortfolioUnit, DEFAULT_PREFS, type PortfolioPrefs, type PortfolioOrg } from '@shared/preportfolio';
 import { prenoteInputFor } from '../services/prenoteContext';
 import { renderPrenoteHtml } from '../services/prenotePrint';
 import { renderPreportfolioHtml } from '../services/preportfolioPrint';
@@ -706,8 +707,17 @@ export function registerCohortRoutes(app: Express): void {
     const rows = ids.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, ids)) : [];
     const stored = new Map(rows.map(r => [r.id, r.sections]));
     const sectionsOf = (id: string) => getCboState(id)?.sections ?? stored.get(id) ?? {};
+    // ⚠️ J3 (10 Nov 2026): a project whose joint proposal is CLOSED enters the
+    // board as ONE unit in place of its members (shared/project-proposal.ts).
+    // Its state is part of the signature, or a close would never show.
+    const projects = await db.select().from(cohortProjects).where(eq(cohortProjects.cohortId, cohortId)).catch(() => [] as Array<typeof cohortProjects.$inferSelect>);
+    const live = projects.filter(p => !p.archivedAt);
+    const projectStateRows = live.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, live.map(p => p.cboStateId))) : [];
+    const projectStored = new Map(projectStateRows.map(r => [r.id, r.sections]));
+    const projectSectionsOf = (id: string) => getCboState(id)?.sections ?? projectStored.get(id) ?? {};
     const sig = createHash('sha1').update(version).update(lang)
       .update(JSON.stringify(members.map(m => [m.id, m.orgName, m.neighborhood, sectionsOf(m.cboStateId!)])))
+      .update(JSON.stringify(live.map(p => [p.id, p.title, p.memberIds, projectSectionsOf(p.cboStateId)])))
       .digest('hex');
     const memoKey = `${cohortId}|${lang}`;
     const hit = boardMemo.get(memoKey);
@@ -740,6 +750,37 @@ export function registerCohortRoutes(app: Express): void {
         data.reading.set(m.id, { cboStateId: m.cboStateId!, orgName, key, current: storedLinks?.key === key });
       }
       data.orgs.push(org);
+    }
+
+    // ── J3: a joint project is ONE unit; its members' own proposals are background ──
+    // Oldest project first; a member already inside a joint unit is not counted twice.
+    const absorbed = new Set<string>();
+    for (const p of [...live].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))) {
+      if (!jointClosed({ sections: projectSectionsOf(p.cboStateId) } as any)) continue;
+      const own = (p.memberIds ?? []).map(id => data.orgs.find(o => o.memberId === id)).filter((o): o is PortfolioOrg => !!o && !absorbed.has(o.memberId));
+      if (!own.length) continue;
+      const joint = await jointPrenoteFor(p, lang).catch(err => { console.warn(`[preportfolio] joint proposal of ${p.id} unreadable:`, err?.message); return null; });
+      if (!joint?.prenote.solution) continue;
+      const unit = jointPortfolioUnit({ projectId: p.id, title: p.title, members: own, sections: joint.context.sections(joint.projectState), prenote: joint.prenote, lang });
+      // The census over the union of the members' points — each tract once.
+      const points = own.filter(o => o.lat != null && o.lng != null).map(o => ({ lat: o.lat!, lng: o.lng! }));
+      const tracts = points.length ? tractStatsAroundMany(points) : null;
+      if (tracts) unit.censusTracts = tracts; else delete unit.censusTracts;
+      const storedLinks = parsePlanLinks(String((projectSectionsOf(p.cboStateId) as any)?.intervention_type?.fields?._plan_links_json?.value ?? ''));
+      if (storedLinks) unit.planLinks = storedLinks.links; else delete unit.planLinks;
+      for (const o of own) {
+        absorbed.add(o.memberId);
+        data.prenotes.delete(o.memberId);
+        data.fingerprints.delete(o.memberId);
+        data.reading.delete(o.memberId);
+      }
+      data.orgs = data.orgs.filter(o => !absorbed.has(o.memberId));
+      data.orgs.push(unit);
+      data.prenotes.set(unit.memberId, joint.prenote);
+      const facts = prenoteFacts(unit.orgName, joint.prenote);
+      data.fingerprints.set(unit.memberId, createHash('sha1').update(facts).update(joint.prenote.solution.id).digest('hex').slice(0, 12));
+      const key = planLinksKey(facts, version);
+      data.reading.set(unit.memberId, { cboStateId: p.cboStateId, orgName: unit.orgName, key, current: storedLinks?.key === key });
     }
     boardMemo.set(memoKey, { sig, data });
     return data;
@@ -2367,6 +2408,19 @@ export function registerCohortRoutes(app: Express): void {
     const note = await projectNote(project, lang);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderProjectNoteHtml(note, lang));
+  }));
+
+  // The joint proposal — the project's Encontro 4 page (shared/project-proposal.ts).
+  // Same page as /api/cbo/:projectStateId/prenote, by project id.
+  app.get('/api/project/:projectId/prenote', wrap(async (req, res) => {
+    const project = await findProjectById(req.params.projectId);
+    if (!project) { res.status(404).send('Not found'); return; }
+    const cohort = await projectCohort(project);
+    const lang = req.query.lang === 'en' || (cohort?.settings as CohortSettings | null)?.language === 'en' ? 'en' : 'pt';
+    const joint = await jointPrenoteFor(project, lang);
+    if (!joint) { res.status(404).send('Not found'); return; }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderPrenoteHtml(joint.prenote, lang));
   }));
 
   app.get('/api/cbo-member/by-token/:token', wrap(async (req, res) => {

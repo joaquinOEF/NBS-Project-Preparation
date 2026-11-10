@@ -222,14 +222,15 @@ test.describe('projects — the board', () => {
   });
 });
 
-// THE PROJECT ENCONTRO — five templated beats that turn several
-// organisations' Encontro 3 tests into one project (docs/projects.md →
-// "The project encontro"). Walked in the browser with no model in the path,
-// including a reload mid-way and the document at the end.
+// THE PROJECT ENCONTRO — the beats that carry the joint reasoning (why
+// together, each one's scenarios), then Encontro 4 itself over the joint
+// record, ending on ONE joint proposal (docs/projects.md → "The project
+// encontro"; the full walk to the card is e2e/project-joint-e4.spec.ts).
+// Walked in the browser with no model in the path, including a reload mid-way.
 test.describe('projects — the project encontro', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('moldura → cenários → o que se compartilha → dinheiro → resumo, with a reload in the middle', async ({ page }) => {
+  test('moldura → cenários → the joint Encontro 4, with a reload in the middle', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
     const { cohort, ksa, coop, fresh } = await seedCohort(api, randomUUID().slice(0, 6));
@@ -272,49 +273,39 @@ test.describe('projects — the project encontro', () => {
     await expect(thread.getByText('Periferia Feminista', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
     await chip('Nenhuma desta vez').click();
 
-    // 3 · O que se compartilha — the plan card, then who leads.
-    const plan = page.getByTestId('cbo-project-plan');
-    await expect(plan).toBeVisible({ timeout: 15_000 });
-    await expect(plan).toHaveAttribute('data-scenarios', '2');
-    await expect(plan.getByTestId(`plan-org-${ksa.id}`)).toContainText('Jardins de chuva');
-    await expect(plan.getByTestId('plan-shared')).toContainText('um teste de infiltração do solo');
-    await expect(plan.getByTestId('plan-shared')).toContainText('em vez de 2');
-    await expect(plan.getByTestId('plan-money')).toContainText('R$');
-    await expect(chip('A coordenação')).toBeVisible();
-    await chip('Ksa Rosa').click();
+    // 3 · Encontro 4 for the joint solution — the old plan / money / note beats are folded into it.
+    await expect(thread.getByText('proposta inicial conjunta', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await expect(thread.getByText('Qual solução vira a proposta conjunta?').last()).toBeVisible();
+    await expect(page.getByTestId('cbo-project-plan')).toHaveCount(0);
+    await chip('Jardins de chuva').click();
+    await expect(thread.getByText('Mais ou menos de que tamanho', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await input.fill('30 por 4');
+    await input.press('Enter');
+    // Periferia Feminista has neither a pin nor an address: asked by name, skippable.
+    await expect(thread.getByText('O lugar da Periferia Feminista', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
 
-    // 4 · O dinheiro — the summed band, then how the funding is sought.
-    await expect(thread.getByText('Somando as faixas', { exact: false })).toBeVisible({ timeout: 15_000 });
-    await expect(chip('Um recurso só pra tudo')).toBeVisible();
-    await chip('Um recurso só pra tudo').click();
-
-    // 5 · O documento — the note card and its printed page.
-    const note = page.getByTestId('cbo-project-note');
-    await expect(note).toBeVisible({ timeout: 15_000 });
-    await expect(note.getByTestId('note-section-porque')).toContainText('a Ksa já fez projeto com a COOP20');
-    await expect(note.getByTestId('note-section-intervencao')).toContainText('Ksa Rosa — Jardins de chuva');
-    await expect(note.getByTestId('note-section-intervencao')).toContainText('COOP20 — Jardins de chuva');
-    await expect(note.getByTestId('note-section-cuida')).toContainText('Quem puxa o projeto: Ksa Rosa');
-    await expect(note.getByTestId('note-section-custo')).toContainText('um projeto só');
-    await expect(note.getByTestId('note-section-pendencias')).toContainText('Periferia Feminista');
-    await expect(chip('Ajustar os cenários')).toBeVisible();
-
-    const r = await page.request.get(`/api/project/${project.id}/note?lang=pt`);
-    expect(r.ok()).toBe(true);
-    const text = (await r.text()).replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    expect(text).toContain('Resumo do Projeto — várias organizações');
-    expect(text).toContain('Ksa Rosa — Jardins de chuva');
-    expect(text).toContain('Quem puxa o projeto: Ksa Rosa');
-    expect(text).toMatch(/Fonte:/);
-    expect(text).not.toMatch(/\bvocês\b/i);
-    expect(text).not.toMatch(/shared\/|server\//);
-    expect(text).not.toMatch(/jardins-de-chuva|edital-unico/);
-    expect(text).toContain('RASCUNHO');
-
-    // After the encontro, a return lands on the summary, not on the door.
+    // A return lands on the same question — the joint Encontro 4's, not the door's.
     await page.reload();
-    await expect(chip('Ajustar os cenários')).toBeVisible({ timeout: 30_000 });
+    await expect(chip('Seguir sem o lugar')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('cbo-project-brief')).toHaveCount(1);
+    await chip('Seguir sem o lugar').click();
+    await expect(thread.getByText('continua sendo', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await chip('Isso ✓').click();
+
+    // The draft: the same proposal card an organisation sees, opening on the organisations together.
+    const card = page.getByTestId('cbo-prenote').last();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId('prenote-card-juntas')).toContainText('As organizações e por que juntas');
+    await expect(card.getByTestId('prenote-card-juntas')).toContainText('Ksa Rosa');
+    await expect(card.getByTestId('prenote-card-juntas')).toContainText('COOP20');
+    await expect(card.getByTestId('prenote-print')).toHaveAttribute('href', `/api/cbo/${project.cboStateId}/prenote?lang=pt`);
+    await expect(thread.getByText('quem sofre mais', { exact: false }).last()).toBeVisible();
+
+    // The members' own records are untouched by the room's answers; the project holds them.
+    const st = await (await page.request.get(`/api/cbo/${ksa.cboStateId}`)).json();
+    expect(st.state.sections.intervention_type.fields._e4_solution_json, 'the joint solution is the project\'s, not Ksa\'s').toBeUndefined();
+    const ps = await (await page.request.get(`/api/cbo/${project.cboStateId}`)).json();
+    expect(ps.state.sections.intervention_type.fields._e4_solution_json.value).toContain('jardins-de-chuva');
   });
 
   test('skipping is allowed, and an organisation with no tests is not asked what it tested', async ({ page }) => {
@@ -338,15 +329,10 @@ test.describe('projects — the project encontro', () => {
     await chip('Nenhuma desta vez').click();
     await expect(thread.getByText('ainda não testou soluções no Encontro 3', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
     await chip('Nenhuma desta vez').click();
-    const plan = page.getByTestId('cbo-project-plan');
-    await expect(plan).toBeVisible({ timeout: 15_000 });
-    await expect(plan).toHaveAttribute('data-scenarios', '0');
-    await expect(plan.getByTestId('plan-money')).toContainText('Nenhum cenário');
-    await chip('Ainda não sabemos').click();
-    await expect(chip('Ainda não sabemos')).toBeVisible({ timeout: 15_000 });
-    await chip('Ainda não sabemos').click();
-    await expect(page.getByTestId('cbo-project-note')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('cbo-project-note').getByTestId('note-section-pendencias')).toContainText('sem cenário neste projeto por enquanto');
+    // No scenario entered: the joint Encontro 4 still has something to tap — the catalogue, by their worry.
+    await expect(thread.getByText('Nenhum cenário entrou no projeto. Qual solução vira a proposta conjunta?').last()).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Outra solução')).toBeVisible();
+    expect(await page.locator('[data-testid^="cbo-option-"]').count()).toBeGreaterThan(1);
   });
 });
 

@@ -38,6 +38,8 @@ import { parseVisit, visitSummary } from '@shared/e4-visit';
 import { impactChips } from '@shared/e4-indicators';
 import { BUILD, MAINTAIN, CONTRIBUTION, PARTNERS, COORD_LABEL } from '@shared/e4-options';
 import type { E4Suggestion } from '@shared/e4-suggestions';
+import type { CensusAround } from '@shared/census';
+import type { Prenote } from '@shared/e4-prenote';
 import {
   buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER, recordedContribution, recordedPartners,
   type E4Solution, type PrenoteInput,
@@ -65,6 +67,31 @@ export interface E4Deps {
    * has closed, the proposal's summary). Fire and forget.
    */
   rereadFiles?(): void;
+  /**
+   * Set when Encontro 4 runs inside a PROJECT's shared session
+   * (docs/projects.md, shared/project-proposal.ts). The state the checkpoint
+   * reads is then the joint record (members underneath, the project's own
+   * answers on top) and the page is the joint proposal. What changes:
+   *   · the place is EACH MEMBER's — a member with no pin is asked, by name,
+   *     and what is confirmed is written to that member's own record;
+   *   · the census is the union of the members' points, each tract once;
+   *   · no recap card (what one organisation said is not the room's answer).
+   */
+  project?: E4ProjectHooks;
+}
+
+export interface E4ProjectHooks {
+  /** The members in the project's order, with whether their record has a pin — read live. */
+  members(): Array<{ memberId: string; orgName: string; pinned: boolean; bairro?: string }>;
+  /** The address-geocode suggestion per member without a pin (shared/e4-suggestions.ts 'lugar'). */
+  guesses(): Promise<Record<string, E4Suggestion>>;
+  /** Write a member's OWN place (intervention_site) — the room confirmed it. */
+  writeMemberSite(memberId: string, fields: Record<string, string>): void;
+  /** City-map facts per point and the census over every point — read live, so a pin confirmed this turn counts. */
+  extras(): Partial<PrenoteInput>;
+  census(): CensusAround | null;
+  /** The joint page (buildJointPrenote). */
+  prenote(input: PrenoteInput, lang: 'pt' | 'en'): Prenote;
 }
 
 const SITE = 'intervention_site';
@@ -187,6 +214,23 @@ export async function serveE4Checkpoint(
   });
 }
 
+/**
+ * Encontro 4 inside a project's shared session — the same beats, over the joint
+ * record. The project checkpoint owns the pending-question wrapper and calls
+ * this as one of its beats (server/services/cboProjectCheckpoint.ts).
+ */
+export async function serveE4ForProject(
+  cboId: string,
+  userMessage: string,
+  jointState: CboState,
+  pushEvent: EventPusher,
+  lang: string,
+  turnKind: string | undefined,
+  deps: E4Deps & { project: E4ProjectHooks },
+): Promise<boolean> {
+  return serveE4Inner(cboId, userMessage, jointState, pushEvent, lang, turnKind, deps);
+}
+
 async function serveE4Inner(
   cboId: string,
   userMessage: string,
@@ -229,10 +273,15 @@ async function serveE4Inner(
     && !raw.startsWith("I'm uploading:") && !raw.startsWith('Uploaded "') && !raw.startsWith('Map selection (');
   const label = (id: string) => { const s = getSolution(id); return s ? (isPt ? s.pt.label : s.en.label) : id; };
 
+  const P = deps.project ?? null;
   // Fetched once per turn; the photos and the cohort do not change mid-turn.
   const extras = deps.extras ? await deps.extras().catch(() => ({})) : {};
   // Only once Encontro 4 is open — the geocode and the scan are not free.
-  const allSuggestions: E4Suggestion[] = type('_e4_opened') && deps.suggestions ? await deps.suggestions().catch(() => []) : [];
+  const allSuggestions: E4Suggestion[] = !P && type('_e4_opened') && deps.suggestions ? await deps.suggestions().catch(() => []) : [];
+  // A project: the place is each member's. The geocode of each address, once per turn.
+  const guesses: Record<string, E4Suggestion> = P && type('_e4_opened') ? await P.guesses().catch(() => ({})) : {};
+  // ⚠️ Every member's place is required (JVP, 10 Nov 2026) — no skip list.
+  const nextPlace = () => (P ? P.members().find(m => !m.pinned) ?? null : null);
   // The suggestions were read at the start of the turn; the record may have
   // moved since (an answer given THIS turn). Each item is checked against the
   // live record every time — "Alagamento" just tapped is not offered back.
@@ -251,12 +300,29 @@ async function serveE4Inner(
   };
   const bundle = () => (type('_e4_recap_done') === 'yes' ? [] : allSuggestions.filter(x => x.confidence === 'high' && stillOpen(x)));
   const placeGuess = () => allSuggestions.find(x => x.key === 'lugar' && x.confidence === 'medium' && stillOpen(x)) ?? null;
-  const input = (): PrenoteInput => ({ ...prenoteInputFromSections(state.sections), ...extras });
+  const input = (): PrenoteInput => ({ ...prenoteInputFromSections(state.sections), ...extras, ...(P ? P.extras() : {}) });
+  /** The page: an organisation's, or a project's joint proposal. */
+  const page = (): ReturnType<typeof buildPrenote> => (P ? P.prenote(input(), L) : buildPrenote(input(), L));
+  /** The census the "quem é atingido" anchor reads: the pin, or every member's point. */
+  const censusHere = () => {
+    if (P) return P.census();
+    // `site()` reads '' for an empty field — pass undefined, or an empty site_lat hides _site_lat.
+    const pin = (k: string) => site(k) || undefined;
+    return censusForSite({ site_lat: pin('site_lat'), _site_lat: pin('_site_lat'), site_lng: pin('site_lng'), _site_lng: pin('_site_lng') });
+  };
   const solution = (): E4Solution | null => parseE4Solution(type('_e4_solution_json'));
   // Every era of record (shared/recorded-solutions.ts) — Conceito Arte's
   // Encontro 3 wrote names into `solution_types` and was told "nenhuma solução".
   const tests = () => testsOf({ solution_tests_json: type('solution_tests_json'), chosen_solutions: type('chosen_solutions'), solution_types: type('solution_types') });
-  const hasPlace = () => !!(site('_site_lat') || site('site_lat'));
+  const hasPlace = () => (P ? !nextPlace() : !!(site('_site_lat') || site('site_lat')));
+
+  const sayJointOpening = () => {
+    const names = (P?.members() ?? []).map(m => m.orgName);
+    say(
+      `Agora a gente monta a **proposta inicial conjunta** de ${names.join(' e ')}: uma página só, com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro de cada uma — eu só pergunto o que falta. Primeiro, a solução.`,
+      `Now we put together the **joint initial proposal** of ${names.join(' and ')}: one page, with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on each record — I only ask what is missing. First, the solution.`,
+    );
+  };
 
   // ── Where are we? Derived, never stored. ──────────────────────────────────
   const step = (): Step => {
@@ -267,7 +333,8 @@ async function serveE4Inner(
     if (!sol) return 'solution';
     if (type('_e4_size_ok') !== 'yes') return 'size';
     if (bundle().length) return 'recap';
-    // Required: an old `_e4_place_skipped` no longer lets the proposal close without one.
+    // Required — for an organisation and for every member of a project: an
+    // old `_e4_place_skipped(_members)` no longer lets the proposal close without one.
     if (!hasPlace()) return 'place';
     if (type('_e4_problem_ok') !== 'yes') return 'problem';
     if (type('_skip_json') && type('_e4_context_done') !== 'yes') return 'contexto';
@@ -282,7 +349,7 @@ async function serveE4Inner(
     return 'done';
   };
 
-  const showNote = () => pushEvent({ type: 'show_prenote', prenote: buildPrenote(input(), L) } as any);
+  const showNote = () => pushEvent({ type: 'show_prenote', prenote: page() } as any);
 
   /** Serve the current step. Every branch ends on an ask_user. */
   const serve = (detail: string): true => {
@@ -302,7 +369,8 @@ async function serveE4Inner(
       case 'solution': {
         const visit = parseVisit(type('_visit_json'));
         if (visit && type('_e4_visit_declined') !== 'yes') {
-          say(
+          if (P) sayJointOpening();
+          else say(
             `Hoje a gente monta a **proposta inicial** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta. Primeiro, a solução.`,
             `Today we put together your **initial proposal**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing. First, the solution.`,
           );
@@ -320,7 +388,8 @@ async function serveE4Inner(
         const ordered = tests()
           .filter(t => getSolution(t.solutionId))
           .sort((a, b) => (a.reaction === 'faz-sentido' ? 0 : 1) - (b.reaction === 'faz-sentido' ? 0 : 1));
-        if (!visit) {
+        if (!visit && P) sayJointOpening();
+        else if (!visit) {
           say(
             `Hoje a gente monta a **proposta inicial** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta.`,
             `Today we put together your **initial proposal**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing.`,
@@ -338,13 +407,15 @@ async function serveE4Inner(
         const worriesNamed = site('site_worry').split(',').map(w => w.trim()).filter(Boolean);
         const suggested = ordered.length ? [] : orderSolutionsByMechanism(pool.length ? pool : NBS_SOLUTIONS, worriesNamed).slice(0, 4);
         ask(
-          ordered.length ? 'Qual solução vira a proposta inicial?' : 'No Encontro 3 nenhuma solução foi testada. Qual vira a proposta inicial?',
-          ordered.length ? 'Which solution becomes the initial proposal?' : 'No solution was tested in Encontro 3. Which one becomes the initial proposal?',
+          P ? (ordered.length ? 'Qual solução vira a proposta conjunta?' : 'Nenhum cenário entrou no projeto. Qual solução vira a proposta conjunta?')
+            : ordered.length ? 'Qual solução vira a proposta inicial?' : 'No Encontro 3 nenhuma solução foi testada. Qual vira a proposta inicial?',
+          P ? (ordered.length ? 'Which solution becomes the joint proposal?' : 'No scenario entered the project. Which solution becomes the joint proposal?')
+            : ordered.length ? 'Which solution becomes the initial proposal?' : 'No solution was tested in Encontro 3. Which one becomes the initial proposal?',
           [
             ...ordered.slice(0, 4).map(t => ({
               pt: label(t.solutionId), en: label(t.solutionId),
-              dPt: t.reaction === 'faz-sentido' ? 'Fez sentido no Encontro 3' : 'Testada no Encontro 3',
-              dEn: t.reaction === 'faz-sentido' ? 'Made sense in Encontro 3' : 'Tested in Encontro 3',
+              dPt: P ? 'Cenário que entrou no projeto' : t.reaction === 'faz-sentido' ? 'Fez sentido no Encontro 3' : 'Testada no Encontro 3',
+              dEn: P ? 'A scenario that entered the project' : t.reaction === 'faz-sentido' ? 'Made sense in Encontro 3' : 'Tested in Encontro 3',
             })),
             ...suggested.map(x => {
               const why = mechanismNote(x.id, worriesNamed, L);
@@ -398,6 +469,33 @@ async function serveE4Inner(
         return finish(detail);
       }
       case 'place': {
+        if (P) {
+          // A project: the place is each member's own (J2). One member at a
+          // time, named; what is confirmed goes to THAT member's record.
+          const m = nextPlace()!;
+          writeType({ _e4_place_pending: 'yes', _e4_place_member: m.memberId });
+          const g = guesses[m.memberId];
+          if (g?.writes.intervention_site) {
+            const where = g.pt.replace(/^o lugar: /, ''), whereEn = g.en.replace(/^the place: /, '');
+            ask(
+              `O lugar da **${m.orgName}** ainda não está marcado no mapa. Pelo endereço que ela deu, fica por aqui: **${where}**. É aqui?`,
+              `**${m.orgName}**'s place is not marked on the map yet. From the address it gave, it is around here: **${whereEn}**. Is it here?`,
+              [
+                { pt: E4C.isso.pt, en: E4C.isso.en, dPt: `Marca esse ponto pra ${m.orgName}`, dEn: `Marks this point for ${m.orgName}` },
+                { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa pra ajustar', dEn: 'Opens the map to adjust' },
+              ],
+            );
+            return finish(detail);
+          }
+          ask(
+            `O lugar da **${m.orgName}** ainda não está marcado no mapa, e a proposta conjunta precisa do lugar de cada uma: é por ele que entram os mapas da cidade e quem mora perto. Marcamos agora? Pode ser aproximado.`,
+            `**${m.orgName}**'s place is not marked on the map yet, and the joint proposal needs each one's place: the city maps and who lives nearby come from it. Shall we mark it now? Approximate is fine.`,
+            [
+              { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
+            ],
+          );
+          return finish(detail);
+        }
         writeType({ _e4_place_pending: 'yes' });
         const guess = placeGuess();
         if (guess) {
@@ -469,7 +567,7 @@ async function serveE4Inner(
       }
       case 'draft': {
         writeType({ _e4_draft_shown: 'yes' });
-        const gaps = buildPrenote(input(), L).gaps.length;
+        const gaps = page().gaps.length;
         say(
           gaps
             ? `Com o que vocês já contaram nos encontros, a proposta inicial fica assim. O que está em laranja é o que falta — são ${gaps === 1 ? 'uma pergunta' : `${gaps} perguntas`} rápidas.`
@@ -484,9 +582,7 @@ async function serveE4Inner(
       case 'beneficiarios': {
         writeType({ _e4_gap_pending: 'beneficiarios' });
         // The census as a starting point (23 Oct, E1) — the answer stays theirs, in their words.
-        // `site()` reads '' for an empty field — pass undefined, or an empty site_lat hides _site_lat.
-        const pin = (k: string) => site(k) || undefined;
-        const census = censusForSite({ site_lat: pin('site_lat'), _site_lat: pin('_site_lat'), site_lng: pin('site_lng'), _site_lng: pin('_site_lng') });
+        const census = censusHere();
         const hint = (l: 'pt' | 'en') => { const h = beneficiariesHint(census, l); return h ? `${h} ` : ''; };
         if (type('_e4_benef_group') === 'yes') {
           ask('Qual grupo, e mais ou menos quantas pessoas?', 'Which group, and roughly how many people?',
@@ -554,8 +650,10 @@ async function serveE4Inner(
         if (recorded.length && type('_e4_contrib_declined') !== 'yes') {
           writeType({ _e4_gap_pending: 'contrapartida-confirm' });
           ask(
-            `Pelo que vocês já contaram, a organização coloca no projeto: **${recorded.join('; ')}**. É isso?`,
-            `From what you already told us, the organisation puts into the project: **${recorded.join('; ')}**. Is that right?`,
+            P ? `Pelo que as organizações já contaram, elas colocam no projeto: **${recorded.join('; ')}**. É isso?`
+              : `Pelo que vocês já contaram, a organização coloca no projeto: **${recorded.join('; ')}**. É isso?`,
+            P ? `From what the organisations already told us, they put into the project: **${recorded.join('; ')}**. Is that right?`
+              : `From what you already told us, the organisation puts into the project: **${recorded.join('; ')}**. Is that right?`,
             [{ pt: E4C.isso.pt, en: E4C.isso.en }, { pt: E4C.issoEMais.pt, en: E4C.issoEMais.en, dPt: 'Escreve o que falta', dEn: 'Write what is missing' }, { pt: E4C.naoEBemIsso.pt, en: E4C.naoEBemIsso.en }],
           );
           return finish(detail);
@@ -575,7 +673,7 @@ async function serveE4Inner(
         if (named.length && type('_e4_partners_declined') !== 'yes') {
           writeType({ _e4_gap_pending: 'parceiros-confirm' });
           ask(
-            `No registro de vocês aparece: **${named.join('; ')}**. Entram como parceiros desse projeto?`,
+            `No registro ${P ? 'das organizações' : 'de vocês'} aparece: **${named.join('; ')}**. Entram como parceiros desse projeto?`,
             `Your record names: **${named.join('; ')}**. Are they partners in this project?`,
             [{ pt: E4C.isso.pt, en: E4C.isso.en }, { pt: E4C.issoEMais.pt, en: E4C.issoEMais.en, dPt: 'Escreve quem mais', dEn: 'Write who else' }, { pt: E4C.naoEBemIsso.pt, en: E4C.naoEBemIsso.en }],
           );
@@ -595,7 +693,7 @@ async function serveE4Inner(
         // form, after "Levar ao Encontro 4") were never asked here. They are
         // marked on the page, and this one check is where the organisation
         // owns them — one tap, not one question per answer (22 Oct decision).
-        const note = buildPrenote(input(), L);
+        const note = page();
         if (note.byCoordination.length) {
           const n = note.byCoordination.length;
           const names = note.byCoordination.map(k => COORD_LABEL[k][L]).join(', ');
@@ -610,7 +708,8 @@ async function serveE4Inner(
           ]);
           return finish(detail);
         }
-        say('Pronto — a proposta inicial completa:', 'Done — the complete initial proposal:');
+        if (P) say('Pronto — a proposta conjunta completa, das organizações juntas:', 'Done — the complete joint proposal, of the organisations together:');
+        else say('Pronto — a proposta inicial completa:', 'Done — the complete initial proposal:');
         showNote();
         ask('Está bom assim?', 'Is it right like this?', [
           { pt: E4C.podeFechar.pt, en: E4C.podeFechar.en, dPt: 'Vai pra coordenação e pro pré-portfólio', dEn: 'It goes to the coordination and the pre-portfolio' },
@@ -619,7 +718,8 @@ async function serveE4Inner(
         return finish(detail);
       }
       case 'done': {
-        say('Aqui está a proposta inicial de vocês:', 'Here is your initial proposal:');
+        if (P) say('Aqui está a proposta conjunta:', 'Here is the joint proposal:');
+        else say('Aqui está a proposta inicial de vocês:', 'Here is your initial proposal:');
         showNote();
         ask('E agora?', 'And now?', [
           { pt: E4C.mudarAlgo.pt, en: E4C.mudarAlgo.en },
@@ -634,6 +734,19 @@ async function serveE4Inner(
   const close = (): true => {
     writeType({ _e4_closed: 'yes', _e4_reopened: '', _e4_approve_pending: '' });
     deps.startAuthoring?.();
+    if (P) {
+      // A project's chat ENDS on the proposal card (J1): the closing line, then the page.
+      say(
+        'Fechado ✓ A proposta conjunta foi pra coordenação. No pré-portfólio da Rede ela entra no lugar das propostas de cada organização — as delas ficam como histórico. Dá pra baixar em PDF no card abaixo.',
+        "Closed ✓ The joint proposal has gone to the coordination. In the Rede's pre-portfolio it takes the place of each organisation's own proposal — theirs stay as background. You can download it as PDF from the card below.",
+      );
+      showNote();
+      ask('E agora?', 'And now?', [
+        { pt: E4C.mudarAlgo.pt, en: E4C.mudarAlgo.en },
+        { pt: E4C.verPrenota.pt, en: E4C.verPrenota.en },
+      ]);
+      return finish('close');
+    }
     say(
       'Fechado ✓ A proposta inicial foi pra coordenação. A equipe técnica pode revisar os números, e ela entra no pré-portfólio da Rede junto com as das outras organizações. Dá pra baixar em PDF no card acima.',
       'Closed ✓ The initial proposal has gone to the coordination. The technical team may review the figures, and it goes into the Rede\'s pre-portfolio with the other organisations\'. You can download it as PDF from the card above.',
@@ -670,6 +783,15 @@ async function serveE4Inner(
   if ((turnKind === 'map' || raw.startsWith('Map selection (')) && type('_e4_place_pending') === 'yes') {
     const s = Array.from(raw.matchAll(/^- \[(osm|custom)\] (.+?)(?: \(drawn area\))? at \((-?[\d.]+), (-?[\d.]+)\)(?: · (\d+) m²)?/gm)).pop();
     if (!s) return false;
+    if (P) {
+      // The point is the member's the place step was asking about — its own record.
+      const m = P.members().find(x => x.memberId === type('_e4_place_member'));
+      if (!m) return false;
+      P.writeMemberSite(m.memberId, { _site_lat: s[3], _site_lng: s[4] });
+      writeType({ _e4_place_pending: '', _e4_place_member: '' });
+      say(`Lugar da ${m.orgName} marcado ✓`, `${m.orgName}'s place marked ✓`);
+      return serve('place-marked');
+    }
     deps.writeFields(SITE, {
       ...(site('site_name') ? {} : { site_name: s[2] }),
       _site_lat: s[3], _site_lng: s[4],
@@ -855,17 +977,20 @@ async function serveE4Inner(
     }
     // The scale chips (round 3, E1): their choice, the census as context — never "N affected" unless they say so.
     if (gap === 'beneficiarios' && type('_e4_benef_group') !== 'yes') {
-      const pin = (k: string) => site(k) || undefined;
-      const census = censusForSite({ site_lat: pin('site_lat'), _site_lat: pin('_site_lat'), site_lng: pin('site_lng'), _site_lng: pin('_site_lng') });
+      const census = censusHere();
       const sc = census && census.people >= 50 ? scaleChips(census.people) : null;
       if (sc && is(sc.quase)) {
-        deps.writeFields(SITE, { beneficiaries_note: `Quase todas as ~${fmtN(census!.people)} pessoas que moram num raio de 300 m (Censo 2022), segundo a organização` });
+        deps.writeFields(SITE, { beneficiaries_note: P
+          ? `Quase todas as ~${fmtN(census!.people)} pessoas que moram a até 300 m dos lugares das organizações (Censo 2022), segundo as organizações`
+          : `Quase todas as ~${fmtN(census!.people)} pessoas que moram num raio de 300 m (Censo 2022), segundo a organização` });
         writeType({ _e4_gap_pending: '' });
         say('Anotado ✓', 'Noted ✓');
         return serve('beneficiarios-scale');
       }
       if (sc && is(sc.parte)) {
-        deps.writeFields(SITE, { beneficiaries_note: `Uma parte de quem mora perto — ${census!.people >= 500 ? 'umas centenas' : 'algumas dezenas'} de pessoas, segundo a organização (no raio de 300 m moram ~${fmtN(census!.people)}, Censo 2022)` });
+        deps.writeFields(SITE, { beneficiaries_note: P
+          ? `Uma parte de quem mora perto — ${census!.people >= 500 ? 'umas centenas' : 'algumas dezenas'} de pessoas, segundo as organizações (a até 300 m dos lugares delas moram ~${fmtN(census!.people)}, Censo 2022)`
+          : `Uma parte de quem mora perto — ${census!.people >= 500 ? 'umas centenas' : 'algumas dezenas'} de pessoas, segundo a organização (no raio de 300 m moram ~${fmtN(census!.people)}, Censo 2022)` });
         writeType({ _e4_gap_pending: '' });
         say('Anotado ✓', 'Noted ✓');
         return serve('beneficiarios-scale');
@@ -992,7 +1117,27 @@ async function serveE4Inner(
     }
   }
 
-  if (type('_e4_place_pending') === 'yes') {
+  if (P && type('_e4_place_pending') === 'yes') {
+    const m = P.members().find(x => x.memberId === type('_e4_place_member'));
+    const g = m ? guesses[m.memberId] : undefined;
+    if (m && g?.writes.intervention_site && is(E4C.isso)) {
+      // ⚠️ Written to THAT member's record (J2): the joint proposal reads it from there.
+      P.writeMemberSite(m.memberId, g.writes.intervention_site);
+      writeType({ _e4_place_pending: '', _e4_place_member: '' });
+      say(`Lugar da ${m.orgName} marcado ✓`, `${m.orgName}'s place marked ✓`);
+      return serve('place-from-address');
+    }
+    if (m && is(E4C.marcarAgora)) {
+      pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(m.bairro ? { focusZone: m.bairro.split(',')[0].trim() } : {}) } } as any);
+      return finish('open-site-map');
+    }
+    // An old chip still on screen: read, and the place is asked again.
+    if (m && is(E4C.seguirSemLugar)) {
+      say('Para fechar a proposta conjunta, o lugar de cada organização precisa estar no mapa — pode ser aproximado.', 'To close the joint proposal, each organisation\'s place has to be on the map — approximate is fine.');
+      return serve('place-required');
+    }
+  }
+  if (!P && type('_e4_place_pending') === 'yes') {
     const guess = placeGuess();
     if (guess && is(E4C.isso) && guess.writes.intervention_site) {
       deps.writeFields(SITE, guess.writes.intervention_site);
@@ -1108,11 +1253,12 @@ async function serveE4Inner(
   }
   if (is(E4C.mudarAlgo) || is(E4C.corrigirUma)) {
     writeType({ _e4_change_pending: 'yes' });
-    ask('O que vocês querem mudar?', 'What do you want to change?', Object.values(CHANGE).map(c => ({ pt: c.pt, en: c.en })));
+    // A project never clears a member's pin from the shared room: the place is the member's record.
+    ask('O que vocês querem mudar?', 'What do you want to change?', (Object.keys(CHANGE) as Array<keyof typeof CHANGE>).filter(k => !(P && k === 'lugar')).map(k => ({ pt: CHANGE[k].pt, en: CHANGE[k].en })));
     return finish('change');
   }
   if (type('_e4_change_pending') === 'yes') {
-    const which = (Object.keys(CHANGE) as Array<keyof typeof CHANGE>).find(k => is(CHANGE[k]));
+    const which = (Object.keys(CHANGE) as Array<keyof typeof CHANGE>).find(k => is(CHANGE[k]) && !(P && k === 'lugar'));
     if (which) {
       const reopen = { _e4_change_pending: '', _e4_reopened: type('_e4_closed') === 'yes' ? 'yes' : '' };
       if (which === 'solucao') writeType({ ...reopen, _e4_solution_json: '', _e4_size_ok: '', _e4_visit_declined: '' });

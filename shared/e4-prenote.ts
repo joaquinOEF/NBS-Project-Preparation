@@ -90,7 +90,8 @@ export interface E4Solution {
   units?: number;
 }
 
-export type PrenoteSectionId = 'organizacao' | 'problema' | 'territorio' | 'entorno' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
+/** 'juntas' only on a project's joint proposal (shared/project-proposal.ts). */
+export type PrenoteSectionId = 'juntas' | 'organizacao' | 'problema' | 'territorio' | 'entorno' | 'solucao' | 'impacto' | 'indicadores' | 'orcamento' | 'financiamento' | 'parceiros' | 'pendencias';
 export const PRENOTE_SECTIONS: PrenoteSectionId[] = ['organizacao', 'problema', 'territorio', 'entorno', 'solucao', 'impacto', 'indicadores', 'orcamento', 'financiamento', 'parceiros', 'pendencias'];
 
 /** The five things Encontro 4 asks — one per gap, in the order it asks them. */
@@ -161,6 +162,12 @@ export interface Prenote {
   summary: string[];
   /** One of their photographs, captioned, when there is one. */
   photo: { src: string; caption: string } | null;
+  /**
+   * Set on a PROJECT's joint proposal (shared/project-proposal.ts): the
+   * organisations it speaks for, in the project's order. Absent on an
+   * organisation's own.
+   */
+  joint?: { projectId: string; title: string; members: Array<{ memberId: string; orgName: string }> };
 }
 
 // ⚠️ The chip labels are spoken ("A gente mesmo"); a page is written. The
@@ -310,6 +317,7 @@ function fmtDate(iso: string): string {
 function basisOf(id: PrenoteSectionId, input: PrenoteInput, sol: Prenote['solution']): string {
   const t = input.type, s = input.site, o = input.ops ?? {};
   const parts: Record<PrenoteSectionId, Array<string | undefined>> = {
+    juntas: [],
     organizacao: [JSON.stringify(input.org ?? {}), s.bairro],
     financiamento: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), input.org?.has_cnpj, input.org?.funding_history, (input.cohort ?? []).join('|')],
     problema: [s.site_worry, s.site_story, s.beneficiaries_note],
