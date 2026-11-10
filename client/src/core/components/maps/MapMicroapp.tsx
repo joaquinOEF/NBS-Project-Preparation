@@ -52,13 +52,11 @@ import {
   riskBand,
   hazardPercentile,
   TYPOLOGY_COLORS,
-  zoneRiskOpacity,
   type HazardKey,
 } from '@shared/risk-display';
 import { normalizeZoneName } from '@shared/bairro-match';
 import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
 import { BASEMAPS } from '@/core/lib/basemaps';
-import { RISK_BANDS } from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
 import { describeRamp } from '@shared/hazard-legend';
 import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
@@ -168,7 +166,10 @@ const TOUR_COPY: Record<
     titleKey: 'mapMicroapp.tourFloodTitle',
     title: 'Enchente',
     bodyKey: 'mapMicroapp.tourFloodBody',
-    body: 'Onde a água tende a se acumular quando chove forte.',
+    // The ARVC flood ameaça is FLUVIAL — the arroios overtopping — not "where
+    // water pools", which is alagamento and has no layer here. The Guaíba
+    // (May 2024) is drawn over the same step as its own labelled overlay.
+    body: 'Inundação de arroios (PLAC/ARVC) — onde os arroios transbordam.',
   },
   heat: {
     emoji: '🔥',
@@ -184,6 +185,19 @@ const TOUR_COPY: Record<
     bodyKey: 'mapMicroapp.tourLandslideBody',
     body: 'As encostas com risco de deslizar.',
   },
+};
+
+// May 2024 observed flood extent (Planet SkySat, 2024-05-06, Guaíba watershed —
+// see the file's own `source`). Dashed blue so it reads as an outline over the
+// yellow→red ameaça ramp rather than as one more step of it.
+const FLOOD_2024_URL = '/sample-data/porto-alegre-flood-2024.json';
+const FLOOD_2024_PANE = 'flood2024';
+const FLOOD_2024_STYLE = {
+  color: '#1d4ed8',
+  weight: 1.5,
+  dashArray: '4 3',
+  fillColor: '#3b82f6',
+  fillOpacity: 0.25,
 };
 
 // Build a CSS gradient from a layer's legend stops (same source as the map's
@@ -352,6 +366,61 @@ export default function MapMicroapp({
     setHelpOpen(false);
     setTourIdx(tourIdx + 1);
   }, [setTourIdx, tourIdx]);
+
+  // The Guaíba component of the flood step. The PLAC/ARVC flood ameaça is
+  // fluvial only, so wherever flood is shown the May 2024 observed extent is
+  // drawn with it and labelled. An overlay on the flood step rather than a 4th
+  // tour step: the tour's length is read server-side (tourIdx 3 = walked).
+  const flood2024Ref = useRef<L.GeoJSON | null>(null);
+  const flood2024Data = useRef<any>(null);
+  const [flood2024Shown, setFlood2024Shown] = useState(false);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const remove = () => {
+      if (flood2024Ref.current) {
+        map.removeLayer(flood2024Ref.current);
+        flood2024Ref.current = null;
+      }
+      setFlood2024Shown(false);
+    };
+    if (tourFamily !== 'flood') {
+      remove();
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!flood2024Data.current) {
+          const res = await fetch(FLOOD_2024_URL);
+          if (!res.ok) return;
+          const json = await res.json();
+          flood2024Data.current = json?.geoJson ?? json;
+        }
+        if (cancelled || flood2024Ref.current) return;
+        // Its own pane, above the tiles and below the bairro outlines'
+        // tooltips: the overlay pane holds the bairros, and everything that
+        // counts or styles those paths should keep seeing only them.
+        if (!map.getPane(FLOOD_2024_PANE)) {
+          const pane = map.createPane(FLOOD_2024_PANE);
+          pane.style.zIndex = '390';
+          pane.style.pointerEvents = 'none';
+        }
+        flood2024Ref.current = L.geoJSON(flood2024Data.current, {
+          pane: FLOOD_2024_PANE,
+          interactive: false,
+          style: () => ({ ...FLOOD_2024_STYLE }),
+        }).addTo(map);
+        setFlood2024Shown(true);
+      } catch {
+        /* the step still shows the ameaça layer; the label stays hidden */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      remove();
+    };
+  }, [tourFamily, mapReady]);
 
   // Real per-layer legend specs (same source as the map's legends) so the tour
   // shows the ACTUAL color scale, not a hand-written color word.
@@ -700,81 +769,25 @@ export default function MapMicroapp({
         const maxPriority = Math.max(...allPriorities, 0.01);
         const minPriority = Math.min(...allPriorities);
         const priorityRange = maxPriority - minPriority || 0.01;
-        // CBO E2: risk range (max hazard per zone) for the orchestrator-style fill.
-        const zoneRisk = (p: any) =>
-          Math.max(p?.meanFlood || 0, p?.meanHeat || 0, p?.meanLandslide || 0);
-        const allRisk = geojson.features.map((f: any) =>
-          zoneRisk(f.properties)
-        );
-        const riskMin = Math.min(...allRisk, 0);
-        const riskSpan = Math.max(...allRisk, 0.01) - riskMin || 0.01;
-
-        // Within-city percentile rank of priorityScore. Computed once over the
-        // whole city here, because a percentile is meaningless per-feature.
-        const prioritySorted = [...allPriorities].sort((a, b) => a - b);
-        const priorityPercentile = (p: any): number => {
-          const v = p?.priorityScore ?? 0;
-          if (prioritySorted.length < 2) return 0;
-          let below = 0;
-          for (const x of prioritySorted) if (x < v) below++;
-          return Math.round((below / (prioritySorted.length - 1)) * 100);
-        };
 
         const getDefaultStyle = (p: any) => {
-          // E2 Map 1: ONE sequential ramp, by the bairro's worst within-city
-          // hazard percentile.
+          // ⚠️ The organisation's map (allowDeferSite: e2_bairro, and the
+          // legacy e2_risk_tour / e2_site) draws bairros as OUTLINES — no risk
+          // shading. Both shadings it used to carry were OUR numbers: the
+          // `zoneRiskRamp` coloured each bairro by its percentile rank of the
+          // priority score, the typology choropleth by hue + opacity from the
+          // same ARVC RISCO composite. What an organisation sees about hazard
+          // must rest on official data (stance, PR #470; 10 Nov 2026), and the
+          // official ameaça is what the tour just showed. The coordinator's
+          // views keep their shading — that is internal ordering.
           //
-          // Two encodings were the original problem — the typology choropleth
-          // below used hue for WHICH hazard and opacity for HOW MUCH, and named
-          // neither in a legend anyone could follow. One channel, one legend.
-          //
-          // The percentile is what makes this worth drawing at all: on the
-          // absolute means it was arithmetically impossible for a POA bairro to
-          // read above the lowest band (see CBO-RISK-SCALE), so the map could
-          // only ever have been flat. `hazardPercentile` ranks within the city,
-          // so the ramp actually separates it.
-          //
-          // Colours come from risk-display.RISK_BANDS — the same five the site
-          // card and the coordinator use, so one vocabulary spans the product.
-          if (params.zoneRiskRamp) {
-            // The percentile RANK of this bairro's priority score among all of
-            // them — not the max of the three hazard percentiles.
-            //
-            // Max-of-three was the obvious move and it is wrong: every bairro is
-            // the worst at SOMETHING, so the max skews hard high (E[max of 3
-            // uniforms] ≈ 0.75). Measured on the 94 POA zones it put 56 in the
-            // top band and 84 in the top two — the same "everything is one
-            // colour" failure as the typology choropleth, in a new costume.
-            //
-            // Ranking priorityScore is a near-identity now (see below): 20/18/19/18/19
-            // across the five bands. It is also the ordering the coordinator's
-            // priority list already uses, so the two views agree on which
-            // bairros are worst.
-            const worst = priorityPercentile(p);
+          // A faint fill, not none: the polygon interior is the tap target.
+          if (params.allowDeferSite || params.zoneRiskRamp) {
             return {
               color: '#334155',
-              weight: 0.9,
-              fillColor: riskBand(worst).color,
-              // Floor the alpha: the lowest band is near-white, and a bairro you
-              // cannot see is a bairro you cannot tap.
-              fillOpacity: 0.3 + (worst / 100) * 0.4,
-              dashArray: undefined as string | undefined,
-            };
-          }
-          // CBO E2 colors neighborhoods exactly like the orchestrator — HUE =
-          // which risk (typology), OPACITY = how risky — so first-time users see
-          // the same map the coordinator does. The city/concept-note flow keeps
-          // the intervention-type coloring.
-          if (params.allowDeferSite) {
-            const norm = (zoneRisk(p) - riskMin) / riskSpan;
-            return {
-              // Dark border (the CBO zone step is on the LIGHT basemap — a white
-              // border like the orchestrator's dark-map view would be invisible).
-              color: '#334155',
-              weight: 0.8 + Math.max(0, Math.min(1, norm)) * 1.4,
-              fillColor:
-                TYPOLOGY_COLORS[p?.typologyLabel] || TYPOLOGY_COLORS.LOW,
-              fillOpacity: Math.max(0.35, zoneRiskOpacity(norm)),
+              weight: 1.1,
+              fillColor: '#94a3b8',
+              fillOpacity: 0.08,
               dashArray: undefined as string | undefined,
             };
           }
@@ -799,31 +812,17 @@ export default function MapMicroapp({
           onEachFeature: (feature, featureLayer) => {
             const p = feature.properties || {};
 
-            // E2 Map 1: the name, and nothing else. The rich tooltip below is
-            // written for the coordinator — H·E·V, priority score, poverty rate
-            // — and on a CBO phone it opened a 130px opaque panel over the very
-            // bairros the user is trying to tap, in vocabulary the flow has not
-            // introduced. Here the only question is "which one is yours?".
+            // The organisation's map: the name, and nothing else. The rich
+            // tooltip below is the coordinator's — H·E·V, priority score,
+            // "Enchente: Muito alto" from OUR bairro percentile — none of which
+            // an organisation may be shown as its risk (stance, PR #470). Here
+            // the only question is "which one is yours?".
             if (
-              params.zoneRiskRamp &&
+              (params.allowDeferSite || params.zoneRiskRamp) &&
               (p.neighbourhoodName || p.neighbourhood_name)
             ) {
-              // Name + the hazard driving the colour. The ramp says HOW MUCH;
-              // without this the user can see a bairro is dark and still not
-              // know of what, which is the question the tour just raised.
-              const ranked = (['flood', 'heat', 'landslide'] as HazardKey[])
-                .map(h => ({ h, pct: hazardPercentile(p, h) }))
-                .sort((a, b) => b.pct - a.pct)[0];
-              const hazardName = t(
-                `mapMicroapp.hazard${ranked.h === 'flood' ? 'Flood' : ranked.h === 'heat' ? 'Heat' : 'Landslide'}`,
-                { defaultValue: ranked.h },
-              );
-              const bandName = t(`riskBands.${riskBand(ranked.pct).key}`, {
-                defaultValue: riskBand(ranked.pct).label,
-              });
               featureLayer.bindTooltip(
-                `<div style="font-size:12px"><strong>${p.neighbourhoodName || p.neighbourhood_name}</strong>` +
-                  `<br/><span style="color:${riskBand(ranked.pct).color === '#e5e7eb' ? '#64748b' : riskBand(ranked.pct).color}">${hazardName}: ${bandName}</span></div>`,
+                `<div style="font-size:12px"><strong>${p.neighbourhoodName || p.neighbourhood_name}</strong></div>`,
                 { direction: 'top' }
               );
             } else if (p.neighbourhoodName || p.neighbourhood_name) {
@@ -2197,14 +2196,26 @@ export default function MapMicroapp({
             compact
             className='shrink-0'
             entries={
-              (compositeStep === 'assets'
-                ? ['flood', 'heat', 'landslide', 'neighborhoods', 'sites']
-                : [
+              // The organisation's map draws bairros as plain outlines and the
+              // flood step carries the May 2024 extent; the coordinator-style
+              // `neighborhoods` entry describes a shading it no longer has.
+              (params.allowDeferSite
+                ? [
                     'flood',
+                    'flood2024',
                     'heat',
                     'landslide',
-                    'neighborhoods',
-                  ]) as ProvenanceKey[]
+                    'bairros',
+                    ...(compositeStep === 'assets' ? ['sites'] : []),
+                  ]
+                : compositeStep === 'assets'
+                  ? ['flood', 'heat', 'landslide', 'neighborhoods', 'sites']
+                  : [
+                      'flood',
+                      'heat',
+                      'landslide',
+                      'neighborhoods',
+                    ]) as ProvenanceKey[]
             }
           />
         )}
@@ -2637,116 +2648,67 @@ export default function MapMicroapp({
                       className='h-2 rounded-sm w-full border border-foreground/10'
                       style={{ background: grad }}
                     />
+                    {/* Ameaça, not risco: these are the PLAC/ARVC hazard
+                        layers, and "mais risco" claimed exposure and
+                        vulnerability the tiles do not carry. */}
                     <div className='flex justify-between text-[9px] text-muted-foreground mt-0.5'>
                       <span>
-                        {t('mapMicroapp.lessRisk', {
-                          defaultValue: 'menos risco',
+                        {t('mapMicroapp.lessHazard', {
+                          defaultValue: 'menos ameaça',
                         })}
                       </span>
                       <span>
-                        {t('mapMicroapp.moreRisk', {
-                          defaultValue: 'mais risco',
+                        {t('mapMicroapp.moreHazard', {
+                          defaultValue: 'mais ameaça',
                         })}
                       </span>
                     </div>
                   </div>
                 );
               })()}
+              {/* The Guaíba component. The flood ameaça above is FLUVIAL —
+                  arroios only — so on its own it says nothing about the lake
+                  that flooded the city in May 2024. The observed extent is
+                  drawn over the same step and named here. */}
+              {tourFamily === 'flood' && flood2024Shown && (
+                <div
+                  className='mt-1.5 flex items-center gap-1.5 text-[10px] text-foreground/85'
+                  data-testid='map-tour-flood-2024'
+                >
+                  <span
+                    className='inline-block h-2.5 w-4 shrink-0 rounded-sm'
+                    style={{
+                      background: FLOOD_2024_STYLE.fillColor,
+                      border: `1.5px dashed ${FLOOD_2024_STYLE.color}`,
+                    }}
+                  />
+                  {t('mapMicroapp.flood2024Label', {
+                    defaultValue: 'Área inundada em maio de 2024 (Guaíba)',
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
-        {/* Neighborhood-coloring explainer (CBO zone step) — same encoding as the
-            orchestrator: hue = which risk, stronger color = more risk.
-            Suppressed under `zoneRiskRamp`, which has its own single-scale legend:
-            it repeated the three hazard dots already sitting in the chip row
-            directly above it (two legends for one map), and named a brown that
-            appears on ZERO of Porto Alegre's 94 bairros while saying nothing
-            about the purple and green that cover 26 of them. */}
-        {/* One-scale risk legend (E2 Map 1). Replaces the two-encoding explainer
-            below: a single sequential ramp needs a single key, and the five
-            bands are the same ones the site card and the coordinator use. */}
+        {/* The organisation's zone step: one plain instruction, no risk key.
+            The bairros are outlines (see getDefaultStyle), so there is no
+            colour to explain — the two legends that sat here explained OUR
+            bairro index (a five-band ramp, then a hue-per-hazard key), which
+            an organisation is no longer shown (stance, PR #470). */}
         {!tourActive &&
-          params.zoneRiskRamp &&
+          params.allowDeferSite &&
           isComposite &&
           compositeStep === 'zone' && (
             <div
               className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'
-              data-testid='map-risk-ramp-legend'
+              data-testid='map-zone-pick-hint'
             >
-              <div className='bg-background/92 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm'>
-                <p className='text-[11px] text-foreground/85 leading-snug'>
-                  {t('mapMicroapp.rampExplainer', {
-                    defaultValue:
-                      'A cor mostra o risco de cada bairro comparado com o resto de Porto Alegre. Toque num bairro pra ver qual risco é.',
-                  })}
-                </p>
-                <div className='flex items-center gap-1 mt-1.5'>
-                  {RISK_BANDS.map(b => (
-                    <div key={b.key} className='flex-1'>
-                      <div
-                        className='h-2 rounded-sm border border-foreground/10'
-                        style={{ backgroundColor: b.color }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className='flex items-center justify-between mt-0.5'>
-                  <span className='text-[9px] text-muted-foreground'>
-                    {t('mapMicroapp.lessRisk', { defaultValue: 'menos risco' })}
-                  </span>
-                  <span className='text-[9px] text-muted-foreground'>
-                    {t('mapMicroapp.moreRisk', { defaultValue: 'mais risco' })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        {!tourActive &&
-          params.allowDeferSite &&
-          !params.zoneRiskRamp &&
-          isComposite &&
-          compositeStep === 'zone' && (
-            <div className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'>
               <div className='bg-background/90 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm'>
                 <p className='text-[11px] text-foreground/85 leading-snug'>
-                  {t('mapMicroapp.zoneRiskExplainer', {
-                    defaultValue:
-                      'Cada bairro está colorido pelo risco principal — quanto mais forte a cor, maior o risco. Toque no seu bairro.',
+                  {t('mapMicroapp.tapYourBairro', {
+                    defaultValue: 'Toque no bairro onde vocês atuam.',
                   })}
                 </p>
-                <div className='flex items-center gap-2.5 mt-1 flex-wrap'>
-                  {(
-                    [
-                      [
-                        'FLOOD',
-                        t('mapMicroapp.hazardFlood', {
-                          defaultValue: 'Enchente',
-                        }),
-                      ],
-                      [
-                        'HEAT',
-                        t('mapMicroapp.hazardHeat', { defaultValue: 'Calor' }),
-                      ],
-                      [
-                        'LANDSLIDE',
-                        t('mapMicroapp.hazardLandslide', {
-                          defaultValue: 'Deslizamento',
-                        }),
-                      ],
-                    ] as [keyof typeof TYPOLOGY_COLORS, string][]
-                  ).map(([key, label]) => (
-                    <span
-                      key={key}
-                      className='flex items-center gap-1 text-[9px] text-muted-foreground'
-                    >
-                      <span
-                        className='w-2.5 h-2.5 rounded-sm'
-                        style={{ backgroundColor: TYPOLOGY_COLORS[key] }}
-                      />
-                      {label}
-                    </span>
-                  ))}
-                </div>
               </div>
             </div>
           )}

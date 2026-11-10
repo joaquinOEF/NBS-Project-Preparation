@@ -44,10 +44,12 @@ LOG shows already happened.
 4. **Site card** → "Esse é o lugar certo?" → Confirmar. O card confirma o
    **lugar**, não o risco: mostra uma miniatura do mapa centrada no ponto e,
    quando o lugar foi marcado com um pin, o **endereço** (Nominatim reverse —
-   vira o `site_name`, então some o "Ponto marcado (-30.05…, -51.19…)"). Os
-   três riscos aparecem embaixo, rotulados como **média do bairro**, com uma
-   linha avisando que a pergunta sobre riscos vem depois. NUNCA trate esses
-   números como o risco do lugar deles — é exatamente o que o beat 7 desfaz.
+   vira o `site_name`, então some o "Ponto marcado (-30.05…, -51.19…)").
+   Embaixo vem a **ameaça no ponto (PLAC)** — inundação (arroios), calor e
+   deslizamento, dado oficial da Prefeitura, cenário 2050 — e, se o ponto fica
+   numa cota do Guaíba que a cheia de maio de 2024 atingiu, uma linha da SMAMUS
+   dizendo isso. NUNCA fale do nosso índice do bairro (percentis) como risco do
+   lugar ou do bairro: o que a organização ouve sobre ameaça é dado oficial.
 5. **Describe**: como é o lugar hoje (current_use) → acesso/posse (land_tenure).
    If the org has uploaded files, each of these two OPENS WITH A SENTENCE
    QUOTED FROM THEM ("No arquivo que vocês mandaram eu li: …" → "É assim que
@@ -56,8 +58,8 @@ LOG shows already happened.
    evidence, not testimony. ⚠️ Doc-sourced writes to `intervention_site` are
    now STAGED like org_profile's, so they need a human confirmation to commit.
 6. **O enquadramento + o que mais preocupa** — the platform says plainly that
-   the map is coarse (each cell covers whole blocks) and that the org knows the
-   place better, then asks **"o que mais preocupa vocês nesse lugar?"** with
+   the official maps show the whole city but cannot see their yard, and that the
+   org knows the place better, then asks **"o que mais preocupa vocês nesse lugar?"** with
    chips ordered by the bairro's own risk data. Multi-pick; "Outra coisa" opens
    one free-text turn the platform captures.
 7. **O relato** — "me conta desse lugar com as palavras de vocês", voice note or
@@ -69,11 +71,16 @@ LOG shows already happened.
    a cara do barranco / o que tem em cima / embaixo), always plus an open
    "qualquer outra coisa que vocês achem que a gente devia ver". Skippable, and
    "mando depois" is a first-class answer.
-9. **"Confere?"** — up to two read-back checkpoints where the platform states
-   what ITS data says, admits it's a bairro average, and asks whether the org's
-   own place is pior / mais ou menos isso / mais tranquilo / não sei dizer.
+9. **"Confere?"** — up to two read-back checkpoints. When the city's official
+   maps record something at the point (SGB sector, Guaíba cota, ponto de
+   alagamento, erosão) the platform states it with its source; otherwise it
+   makes no data claim. Then it asks whether the org's place, compared with the
+   rest of the bairro, is pior / mais ou menos isso / mais tranquilo / não sei
+   dizer. It NEVER quotes our bairro index ("o risco de enchente é alto no …").
 10. **Famílias pra estudar** — always ≥2, ranked by risco do bairro × tipo de
-   lugar × what the org shared → "Faz sentido / Quero ajustar".
+   lugar × what the org shared → "Faz sentido / Quero ajustar". The bairro
+   index only ORDERS them; a why line speaks from their worry, their
+   correction, or an official fact — never "enchente é alta no …".
 11. **Interesse + papel** (after "Faz sentido") — two templated chip loops:
    quais famílias interessam (multi-pick, "Pronto ✓" fecha) and que papel
    querem ter (multi-pick + "Outro papel" → one free-text turn the PLATFORM

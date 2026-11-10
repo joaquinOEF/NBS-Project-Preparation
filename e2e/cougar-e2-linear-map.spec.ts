@@ -50,10 +50,11 @@ test.describe('COUGAR — E2 linear map sessions', () => {
     await expect(confirmBairro).toBeEnabled({ timeout: 10_000 });
     await confirmBairro.click();
 
-    // Back in the chat: the zone-only summary — bairro + risks, and neither a
+    // Back in the chat: the zone-only summary — the bairro, and neither a
     // site line nor the deferred "bairro todo" line (this was NOT a deferral).
+    // No hazard bands: they were our bairro index (stance, PR #470).
     await expect(page.getByText('Selecionei no mapa:', { exact: false })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/🔵 inundação/).first()).toBeVisible();
+    await expect(page.getByText(/🔵 inundação/)).toHaveCount(0);
     await expect(page.getByText('Sem local específico ainda', { exact: false })).toHaveCount(0);
   });
 

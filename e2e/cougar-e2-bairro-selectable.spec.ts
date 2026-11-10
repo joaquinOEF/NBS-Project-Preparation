@@ -231,7 +231,7 @@ test.describe('COUGAR — E2 Map 1 (e2_bairro)', () => {
     });
   });
 
-  test('one legend, no dead stepper, no risk choropleth', async ({ page, request }) => {
+  test('one legend, no dead stepper, no risk shading at all', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -257,21 +257,21 @@ test.describe('COUGAR — E2 Map 1 (e2_bairro)', () => {
     // Hiding the 3 chips must not swap the full layer toolkit back in.
     await expect(page.getByText(/^Camadas:/)).toHaveCount(0);
 
-    // ONE sequential ramp, and it must actually separate the city. Removing the
-    // old two-encoding choropleth left the map blank, which cannot answer the
-    // question the hazard tour just raised ("so which bairros are worst?").
-    // Colouring by within-city percentile can — on the absolute means it was
-    // arithmetically impossible for a POA bairro to clear the lowest band, so
-    // the map could only ever have been flat (see CBO-RISK-SCALE).
+    // NO risk shading (10 Nov 2026). The ramp that sat here coloured each
+    // bairro by OUR percentile of the ARVC RISCO composite, under "A cor
+    // mostra o risco de cada bairro" — our index shown to the org as its risk.
+    // What an organisation sees about hazard rests on official data (PR #470):
+    // the tour showed the PLAC ameaça; the zone step is outlines and names.
     const fills = await page.$$eval('.leaflet-overlay-pane path', paths =>
-      paths.map(p => p.getAttribute('fill') ?? ''),
+      paths
+        .filter(p => p.getAttribute('stroke') !== '#1d4ed8') // a selected bairro
+        .filter(p => !p.getAttribute('stroke-dasharray')) // the city boundary
+        .map(p => `${p.getAttribute('fill')}|${p.getAttribute('fill-opacity')}`),
     );
-    const distinct = new Set(fills.filter(Boolean));
-    expect(distinct.size, 'the ramp must separate the city, not paint it flat')
-      .toBeGreaterThan(2);
-
-    // One legend for one scale — and NOT the old two-encoding explainer.
-    await expect(page.getByTestId('map-risk-ramp-legend')).toBeVisible();
+    expect(new Set(fills.filter(Boolean)).size, `every bairro drawn the same — no ramp: ${JSON.stringify(Array.from(new Set(fills)))}`).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId('map-risk-ramp-legend')).toHaveCount(0);
+    await expect(page.getByText(/A cor mostra o risco|colou?r shows each neighbou?rhood/i)).toHaveCount(0);
+    await expect(page.getByTestId('map-zone-pick-hint')).toBeVisible();
     await expect(page.getByText(/colorido pelo risco principal/i)).toHaveCount(0);
 
     await page.screenshot({ path: 'test-results/e2-bairro-step.png' });

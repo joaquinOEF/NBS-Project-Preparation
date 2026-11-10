@@ -9,7 +9,15 @@
 //
 // Shared (client imports it) so the same one dialog serves both views.
 
-export type ProvenanceKey = 'flood' | 'heat' | 'landslide' | 'neighborhoods' | 'sites';
+// ⚠️ 10 Nov 2026: the flood/heat/landslide entries used to describe OEF's own
+// H×E×V risk rasters (JRC, Aqueduct, GFPLAIN, Landsat…). Both maps that open
+// this dialog — the CBO hazard tour and the coordinator's overlays — draw the
+// Prefeitura's PLAC/ARVC AMEAÇA tiles (server/routes/arvcTileRoutes.ts,
+// ARVC_TILE_SOURCES), so the dialog was describing a map nobody was looking at.
+// The entries now describe what is on screen. Anything about our own bairro
+// ranking says "estimativa OEF".
+
+export type ProvenanceKey = 'flood' | 'flood2024' | 'heat' | 'landslide' | 'bairros' | 'neighborhoods' | 'sites';
 
 export interface ProvenanceText {
   title: string;
@@ -33,93 +41,146 @@ export interface ProvenanceEntry {
   pt: ProvenanceText;
 }
 
+const PLAC_SOURCE = {
+  en: 'Porto Alegre City Hall — Climate Action Plan (PLAC), Climate Risk and Vulnerability Analysis (ARVC), prepared by WayCarbon with ICLEI, Ludovino Lopes and Ecofinance. Rasters sent by SMAMUS in August 2026.',
+  pt: 'Prefeitura de Porto Alegre — Plano de Ação Climática (PLAC), Análise de Riscos e Vulnerabilidades Climáticas (ARVC), elaborada pela WayCarbon com ICLEI, Ludovino Lopes e Ecofinance. Arquivos enviados pela SMAMUS em agosto de 2026.',
+};
+const PLAC_VINTAGE = {
+  en: '2050 scenario (the plan also has 1995–2014 and 2030).',
+  pt: 'Cenário 2050 (o plano também traz 1995–2014 e 2030).',
+};
+const PLAC_COLORS = {
+  en: 'Pale yellow = lower hazard, dark red = higher hazard. The scale is stretched over Porto Alegre’s own range, so it compares places within the city.',
+  pt: 'Amarelo-claro = menor ameaça, vermelho-escuro = maior ameaça. A escala é esticada sobre a faixa de Porto Alegre, então compara lugares dentro da cidade.',
+};
+
 export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
   flood: {
     key: 'flood',
     en: {
-      title: 'Flood risk',
-      whatItShows: 'Where flooding is most likely to cause harm — combining how flood-prone an area is with how many people live there and how vulnerable they are.',
-      // ⚠️ This ramp runs the other way to the other two. Verified against the
-      // sampled stops in layer-legends.json: #3c2c6c → #4dc16b.
-      colorMeaning: 'Dark purple = lower risk, green = higher risk — the reverse of the heat and landslide maps.',
-      source: 'Open Earth Foundation, built from JRC Global Surface Water, the Global Flood Database, WRI Aqueduct v2 river-flood maps, the GFPLAIN floodplain mask, and the IBGE 2022 Census.',
-      vintage: 'Flood hazard: current terrain + the May 2024 event. People & vulnerability: 2022 Census.',
-      resolution: '~250 m grid',
-      caveat: 'A screening estimate to compare areas — not a street-level flood forecast.',
+      title: 'River-flood hazard (PLAC)',
+      whatItShows: 'The city’s own map of river-flood hazard: where the arroios (streams) overflow. It is the hazard only — not who lives there or how vulnerable they are.',
+      colorMeaning: PLAC_COLORS.en,
+      source: PLAC_SOURCE.en,
+      vintage: PLAC_VINTAGE.en,
+      resolution: '~30 m grid',
+      caveat: 'Fluvial only: it covers the arroios, not the Guaíba and not rain that pools in the street. The Guaíba is shown separately, as the area flooded in May 2024.',
     },
     pt: {
-      title: 'Risco de inundação',
-      whatItShows: 'Onde as inundações têm mais chance de causar dano — combinando o quanto uma área alaga com quantas pessoas vivem ali e quão vulneráveis são.',
-      colorMeaning: 'Roxo escuro = menor risco, verde = maior risco — o contrário dos mapas de calor e deslizamento.',
-      source: 'Open Earth Foundation, a partir da água superficial do JRC, do Global Flood Database, dos mapas de inundação fluvial WRI Aqueduct v2, da máscara de planície GFPLAIN e do Censo IBGE 2022.',
-      vintage: 'Ameaça de inundação: terreno atual + o evento de maio de 2024. Pessoas e vulnerabilidade: Censo 2022.',
-      resolution: 'grade de ~250 m',
-      caveat: 'Uma estimativa para comparar áreas — não é uma previsão de inundação rua a rua.',
+      title: 'Ameaça de inundação fluvial (PLAC)',
+      whatItShows: 'O mapa da própria Prefeitura para a ameaça de inundação fluvial: onde os arroios transbordam. É só a ameaça — não diz quem mora ali nem quão vulnerável é.',
+      colorMeaning: PLAC_COLORS.pt,
+      source: PLAC_SOURCE.pt,
+      vintage: PLAC_VINTAGE.pt,
+      resolution: 'grade de ~30 m',
+      caveat: 'Só fluvial: cobre os arroios, não o Guaíba nem a água da chuva que acumula na rua. O Guaíba aparece à parte, como a área inundada em maio de 2024.',
+    },
+  },
+  flood2024: {
+    key: 'flood2024',
+    en: {
+      title: 'Area flooded in May 2024 (Guaíba)',
+      whatItShows: 'Where the water actually reached in the May 2024 flood, observed from satellite — the Guaíba component that the PLAC river-flood map does not cover.',
+      colorMeaning: 'Blue with a dashed outline = flooded on 6 May 2024.',
+      source: 'Planet SkySat satellite imagery, 6 May 2024, mapped for the Guaíba watershed (zenodo.org/records/14662897).',
+      vintage: 'Observed on 6 May 2024.',
+      resolution: 'Mapped flooded areas',
+      caveat: 'One event on one day: it shows where it flooded then, not every place that can flood.',
+    },
+    pt: {
+      title: 'Área inundada em maio de 2024 (Guaíba)',
+      whatItShows: 'Até onde a água chegou de fato na enchente de maio de 2024, vista por satélite — a parte do Guaíba que o mapa fluvial do PLAC não cobre.',
+      colorMeaning: 'Azul com contorno tracejado = área inundada em 6 de maio de 2024.',
+      source: 'Imagens de satélite Planet SkySat de 6 de maio de 2024, mapeadas para a bacia do Guaíba (zenodo.org/records/14662897).',
+      vintage: 'Observado em 6 de maio de 2024.',
+      resolution: 'Áreas inundadas mapeadas',
+      caveat: 'Um evento, num dia: mostra onde alagou naquela vez, não todo lugar que pode alagar.',
     },
   },
   heat: {
     key: 'heat',
     en: {
-      title: 'Heat risk',
-      whatItShows: 'Where extreme heat is most likely to harm people — the hottest areas combined with who lives there and how vulnerable they are.',
-      colorMeaning: 'Green = lower risk, orange = higher risk.',
-      source: 'Open Earth Foundation, built from summer land-surface temperature 2015–2024 (Landsat 8 at 30 m, NASA MODIS day and night), and the IBGE 2022 Census.',
-      vintage: 'Heat: summers 2015–2024. People & vulnerability: 2022 Census.',
-      resolution: '~250 m grid',
-      caveat: 'Based on satellite surface temperature — a close proxy for the heat people actually feel.',
+      title: 'Heat-wave hazard (PLAC)',
+      whatItShows: 'The city’s own map of heat-wave hazard: where extreme heat is expected to hit hardest. The hazard only — not who lives there or how vulnerable they are.',
+      colorMeaning: PLAC_COLORS.en,
+      source: PLAC_SOURCE.en,
+      vintage: PLAC_VINTAGE.en,
+      resolution: '~30 m grid',
+      caveat: 'A projection for comparing places, not a temperature reading on a given day.',
     },
     pt: {
-      title: 'Risco de calor',
-      whatItShows: 'Onde o calor extremo tem mais chance de prejudicar as pessoas — as áreas mais quentes combinadas com quem vive ali e quão vulnerável é.',
-      colorMeaning: 'Verde = menor risco, laranja = maior risco.',
-      source: 'Open Earth Foundation, a partir da temperatura de superfície dos verões de 2015–2024 (Landsat 8 a 30 m, NASA MODIS dia e noite) e o Censo IBGE 2022.',
-      vintage: 'Calor: verões de 2015–2024. Pessoas e vulnerabilidade: Censo 2022.',
-      resolution: 'grade de ~250 m',
-      caveat: 'Baseado na temperatura de superfície por satélite — um bom indicador do calor que as pessoas sentem.',
+      title: 'Ameaça de ondas de calor (PLAC)',
+      whatItShows: 'O mapa da própria Prefeitura para a ameaça de ondas de calor: onde o calor extremo deve bater mais forte. É só a ameaça — não diz quem mora ali nem quão vulnerável é.',
+      colorMeaning: PLAC_COLORS.pt,
+      source: PLAC_SOURCE.pt,
+      vintage: PLAC_VINTAGE.pt,
+      resolution: 'grade de ~30 m',
+      caveat: 'Uma projeção para comparar lugares, não a temperatura de um dia específico.',
     },
   },
   landslide: {
     key: 'landslide',
     en: {
-      title: 'Landslide risk',
-      whatItShows: 'Where steep, unstable ground could slide and harm people nearby.',
-      // Porto Alegre's 98th percentile is only 0.393, so the ramp never leaves
-      // green — the whole city is genuinely low-susceptibility.
-      colorMeaning: 'Dark green = lower risk, pale yellow-green = higher risk. Almost the whole city sits in the low band, so the differences are subtle.',
-      source: 'Open Earth Foundation, built from Copernicus 30 m terrain slope, MERIT Hydro, SoilGrids soil, CHIRPS rainfall, and vegetation 2015–2024 (MODIS, Dynamic World 2023).',
-      vintage: 'Terrain: current. Rainfall & vegetation: through 2024.',
-      resolution: '~90 m grid',
-      caveat: 'A susceptibility index — where slides are physically possible, not how likely one is — and not yet checked against Porto Alegre’s historical landslide records.',
+      title: 'Landslide hazard (PLAC)',
+      whatItShows: 'The city’s own map of landslide hazard: the slopes where the ground can slide. The hazard only — not who lives there or how vulnerable they are.',
+      colorMeaning: PLAC_COLORS.en,
+      source: PLAC_SOURCE.en,
+      vintage: PLAC_VINTAGE.en,
+      resolution: '~30 m grid',
+      caveat: 'For the sectors a geologist walked, the Serviço Geológico do Brasil (SGB) risk sectors are more precise — and a place outside them was simply not surveyed, which does not mean it is safe.',
     },
     pt: {
-      title: 'Risco de deslizamento',
-      whatItShows: 'Onde o terreno íngreme e instável pode deslizar e atingir quem está por perto.',
-      colorMeaning: 'Verde-escuro = menor risco, verde-amarelado claro = maior risco. Quase toda a cidade fica na faixa baixa, então as diferenças são sutis.',
-      source: 'Open Earth Foundation, a partir da declividade do terreno Copernicus 30 m, MERIT Hydro, solos SoilGrids, chuva CHIRPS e vegetação 2015–2024 (MODIS, Dynamic World 2023).',
-      vintage: 'Terreno: atual. Chuva e vegetação: até 2024.',
-      resolution: 'grade de ~90 m',
-      caveat: 'Um índice de suscetibilidade — onde deslizamentos são fisicamente possíveis, não a probabilidade de ocorrerem — e ainda não comparado ao histórico de deslizamentos de Porto Alegre.',
+      title: 'Ameaça de deslizamento (PLAC)',
+      whatItShows: 'O mapa da própria Prefeitura para a ameaça de deslizamento: as encostas onde o terreno pode deslizar. É só a ameaça — não diz quem mora ali nem quão vulnerável é.',
+      colorMeaning: PLAC_COLORS.pt,
+      source: PLAC_SOURCE.pt,
+      vintage: PLAC_VINTAGE.pt,
+      resolution: 'grade de ~30 m',
+      caveat: 'Nos setores que um geólogo percorreu, os setores de risco do Serviço Geológico do Brasil (SGB) são mais precisos — e um lugar fora deles só não foi vistoriado, o que não quer dizer que seja seguro.',
     },
   },
-  neighborhoods: {
-    key: 'neighborhoods',
+  // The organisation's map: outlines only, no shading (MapMicroapp).
+  bairros: {
+    key: 'bairros',
     en: {
       title: 'Neighborhoods (bairros)',
-      whatItShows: 'Official bairro boundaries, shaded by their main risk and by how many people live there.',
-      colorMeaning: 'Each bairro is shaded by its dominant hazard; a stronger color means higher risk.',
-      source: 'Boundaries and population from IBGE (the Brazilian census bureau); risk coloring from Open Earth Foundation.',
-      vintage: 'Population & vulnerability: 2022 Census. Some indicators: 2010 Census.',
+      whatItShows: 'Official bairro boundaries, so you can find yours.',
+      colorMeaning: 'Outlines only — the bairros are not colored.',
+      source: 'IBGE (the Brazilian census bureau).',
+      vintage: '2022 Census.',
       resolution: 'Per bairro',
-      caveat: 'Risk is averaged across the whole bairro — conditions still vary block to block.',
+      caveat: 'A boundary, not a judgement: nothing about hazard is drawn on this layer.',
     },
     pt: {
       title: 'Bairros',
-      whatItShows: 'Limites oficiais dos bairros, coloridos pelo seu principal risco e por quantas pessoas vivem ali.',
-      colorMeaning: 'Cada bairro é colorido pela sua ameaça dominante; cor mais forte significa maior risco.',
-      source: 'Limites e população do IBGE; coloração de risco pela Open Earth Foundation.',
-      vintage: 'População e vulnerabilidade: Censo 2022. Alguns indicadores: Censo 2010.',
+      whatItShows: 'Os limites oficiais dos bairros, pra você achar o seu.',
+      colorMeaning: 'Só o contorno — os bairros não são coloridos.',
+      source: 'IBGE.',
+      vintage: 'Censo 2022.',
       resolution: 'Por bairro',
-      caveat: 'O risco é uma média de todo o bairro — as condições ainda variam de quadra em quadra.',
+      caveat: 'Um limite, não uma avaliação: nada sobre ameaça é desenhado nesta camada.',
+    },
+  },
+  // The coordinator's map, which still shades bairros by our ranking.
+  neighborhoods: {
+    key: 'neighborhoods',
+    en: {
+      title: 'Neighborhoods (bairros) — OEF estimate',
+      whatItShows: 'Official bairro boundaries, shaded by an OEF estimate that ranks the bairros against each other.',
+      colorMeaning: 'Each bairro is shaded by the hazard that ranks highest for it in the OEF estimate; a stronger color means a higher rank within Porto Alegre.',
+      source: 'Boundaries and population: IBGE. Shading: OEF estimate, a within-city ranking of the PLAC/ARVC risk composite per bairro.',
+      vintage: 'Boundaries and population: 2022 Census. Ranking: PLAC/ARVC 2050.',
+      resolution: 'Per bairro',
+      caveat: 'An OEF estimate for ordering work, not an official risk rating — and an average over the whole bairro; conditions vary block to block.',
+    },
+    pt: {
+      title: 'Bairros — estimativa OEF',
+      whatItShows: 'Limites oficiais dos bairros, coloridos por uma estimativa OEF que ordena os bairros entre si.',
+      colorMeaning: 'Cada bairro é colorido pela ameaça que fica mais alta para ele na estimativa OEF; cor mais forte = posição mais alta dentro de Porto Alegre.',
+      source: 'Limites e população: IBGE. Coloração: estimativa OEF, uma ordenação dentro da cidade do índice de risco do PLAC/ARVC por bairro.',
+      vintage: 'Limites e população: Censo 2022. Ordenação: PLAC/ARVC 2050.',
+      resolution: 'Por bairro',
+      caveat: 'Uma estimativa OEF para ordenar o trabalho, não uma classificação oficial de risco — e uma média do bairro inteiro; as condições variam de quadra em quadra.',
     },
   },
   sites: {
@@ -145,10 +206,14 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
   },
 };
 
-/** The Hazard × Exposure × Vulnerability explainer — the core data-literacy idea. */
+/**
+ * What these maps show — ameaça, not risco. The old text explained OEF's
+ * H×E×V risk; the tiles on screen are the PLAC's hazard layers, so the
+ * explainer says that, and where risk would come from.
+ */
 export const RISK_METHODOLOGY: Record<'en' | 'pt', string> = {
-  en: 'On these maps, risk = Hazard × Exposure × Vulnerability: how strong the threat is, how many people and assets are in its path, and how vulnerable they are. A strong hazard in an empty area is lower risk than a moderate hazard where many vulnerable people live.',
-  pt: 'Nestes mapas, risco = Ameaça × Exposição × Vulnerabilidade: quão forte é a ameaça, quantas pessoas e bens estão no caminho e quão vulneráveis são. Uma ameaça forte numa área vazia representa menos risco do que uma ameaça média onde vivem muitas pessoas vulneráveis.',
+  en: 'These maps show HAZARD (ameaça) from the city’s Climate Action Plan (PLAC): how strong a threat is in each place. Risk would also need exposure and vulnerability — who lives there and how prepared they are — and that is exactly what you know about your place better than any map.',
+  pt: 'Estes mapas mostram a AMEAÇA do Plano de Ação Climática da Prefeitura (PLAC): quão forte é cada ameaça em cada lugar. Risco também depende de exposição e vulnerabilidade — quem mora ali e quão preparado está — e isso vocês conhecem do seu lugar melhor do que qualquer mapa.',
 };
 
 /** UI chrome strings, kept here so the shared dialog needs no i18n wiring. */
@@ -160,7 +225,7 @@ export const PROVENANCE_UI: Record<'en' | 'pt', {
     button: 'About this data',
     title: 'Where this data comes from',
     subtitle: 'What these layers show, and how current they are.',
-    methodologyTitle: 'How we measure risk',
+    methodologyTitle: 'Hazard, not risk',
     source: 'Source', updated: 'Updated', resolution: 'Resolution',
     note: 'Good to know', colors: 'Colors',
   },
@@ -168,7 +233,7 @@ export const PROVENANCE_UI: Record<'en' | 'pt', {
     button: 'Sobre estes dados',
     title: 'De onde vêm estes dados',
     subtitle: 'O que cada camada mostra e o quão atualizada está.',
-    methodologyTitle: 'Como medimos o risco',
+    methodologyTitle: 'Ameaça, não risco',
     source: 'Fonte', updated: 'Atualização', resolution: 'Resolução',
     note: 'Bom saber', colors: 'Cores',
   },

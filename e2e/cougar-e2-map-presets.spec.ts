@@ -51,7 +51,7 @@ test.describe('COUGAR — E2 map presets are the single definition', () => {
     await expect(page.getByText(/Conheça os riscos|Get to know the risks/)).toBeVisible();
   });
 
-  test('e2_site skips the tour and renders VISIBLE risk-coloured bairros', async ({ page, request }) => {
+  test('e2_site skips the tour and renders VISIBLE, tappable bairros', async ({ page, request }) => {
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
     const cboId = await boot(page, api);
@@ -68,9 +68,11 @@ test.describe('COUGAR — E2 map presets are the single definition', () => {
     await expect(page.getByTestId('map-tour-next')).toHaveCount(0);
 
     // The regression that mattered: zoneSource 'neighborhoods' + no
-    // allowDeferSite gave every zone fill-opacity 0. Require real fill.
+    // allowDeferSite gave every zone fill-opacity 0 — invisible AND untappable.
+    // Since 10 Nov 2026 the org's bairros are uniform outlines with a faint
+    // fill (no risk shading: stance PR #470), so require a non-zero fill.
     await expect
-      .poll(async () => (await zoneFillOpacities(page)).filter(o => o > 0.1).length, { timeout: 20_000 })
+      .poll(async () => (await zoneFillOpacities(page)).filter(o => o > 0).length, { timeout: 20_000 })
       .toBeGreaterThan(10);
   });
 
@@ -90,7 +92,7 @@ test.describe('COUGAR — E2 map presets are the single definition', () => {
     await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 30_000 });
     // browse-only → the single "back to chat" CTA, no commitment
     await expect(page.getByTestId('map-back-to-chat')).toBeVisible();
-    await expect(page.getByText(/Azul = enchente|Blue = flood/)).toBeVisible();
+    await expect(page.getByText(/amarelo = menor|yellow = lower/)).toBeVisible();
   });
 
   test('an explicit arg narrows a preset instead of replacing it', async ({ page, request }) => {
@@ -112,7 +114,7 @@ test.describe('COUGAR — E2 map presets are the single definition', () => {
     await expect(page.getByText('Marque o terreno da proposta.')).toBeVisible();
     // …and the preset's allowDeferSite survived, so the zones are still visible.
     await expect
-      .poll(async () => (await zoneFillOpacities(page)).filter(o => o > 0.1).length, { timeout: 20_000 })
+      .poll(async () => (await zoneFillOpacities(page)).filter(o => o > 0).length, { timeout: 20_000 })
       .toBeGreaterThan(10);
   });
 });

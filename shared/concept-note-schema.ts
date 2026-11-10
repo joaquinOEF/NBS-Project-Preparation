@@ -207,6 +207,12 @@ export interface OpenMapParams {
   // absolute means (see CBO-RISK-SCALE). The band colours come from
   // risk-display.RISK_BANDS, so this map, the site card and the coordinator all
   // speak one visual language.
+  //
+  // ⚠️ RETIRED 10 Nov 2026 — no preset sets it. The ramp was OUR percentile of
+  // the ARVC RISCO composite shown to an organisation as its bairro's risk, and
+  // what an organisation sees about hazard must rest on official data (PR
+  // #470). Kept only so persisted params still parse; MapMicroapp treats it
+  // like allowDeferSite: outlines, name-only tooltip, no risk legend.
   zoneRiskRamp?: boolean;
   // E2 Map 1 — the bairro E1 already knows (org_profile.bairro_of_operation),
   // pre-selected so the step is a confirmation, not a search. Its outline stays

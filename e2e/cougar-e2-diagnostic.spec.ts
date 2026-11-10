@@ -33,7 +33,7 @@ async function answerReadBack(
   for (let i = 0; i < 2; i++) {
     // .last(): on the second pass an ANSWERED read-back card is still in the
     // transcript above the live one, so a bare match is a strict-mode violation.
-    await expect(page.getByText('média do bairro', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/é mais ou menos isso, ou é mais tranquilo|about the same, or calmer/).last()).toBeVisible({ timeout: 15_000 });
     await tap(pick);
     const which = await Promise.race([
       page.getByTestId('cbo-familia-reco').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'reco'),
@@ -150,7 +150,7 @@ test.describe('COUGAR — W2 diagnostic beats', () => {
     const { cboId, chip, input, tap } = await toTenureAnswered(page, request);
 
     // Beat 0 + 1 — the frame, then the worry chips ordered by bairro data.
-    await expect(page.getByText('nosso mapa é', { exact: false })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('mapas oficiais', { exact: false })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('mais preocupa', { exact: false })).toBeVisible();
     await assertNoHScroll(page, 'beat 1 worry');
     await page.waitForTimeout(1400);

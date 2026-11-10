@@ -64,11 +64,16 @@ test.describe('map summary — what the room reads back', () => {
     expect(summary).not.toContain('pontos');
   });
 
-  test('a bairro/site session still reads back the risk bands', () => {
+  test('a bairro/site session reads back the place, never our bairro index', () => {
     const summary = buildMapSummary(result([zone('Partenon')]), 'pt');
     expect(summary).toContain('Selecionei no mapa:');
-    expect(summary).toContain('inundação');
+    expect(summary).toContain('Partenon');
     expect(summary).toContain('45.768');
+    // The bands and the star were our percentile of the ARVC RISCO composite,
+    // shown in the org's own bubble as their bairro's risk (stance, PR #470).
+    expect(summary).not.toContain('inundação');
+    expect(summary).not.toContain('prioridade');
+    expect(summary).not.toMatch(/muito alto|alto|médio|baixo/i);
   });
 
   test('nothing composed for a user bubble carries markdown', () => {

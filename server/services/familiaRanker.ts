@@ -168,7 +168,7 @@ function buildPrompt(ctx: FamiliaRankerContext): Message[] {
       "2. The organization's own account of the place OUTRANKS our map. Our hazard figures are neighbourhood-wide averages over whole blocks; they cannot see a yard. If the story says the patio floods and our flood figure is low, believe the story.",
       '3. Every `why` must be ONE short sentence that QUOTES OR PARAPHRASES SOMETHING THEY ACTUALLY SAID or that a photo actually shows. Never generic benefit copy. If you have nothing of theirs for a family, say plainly why it is lower down instead of inventing enthusiasm.',
       `4. Write every \`why\` in ${pt ? 'Brazilian Portuguese, warm, second person singular ("vocês")' : 'English'}.`,
-      '5. Do not mention scores, percentages, rankings or our data sources in the `why` lines.',
+      '5. Do not mention scores, percentages, rankings or our data sources in the `why` lines, and never state a hazard level for the place or the bairro ("enchente é alta no …"): the bairro percentiles above only help you ORDER. A hazard claim may come only from their own words or from the city\'s own maps listed above.',
       '',
       'Return JSON: { "ranking": [ { "familiaId", "why" } x5 ] }.',
     ].join('\n'),

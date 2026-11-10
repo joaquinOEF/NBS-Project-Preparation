@@ -481,8 +481,8 @@ export type CboEvent =
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 
-// E2 linear flow — payload of show_site_card. Risks are the bairro's mean
-// hazard scores as 0–100 integers (parsed from the map confirmation).
+// E2 linear flow — payload of show_site_card: the place, and at most two
+// official hazard facts about it. Never our own bairro index.
 export interface CboSiteCard {
   name: string;
   bairro: string;
@@ -498,13 +498,24 @@ export interface CboSiteCard {
    */
   address?: string;
   /**
-   * Bairro-wide MEAN hazard scores, 0–100 — NOT measured at this site. The card
-   * must label them as such: the diagnostic's hazard-check beat exists to ask
-   * whether the bairro figure matches the org's own place, and a card that
-   * presents these as "your place's risk" pre-empts that question with an
-   * answer it never had. See shared/site-knowledge.ts → hazardCheckQuestion.
+   * The PLAC/ARVC 2050 AMEAÇA sampled at the pin, one entry per hazard with
+   * data there, already classed (0..4 against the city's own p2–p98 range, the
+   * map's relative classing) and worded — the client never sees the 0–1 value.
+   * See server/services/arvcPointHazard.ts. Absent/empty = no hazard block.
+   *
+   * ⚠️ The card used to carry `risks: {flood, heat, landslide}` — our bairro
+   * percentile of the ARVC RISCO composite, drawn as "No bairro, em média"
+   * bars. What an organisation sees about hazard must rest on official data
+   * (stance, PR #470; JVP 10 Nov 2026), so that field is gone. Transcripts
+   * persisted before the change still hold it; the component ignores it.
    */
-  risks: { flood: number; heat: number; landslide: number };
+  pinHazard?: Array<{ hazard: 'flood' | 'heat' | 'landslide'; level: number; pt: string; en: string }>;
+  /**
+   * When the pin is inside a SMAMUS Guaíba flood contour at or below the May
+   * 2024 level (5,35 m): "Dentro da área atingida com o Guaíba a X m". The flood
+   * ameaça above is fluvial only, so this is the Guaíba component.
+   */
+  guaiba?: { pt: string; en: string; source: string };
 }
 
 // E3 footprint step — payload of show_footprint_card.

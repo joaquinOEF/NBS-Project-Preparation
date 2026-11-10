@@ -27,21 +27,7 @@
 // ============================================================================
 
 import type { MapSelectionResult } from './concept-note-schema';
-import { hazardPercentile, riskBand, dominantPercentile } from './risk-display';
 import { polygonAreaM2, roundAreaM2 } from './w3-sizing';
-
-const BAND_WORDS: Record<'pt' | 'en', Record<string, string>> = {
-  pt: { very_low: 'muito baixo', low: 'baixo', moderate: 'moderado', high: 'alto', very_high: 'muito alto' },
-  en: { very_low: 'very low', low: 'low', moderate: 'moderate', high: 'high', very_high: 'very high' },
-};
-const BAND_WORDS_F: Record<'pt' | 'en', Record<string, string>> = {
-  pt: { very_low: 'muito baixa', low: 'baixa', moderate: 'moderada', high: 'alta', very_high: 'muito alta' },
-  en: BAND_WORDS.en,
-};
-
-/** Band word for a 0–100 WITHIN-CITY percentile (never for a raw mean). */
-const bandWord = (pct: number, lang: 'pt' | 'en', fem = false) =>
-  (fem ? BAND_WORDS_F : BAND_WORDS)[lang][riskBand(pct).key];
 
 /** Every polygon the user traced in this session, in m². 0 = they traced none. */
 export function drawnAreaM2(result: MapSelectionResult): number {
@@ -95,24 +81,18 @@ export function buildMapSummary(result: MapSelectionResult, langRaw: string): st
     return out.join('\n');
   }
 
-  // ── Anything else: where they are, and what the city data says about it ───
+  // ── Anything else: where they are ───────────────────────────────────────
+  // ⚠️ No hazard bands and no priority star (10 Nov 2026). Both were OUR
+  // within-city percentile of the ARVC RISCO composite, printed in the
+  // organisation's own bubble as "inundação muito alto" — our index presented
+  // as their bairro's risk. What an organisation sees about hazard rests on
+  // official data (stance, PR #470). The population is IBGE's and stays.
   const out: string[] = [L ? 'Selecionei no mapa:' : 'Selected on the map:'];
   for (const z of zones) {
     const p: any = z.properties || {};
     out.push(`${L ? 'Bairro' : 'Neighborhood'} ${z.name}`);
-    out.push(`🔵 ${L ? 'inundação' : 'flood'} ${bandWord(hazardPercentile(p, 'flood'), lang)} · 🔴 ${L ? 'calor' : 'heat'} ${bandWord(hazardPercentile(p, 'heat'), lang)} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${bandWord(hazardPercentile(p, 'landslide'), lang)}`);
-    // The percentile is relative to the rest of the city — say so, or "alto"
-    // reads as an absolute claim about danger. Plain parentheses: this bubble
-    // is not markdown (rule 1), and the italics reached the room as underscores.
-    out.push(L ? '(comparado com os outros bairros de Porto Alegre)' : '(compared with the other neighbourhoods in Porto Alegre)');
     const pop = p.populationTotal || p.populationSum;
-    const bits: string[] = [];
-    if (pop) bits.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores' : 'residents'}`);
-    // Priority reads off the dominant hazard's display percentile — the same
-    // basis as the coordinator's priority badge (risk-display.dominantPercentile),
-    // not the compressed absolute priorityScore.
-    if (p.priorityScore != null) bits.push(`⭐ ${L ? 'prioridade' : 'priority'} ${bandWord(dominantPercentile(p), lang, L)}`);
-    if (bits.length) out.push(bits.join(' · '));
+    if (pop) out.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores (IBGE)' : 'residents (IBGE)'}`);
   }
   if (sites.length) {
     const names = sites.slice(0, 3).map(s => s.name).join(', ');

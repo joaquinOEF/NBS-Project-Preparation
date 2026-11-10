@@ -232,8 +232,8 @@ test.describe('W2 test-kit scenarios', () => {
     }
 
     // Passo 12 — the correction.
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 25_000 });
-    notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
+    await expect(page.getByText(/é mais ou menos isso, ou é mais tranquilo|about the same, or calmer/)).toBeVisible({ timeout: 25_000 });
+    notes.readbackText = await page.locator('text=/mais ou menos isso, ou é mais tranquilo/').first().textContent().catch(() => null);
     // Two hazard checks are possible now — see CBO-RISK-SCALE.
     await answerChecksUntilReco(c, 'Aqui é pior');
 
@@ -285,8 +285,8 @@ test.describe('W2 test-kit scenarios', () => {
     await tapCount('Não tenho agora');
 
     // "I can't say" — twice if a second check is offered.
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 15_000 });
-    notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
+    await expect(page.getByText(/é mais ou menos isso, ou é mais tranquilo|about the same, or calmer/)).toBeVisible({ timeout: 15_000 });
+    notes.readbackText = await page.locator('text=/mais ou menos isso, ou é mais tranquilo/').first().textContent().catch(() => null);
     await answerChecksUntilReco(c, 'Não sei dizer', tapCount);
 
     notes.recoWhys = await page.locator('[data-testid^="familia-reco-"]').allTextContents();
@@ -350,8 +350,8 @@ test.describe('W2 test-kit scenarios', () => {
     notes.photoTextUsesBairro = await page.getByText('bairro que preocupa', { exact: false }).count() > 0;
     await c.tap('Mando depois');
 
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 20_000 });
-    notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
+    await expect(page.getByText(/é mais ou menos isso, ou é mais tranquilo|about the same, or calmer/)).toBeVisible({ timeout: 20_000 });
+    notes.readbackText = await page.locator('text=/mais ou menos isso, ou é mais tranquilo/').first().textContent().catch(() => null);
     notes.readbackUsesDayToDay = await page.getByText('dia a dia de vocês', { exact: false }).count() > 0;
     // Two hazard checks are possible now — see CBO-RISK-SCALE.
     await answerChecksUntilReco(c, 'Aqui é pior');
