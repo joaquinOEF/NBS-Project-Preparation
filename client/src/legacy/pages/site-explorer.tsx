@@ -128,6 +128,8 @@ interface LayerState {
   tileLayerId?: string;
   hasValueTiles?: boolean;
   valueEncoding?: import('@shared/geospatial-layers').ValueTileEncoding;
+  /** Tooltip on the layer button (from the shared catalogue). */
+  description?: string;
 }
 
 type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>;
@@ -174,6 +176,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
     tileLayerId: l.tileLayerId,
     hasValueTiles: l.hasValueTiles,
     valueEncoding: l.valueEncoding,
+    description: l.description,
   })),
   // Flood component indices (catalog poa_flood_* — hazard / exposure / vulnerability)
   ...FLOOD_INDEX_LAYERS.map(l => ({
@@ -259,6 +262,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
     source: 'geojson' as LayerSource,
     group: 'arvc' as LayerGroupId,
     available: true,
+    description: l.description,
   })),
   // OEF tile layers — generated from shared catalog (48 layers)
   ...TILE_LAYERS.filter(l => l.available).map(l => ({
@@ -2448,11 +2452,16 @@ export default function SiteExplorerPage() {
                                   </span>
                                 </button>
                               </TooltipTrigger>
-                              {isUnavailable && (
+                              {isUnavailable ? (
                                 <TooltipContent side="top" className="text-xs">
                                   Coming soon — data not yet available
                                 </TooltipContent>
-                              )}
+                              ) : layer.description ? (
+                                <TooltipContent side="top" className="text-xs max-w-[260px]" data-testid={`layer-description-${layer.id}`}>
+                                  <div className="font-medium mb-0.5">{layer.name}</div>
+                                  {layer.description}
+                                </TooltipContent>
+                              ) : null}
                             </Tooltip>
                           );
                         })}

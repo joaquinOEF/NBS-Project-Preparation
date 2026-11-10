@@ -720,6 +720,7 @@ function MapPanel({
   selectedId,
   onSelect,
   activeRisk,
+  showFlood2024 = false,
   onBairroClick,
   compact = false,
 }: {
@@ -727,6 +728,8 @@ function MapPanel({
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   activeRisk: RiskView | null;
+  /** Observed May 2024 flood extent (the Guaíba) over whatever view is active. */
+  showFlood2024?: boolean;
   onBairroClick: (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => void;
   /** The overview's thumbnail: no zoom buttons, the same map. */
   compact?: boolean;
@@ -736,6 +739,13 @@ function MapPanel({
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const rasterLayerRef = useRef<L.TileLayer | null>(null);
   const recruitLayerRef = useRef<L.GeoJSON | null>(null);
+  const flood2024LayerRef = useRef<L.GeoJSON | null>(null);
+  const flood2024CacheRef = useRef<any>(null);
+  // The bairro tooltips are bound once; reading t through a ref keeps them in
+  // the current language without rebuilding the layer.
+  const { t } = useTranslation();
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; }, [t]);
   const neighborhoodCacheRef = useRef<any>(null);
   // City-wide risk range for the 'risk' choropleth opacity normalization.
   const riskRangeRef = useRef<RiskRange>({ min: 0, max: 1 });
@@ -806,6 +816,7 @@ function MapPanel({
       markersRef.current.clear();
       rasterLayerRef.current = null;
       recruitLayerRef.current = null;
+      flood2024LayerRef.current = null;
     };
     // Intentionally run once; projects is stable demo data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -862,10 +873,19 @@ function MapPanel({
           const score: number = +p.priorityScore || 0;
           // Landslide-prone terrain → also recommend slope stabilization (additive to
           // the dominant-risk intervention). Surfaced even when heat is the primary risk.
-          const proneHtml = p.landslideSusceptible
-            ? `<br/><span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨ landslide-prone · slope stabilization</span>`
-            : '';
-          const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}${proneHtml}`;
+          // The score is OUR ranking derived from the PLAC/ARVC risco composites,
+          // not an official risk figure — so the tooltip says "prioridade
+          // (estimativa OEF)" and never "risco". See docs/arvc-official.md.
+          const tipHtml = () => {
+            const tt = tRef.current;
+            const hazardWord = hazard
+              ? tt(`orchestrator.map.hazard.${hazard.toLowerCase()}`, { defaultValue: hazard.toLowerCase().replace(/_/g, ' + ') })
+              : '';
+            const proneHtml = p.landslideSusceptible
+              ? `<br/><span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨ ${tt('orchestrator.map.landslideProneTip', { defaultValue: 'landslide-prone terrain · slope stabilization' })}</span>`
+              : '';
+            return `<b>${name}</b><br/>${hazardWord ? hazardWord + ' · ' : ''}${pop.toLocaleString()} ${tt('orchestrator.map.people', { defaultValue: 'people' })}<br/>${tt('orchestrator.map.priorityTip', { defaultValue: 'priority {{score}} (OEF estimate, from the PLAC)', score: score.toFixed(2) })}${proneHtml}`;
+          };
           // Anchored (not sticky): a sticky tooltip follows the pointer and its
           // per-layer mouseout→close doesn't reliably fire when crossing a shared
           // bairro border, so tooltips pile up unreadably (ORCH-1). Anchor it to
@@ -926,7 +946,46 @@ function MapPanel({
         attribution: cfg.attribution,
       }).addTo(map);
     }
+    flood2024LayerRef.current?.bringToFront();
   }, [activeRisk]);
+
+  // Observed May 2024 flood extent. The ARVC flood ameaça is FLUVIAL only
+  // (arroios); 41% of what flooded in May 2024 — mostly the Guaíba margin — lies
+  // outside it (docs/arvc-official.md), so the event is its own toggle, drawn on
+  // top of whichever view is active. Fetched once, on first use.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (!showFlood2024) {
+      if (flood2024LayerRef.current) {
+        map.removeLayer(flood2024LayerRef.current);
+        flood2024LayerRef.current = null;
+      }
+      return;
+    }
+    let cancelled = false;
+    const add = (fc: any) => {
+      if (cancelled || !mapInstanceRef.current || flood2024LayerRef.current) return;
+      flood2024LayerRef.current = L.geoJSON(fc, {
+        interactive: false,
+        style: { color: '#1d4ed8', weight: 1, opacity: 0.8, fillColor: '#60a5fa', fillOpacity: 0.45 },
+        attribution: 'Planet SkySat · inundação observada 06/05/2024 (zenodo.org/records/14662897)',
+      }).addTo(mapInstanceRef.current);
+    };
+    if (flood2024CacheRef.current) {
+      add(flood2024CacheRef.current);
+    } else {
+      fetch('/sample-data/porto-alegre-flood-2024.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data?.geoJson) return;
+          flood2024CacheRef.current = data.geoJson;
+          add(data.geoJson);
+        })
+        .catch(() => {});
+    }
+    return () => { cancelled = true; };
+  }, [showFlood2024]);
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl border border-foreground/10 bg-muted">
@@ -944,9 +1003,13 @@ function MapPanel({
 function MapLayerControls({
   active,
   onChange,
+  flood2024,
+  onFlood2024Change,
 }: {
   active: RiskView | null;
   onChange: (next: RiskView | null) => void;
+  flood2024: boolean;
+  onFlood2024Change: (next: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
@@ -954,12 +1017,12 @@ function MapLayerControls({
     { id: 'flood',     label: t('orchestrator.map.flood', { defaultValue: 'Flood hazard' }),         dot: '#2563eb' },
     { id: 'heat',      label: t('orchestrator.map.heat', { defaultValue: 'Heat hazard' }),           dot: '#dc2626' },
     { id: 'landslide', label: t('orchestrator.map.landslide', { defaultValue: 'Landslide hazard' }), dot: '#a16207' },
-    { id: 'risk',      label: t('orchestrator.map.riskByBairro', { defaultValue: 'Risk by neighborhood' }), dot: '#8b5cf6' },
+    { id: 'risk',      label: t('orchestrator.map.riskByBairro', { defaultValue: 'Priority by neighborhood (OEF estimate)' }), dot: '#8b5cf6' },
   ];
   return (
     <div className="absolute top-3 right-3 z-[400] rounded-lg border border-foreground/10 bg-background/90 backdrop-blur-sm px-2.5 py-2 shadow-md text-xs w-[196px]">
       <div className="font-medium text-foreground/80 uppercase tracking-wide text-[10px] px-0.5 pb-1.5">
-        {t('orchestrator.map.riskView', { defaultValue: 'Risk view' })}
+        {t('orchestrator.map.riskView', { defaultValue: 'Map view' })}
       </div>
       <div className="space-y-1">
         {VIEWS.map(v => {
@@ -989,17 +1052,40 @@ function MapLayerControls({
             </button>
           );
         })}
+        {/* Not one of the exclusive views: the observed event draws ON TOP of
+            whichever is active, so the fluvial ameaça and the Guaíba can be
+            read together. */}
+        <button
+          type="button"
+          onClick={() => onFlood2024Change(!flood2024)}
+          aria-pressed={flood2024}
+          data-testid="risk-view-flood2024"
+          className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all ${
+            flood2024
+              ? 'border-[#1d4ed8] bg-[#60a5fa]/25 text-foreground font-semibold'
+              : 'border-dashed border-foreground/15 text-foreground/75 hover:bg-foreground/[0.05]'
+          }`}
+        >
+          <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0 border border-[#1d4ed8]" style={{ background: '#60a5fa' }} />
+          <span className="leading-tight">{t('orchestrator.map.flood2024', { defaultValue: 'Area flooded in May 2024' })}</span>
+          {flood2024 && <Check className="w-3.5 h-3.5 ml-auto shrink-0" strokeWidth={3} />}
+        </button>
+        {flood2024 && (
+          <div className="text-[9px] text-muted-foreground px-0.5" data-testid="flood2024-source">
+            {t('orchestrator.map.flood2024Source', { defaultValue: 'Observed · Planet SkySat, 6 May 2024' })}
+          </div>
+        )}
       </div>
 
       {active === 'risk' && (
         <div className="pt-1.5 mt-1.5 border-t border-foreground/5 space-y-0.5">
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
-            {t('orchestrator.map.zonePriority', { defaultValue: 'Zone priority' })}
+            {t('orchestrator.map.zonePriority', { defaultValue: 'Priority (OEF estimate, from the PLAC)' })}
           </div>
           {([
-            ['FLOOD', t('orchestrator.map.flood', { defaultValue: 'Flood' })],
-            ['HEAT', t('orchestrator.map.heat', { defaultValue: 'Heat' })],
-            ['FLOOD_HEAT', t('orchestrator.map.multiHazard', { defaultValue: 'Multi-hazard' })],
+            ['FLOOD', t('orchestrator.map.legendFlood', { defaultValue: 'Flood' })],
+            ['HEAT', t('orchestrator.map.legendHeat', { defaultValue: 'Heat' })],
+            ['FLOOD_HEAT', t('orchestrator.map.multiHazard', { defaultValue: 'Flood + heat' })],
           ] as const).map(([key, label]) => (
             <div key={key} className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-3 rounded-sm" style={{ background: TYPOLOGY_COLORS[key] }} />
@@ -1013,7 +1099,7 @@ function MapLayerControls({
             <span className="text-[10px] text-muted-foreground">{t('orchestrator.map.landslideProne', { defaultValue: 'Landslide-prone terrain' })}</span>
           </div>
           <div className="text-[9px] text-muted-foreground/80 pt-0.5">
-            {t('orchestrator.map.intensityNote', { defaultValue: 'Stronger fill = higher risk' })}
+            {t('orchestrator.map.intensityNote', { defaultValue: 'Stronger fill = higher priority' })}
           </div>
         </div>
       )}
@@ -1032,6 +1118,14 @@ function MapLayerControls({
             <span>{t('orchestrator.map.low', { defaultValue: 'low' })}</span>
             <span>{t('orchestrator.map.high', { defaultValue: 'high' })}</span>
           </div>
+          <div className="text-[9px] text-muted-foreground mt-1" data-testid="hazard-source">
+            {t('orchestrator.map.hazardSource', { defaultValue: 'Source: PLAC/ARVC, 2050 hazard' })}
+          </div>
+          {active === 'flood' && !flood2024 && (
+            <div className="text-[9px] text-muted-foreground/90 mt-0.5 leading-snug" data-testid="flood-fluvial-note">
+              {t('orchestrator.map.fluvialOnlyNote', { defaultValue: 'Streams only. The May 2024 Guaíba flood is not in this layer; turn on "Area flooded in May 2024".' })}
+            </div>
+          )}
         </div>
       )}
       {/* "Where this data comes from" — same shared dialog as the CBO map. */}
@@ -1066,6 +1160,8 @@ export default function OrchestratorLandingPage() {
   // Active risk view on the coordinator map (one at a time). Defaults to flood —
   // the primary POA hazard — so the map lands on something meaningful.
   const [activeRisk, setActiveRisk] = useState<RiskView | null>('flood');
+  // Observed May 2024 flood extent — an overlay, not one of the exclusive views.
+  const [showFlood2024, setShowFlood2024] = useState(false);
 
   // Phase 3c-ii — require a coordinator session. On 401, bounce to login.
   // `authed`: null = checking, false = redirecting, true = render the dashboard.
@@ -1094,8 +1190,8 @@ export default function OrchestratorLandingPage() {
         name: info.name,
       }),
       description: t('orchestrator.map.recruitDesc', {
-        defaultValue: '{{hazard}} risk · {{pop}} people · priority {{score}}',
-        hazard: hazardLabel || 'mixed',
+        defaultValue: '{{hazard}} · {{pop}} people · priority {{score}} (OEF estimate, from the PLAC)',
+        hazard: hazardLabel || '—',
         pop: info.population.toLocaleString(),
         score: info.priorityScore.toFixed(2),
       }),
@@ -1913,10 +2009,18 @@ export default function OrchestratorLandingPage() {
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   activeRisk={activeRisk}
+                  showFlood2024={showFlood2024}
                   onBairroClick={handleBairroClick}
                   compact={!mapOpen}
                 />
-                {mapOpen && <MapLayerControls active={activeRisk} onChange={setActiveRisk} />}
+                {mapOpen && (
+                  <MapLayerControls
+                    active={activeRisk}
+                    onChange={setActiveRisk}
+                    flood2024={showFlood2024}
+                    onFlood2024Change={setShowFlood2024}
+                  />
+                )}
               </div>
               {mapOpen && (
                 <>
