@@ -87,8 +87,9 @@ test.describe('Levar ao Encontro 4', () => {
     expect(s.ask.question).toMatch(/Jardins de chuva/);
     s = await step(r, m.cboStateId, 'É essa ✓');
     s = await step(r, m.cboStateId, 'Isso ✓');
-    expect(s.ask.question, 'no place marked: the map, or carry on').toMatch(/não está marcado no mapa/);
-    s = await step(r, m.cboStateId, 'Seguir sem o lugar');
+    expect(s.ask.question, 'no place marked: the map is required (10 Nov 2026)').toMatch(/não está marcado no mapa/);
+    expect(s.labels).not.toContain('Seguir sem o lugar');
+    s = await step(r, m.cboStateId, 'Map selection (1 site)\n- [custom] Sede at (-30.0451, -51.2096)', 'map');
     // Nothing on record about the problem: asked in Encontro 2's own words.
     expect(s.ask.question).toBe('Qual é o problema principal que essa solução enfrenta aqui?');
     expect(s.labels).toContain('💧 Alagamento');
@@ -375,4 +376,44 @@ test.describe('every encontro answers its own resume card', () => {
       expect(String(events.filter(e => e.type === 'done').pop()?.summary ?? '')).toMatch(pattern);
     });
   }
+});
+
+test.describe('the place from an address, editable by the coordination (JVP, 10 Nov 2026)', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('Ksa Rosa: an address and no pin → "Localizar no mapa" proposes the point, "Salvar" writes it', async ({ page }) => {
+    test.setTimeout(180_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Endereco ${tag}`)).cohort;
+    await api.createCoordinator({ email: `addr-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2] })).member;
+    await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [
+      { sectionId: 'org_profile', field: 'org_name', value: 'Ksa Rosa' },
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+      { sectionId: 'intervention_site', field: 'site_address', value: 'Voluntários da Pátria 1039, Floresta, Porto Alegre' },
+    ] });
+    expect((await page.request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 4, openedAt: '2026-10-29' } })).ok()).toBe(true);
+
+    await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
+    await page.getByTestId(`button-skip-e4-${m.id}`).click({ timeout: 30_000 });
+    await page.getByTestId('visit-skip-e4-confirm').click();
+    await expect(page.getByTestId('e4-answers-skip')).toBeVisible();
+    // The address on record is already in the field; one tap proposes the point.
+    await expect(page.getByTestId('e4a-input-address')).toHaveValue('Voluntários da Pátria 1039, Floresta, Porto Alegre');
+    await page.getByTestId('e4a-find-address').click();
+    await expect(page.getByTestId('e4a-address-note')).toContainText('Confira o ponto no mapa');
+    await expect(page.getByTestId('e4a-pin')).toBeVisible();
+    // Nothing is written until saved.
+    expect((await fields(page.request, m.cboStateId, 'intervention_site'))._site_lat ?? '').toBe('');
+    await page.getByTestId('e4-answers-save').click();
+    await expect(page.getByTestId('e4-answers-saved')).toBeVisible();
+    const site = await fields(page.request, m.cboStateId, 'intervention_site');
+    expect(Number(site._site_lat)).toBeCloseTo(-30.0267, 3);
+    expect(site.site_address).toBe('Voluntários da Pátria 1039, Floresta, Porto Alegre');
+    // The board follows the record (#628): the member's place is the new point.
+    const board = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}`)).json();
+    expect(board.members.find((x: any) => x.id === m.id).site.coordinates[0]).toBeCloseTo(-30.0267, 3);
+  });
 });

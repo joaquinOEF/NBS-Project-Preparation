@@ -239,7 +239,7 @@ async function serveE4Inner(
   const stillOpen = (x: E4Suggestion) => {
     if ((type('_e4_recap_skip') || '').split(',').includes(x.key)) return false;
     switch (x.key) {
-      case 'lugar': return !(site('_site_lat') || site('site_lat')) && type('_e4_place_skipped') !== 'yes';
+      case 'lugar': return !(site('_site_lat') || site('site_lat'));
       case 'preocupacoes': {
         if (type('_e4_problem_ok') === 'yes') return false;
         const now = site('site_worry').split(',').map(w => w.trim());
@@ -267,7 +267,8 @@ async function serveE4Inner(
     if (!sol) return 'solution';
     if (type('_e4_size_ok') !== 'yes') return 'size';
     if (bundle().length) return 'recap';
-    if (!hasPlace() && type('_e4_place_skipped') !== 'yes') return 'place';
+    // Required: an old `_e4_place_skipped` no longer lets the proposal close without one.
+    if (!hasPlace()) return 'place';
     if (type('_e4_problem_ok') !== 'yes') return 'problem';
     if (type('_skip_json') && type('_e4_context_done') !== 'yes') return 'contexto';
     if (type('_e4_draft_shown') !== 'yes') return 'draft';
@@ -407,17 +408,18 @@ async function serveE4Inner(
             [
               { pt: E4C.isso.pt, en: E4C.isso.en, dPt: 'Marca esse ponto', dEn: 'Marks this point' },
               { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa pra ajustar', dEn: 'Opens the map to adjust' },
-              { pt: E4C.seguirSemLugar.pt, en: E4C.seguirSemLugar.en, dPt: 'Fica nas pendências', dEn: 'It goes in the open items' },
             ],
           );
           return finish(detail);
         }
+        // ⚠️ The place is REQUIRED (JVP, 10 Nov 2026): without it the proposal
+        // has no city maps, no census, no point on the Rede's publication map.
+        // No "Seguir sem o lugar" — the map, or the address typed below.
         ask(
-          'O lugar ainda não está marcado no mapa. Sem ele a proposta inicial fica sem endereço — marcamos agora?',
-          'The place is not marked on the map yet. Without it the initial proposal has no address — shall we mark it now?',
+          'O lugar ainda não está marcado no mapa, e a proposta inicial precisa dele: é por ele que entram os mapas da cidade e quem mora perto. Marcamos agora? Se preferirem, escrevam o endereço aqui embaixo.',
+          'The place is not marked on the map yet, and the initial proposal needs it: the city maps and who lives nearby come from it. Shall we mark it now? Or type the address below.',
           [
             { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
-            { pt: E4C.seguirSemLugar.pt, en: E4C.seguirSemLugar.en, dPt: 'Fica nas pendências', dEn: 'It goes in the open items' },
           ],
         );
         return finish(detail);
@@ -1002,9 +1004,11 @@ async function serveE4Inner(
       pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(site('bairro') ? { focusZone: site('bairro').split(',')[0].trim() } : {}) } } as any);
       return finish('open-site-map');
     }
+    // A question asked before the place became required may still carry the
+    // old chip: answered, it is read — and the place is asked again.
     if (is(E4C.seguirSemLugar)) {
-      writeType({ _e4_place_skipped: 'yes', _e4_place_pending: '' });
-      return serve('place-skipped');
+      say('Para fechar a proposta inicial, o lugar precisa estar no mapa — pode ser aproximado.', 'To close the initial proposal the place has to be on the map — approximate is fine.');
+      return serve('place-required');
     }
   }
 

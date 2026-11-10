@@ -84,6 +84,7 @@ import { readPlanLinks, prenoteFacts, planLinksKey } from '../services/planLinks
 import { loadPlanCorpus, corpusVersion } from '../services/planCorpus';
 import { parsePlanLinks } from '@shared/plan-links';
 import { writeSectionFields } from '../services/cboAgent';
+import { forwardGeocode } from '../services/geocodeService';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor, cohortLinesForMany } from '../services/cboAgent';
@@ -2893,6 +2894,8 @@ export function registerCohortRoutes(app: Express): void {
     ]));
     return {
       phase: state.phase ?? 0,
+      // The address on record, so the place editor can start from it (JVP, 10 Nov 2026).
+      address: site.site_address ?? '',
       skipped: !!type._skip_json,
       closed: type._e4_closed === 'yes',
       values,
@@ -2919,6 +2922,20 @@ export function registerCohortRoutes(app: Express): void {
     if (!state) { res.status(409).json({ error: 'member has no record yet' }); return null; }
     return { member, state, id: member.cboStateId };
   };
+
+  /**
+   * An address → a point, for the coordination's place editor. Ksa Rosa gave
+   * "Voluntários da Pátria 1039" and has no pin; JVP (10 Nov 2026): take the
+   * point from the address, and let it be edited. The point is only a
+   * proposal — nothing is saved until "Salvar respostas".
+   */
+  app.get('/api/cohort/:coordinatorSlug/geocode', wrap(async (req, res) => {
+    const q = String(req.query.q ?? '').trim().slice(0, 200);
+    if (q.length < 4) { res.status(400).json({ error: 'address too short' }); return; }
+    const hit = await forwardGeocode(q).catch(() => null);
+    if (!hit) { res.status(404).json({ error: 'not found' }); return; }
+    res.json(hit);
+  }));
 
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/e4-answers', wrap(async (req, res) => {
     const got = await memberState(req, res);
@@ -2974,6 +2991,8 @@ export function registerCohortRoutes(app: Express): void {
     }
     const siteName = str(a.siteName, 120);
     if (siteName) siteW.site_name = siteName;
+    const address = str(a.address, 200);
+    if (address) siteW.site_address = address;
     // One worry, or several (a suggestion restores the ones Encontro 2 lost).
     const problem = str(a.problem, 120).split(',').map(x => x.trim()).filter(x => WORRY_SUBTYPES.some(w => w.id === x && w.id !== 'other')).join(',');
     if (problem) {
