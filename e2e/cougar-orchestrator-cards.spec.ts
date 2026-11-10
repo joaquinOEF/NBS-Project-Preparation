@@ -99,6 +99,26 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
     await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${member.id}`)).toHaveCount(0);
   });
 
+  test('"N em aberto" says what it is: points the comparison left to resolve, each listed (Aline, 10 Nov 2026)', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`Gaps ${randomUUID().slice(0, 8)}`)).cohort;
+    await api.createCoordinator({ email: `gaps-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const member = (await api.inviteMember(cohort.id, { orgName: 'Conceito Arte', neighborhood: 'Sarandi', withSession: true, unlockedPhases: [1, 2, 3, 4] })).member;
+    await api.seedState(member.cboStateId, { phase: 3, language: 'pt', sections: [
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Sarandi' },
+      { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+      { sectionId: 'intervention_type', field: 'solution_tests_json', value: JSON.stringify([{ solutionId: 'jardins-de-chuva', reaction: 'faz-sentido', testedAt: '2026-09-30T13:39:00Z' }]) },
+      { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'jardins-de-chuva' },
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+    ] });
+    await page.goto('/orchestrator');
+    const gaps = page.getByTestId(`w3-gaps-${member.id}`);
+    await expect(gaps).toHaveText(/^\d+ pontos? a resolver$/, { timeout: 30_000 });
+    await expect(gaps).not.toHaveText(/em aberto/);
+    await expect(gaps).toHaveAttribute('title', /^Pontos que a comparação do Encontro 3 deixou para resolver antes de orçar:\n• /);
+  });
+
   test("⚠️ the REAL Ksa Rosa shape: first-era chosen_solutions, no tests list — past Encontro 2 from phase 3, not before", async ({ page }) => {
     // The spec above modelled Ksa Rosa with `solution_tests_json`; the prod
     // record (copy of 23 Oct) has none — only `chosen_solutions`, written by the
