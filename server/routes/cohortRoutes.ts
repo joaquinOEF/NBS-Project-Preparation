@@ -2420,7 +2420,7 @@ export function registerCohortRoutes(app: Express): void {
     const joint = await jointPrenoteFor(project, lang);
     if (!joint) { res.status(404).send('Not found'); return; }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(renderPrenoteHtml(joint.prenote, lang));
+    res.send(renderPrenoteHtml(joint.prenote, lang, { joint: true }));
   }));
 
   app.get('/api/cbo-member/by-token/:token', wrap(async (req, res) => {

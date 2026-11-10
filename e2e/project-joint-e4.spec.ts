@@ -261,6 +261,13 @@ test.describe('projects — the joint proposal (Encontro 4 for a project)', () =
     const card2 = projectCard([unit.memberId], board.orgs);
     expect(card2.budget).toEqual(last.total);
     expect(card2.budget!.low, 'the joint budget, not the joint plus the Cooperativa\'s own').toBeLessThan(last.total.low + coopOwn.budget.low);
+    // Said as a joint project (not "uma organização só"), and both places on the board's map.
+    expect(card2.reason).toBe(`Projeto conjunto: ${KSA} + ${COOP}`);
+    expect(card2.places.map(p => p.label)).toEqual([KSA, COOP]);
+    // The print says it is the organisations' joint proposal, not "uma página por organização".
+    const print = await (await r.get(`/api/cbo/${P}/prenote?lang=pt`)).text();
+    expect(print).toContain('Proposta conjunta das organizações');
+    expect(print).not.toContain('Uma página por organização');
     // The census over both points, each tract once: never more people than the two points counted apart.
     expect(unit.censusTracts && Object.keys(unit.censusTracts).length).toBeTruthy();
   });
