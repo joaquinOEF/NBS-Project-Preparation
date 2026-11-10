@@ -31,7 +31,14 @@ import { parseTests, type SolutionTest } from './w3-tests';
 type Lang = 'pt' | 'en';
 
 export interface VisitChoice {
+  /** The main recommendation — "É essa?" and its size are about this one. */
   solutionId: string;
+  /**
+   * Other solutions the visit also indicated (Aline, 10 Nov 2026: "só me
+   * deixa indicar 1 solução"). Encontro 4 then asks which one becomes the
+   * proposta inicial — still ONE per organisation, the pre-portfolio's unit.
+   */
+  also?: string[];
   /** The size the visit settled on — m² for area-priced solutions. */
   areaM2?: number;
   /** …or a count, for solutions priced per tree / cistern / barraginha. */
@@ -48,6 +55,8 @@ export function parseVisit(raw: string | null | undefined): VisitChoice | null {
     const v = JSON.parse(raw);
     if (!v || typeof v.solutionId !== 'string' || !getSolution(v.solutionId)) return null;
     const out: VisitChoice = { solutionId: v.solutionId, recordedAt: String(v.recordedAt ?? '') };
+    const also = cleanAlso(v.also, v.solutionId);
+    if (also.length) out.also = also;
     if (Number(v.areaM2) > 0) out.areaM2 = Number(v.areaM2);
     if (Number(v.units) > 0) out.units = Math.round(Number(v.units));
     if (typeof v.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.date)) out.date = v.date;
@@ -57,17 +66,28 @@ export function parseVisit(raw: string | null | undefined): VisitChoice | null {
   }
 }
 
+/** Known ids only, once each, never the main one. Array or "a, b". */
+function cleanAlso(raw: unknown, main: string): string[] {
+  const list = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
+  return Array.from(new Set(list.map(x => String(x).trim()).filter(id => id && id !== main && !!getSolution(id)))).slice(0, 5);
+}
+
+/** Every solution the visit indicated, the main one first. */
+export const visitSolutionIds = (v: VisitChoice): string[] => [v.solutionId, ...(v.also ?? [])];
+
 /**
  * Validate what the coordinator sent and turn it into the stored choice.
  * Returns an error string the route answers with, never throws.
  */
 export function visitFromInput(
-  body: { solutionId?: unknown; areaM2?: unknown; units?: unknown; date?: unknown },
+  body: { solutionId?: unknown; also?: unknown; areaM2?: unknown; units?: unknown; date?: unknown },
   now = new Date(),
 ): VisitChoice | { error: string } {
   const solutionId = String(body.solutionId ?? '').trim();
   if (!getSolution(solutionId)) return { error: 'unknown solution' };
   const out: VisitChoice = { solutionId, recordedAt: now.toISOString() };
+  const also = cleanAlso(body.also, solutionId);
+  if (also.length) out.also = also;
   const basis = SOLUTION_COSTS[solutionId]?.basis;
   const area = Number(String(body.areaM2 ?? '').replace(',', '.'));
   const units = Number(String(body.units ?? '').replace(',', '.'));
@@ -126,6 +146,10 @@ export function visitSummary(v: VisitChoice, lang: Lang = 'pt'): string {
     const c = SOLUTION_COSTS[v.solutionId];
     const unit = v.units === 1 ? (lang === 'pt' ? c?.unitPt : c?.unitEn) : (lang === 'pt' ? c?.unitPluralPt : c?.unitPluralEn);
     parts.push(`${v.units.toLocaleString(loc)}${unit ? ` ${unit}` : ''}`);
+  }
+  if (v.also?.length) {
+    const names = v.also.map(id => { const x = getSolution(id); return x ? (lang === 'pt' ? x.pt.label : x.en.label) : id; });
+    parts.push(lang === 'pt' ? `também: ${names.join(', ')}` : `also: ${names.join(', ')}`);
   }
   if (v.date) {
     const [y, m, d] = v.date.split('-');
