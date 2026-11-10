@@ -94,7 +94,8 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
     // The coordination acts next — the visit — not the organisation.
     await expect(page.getByTestId(`button-visit-${member.id}`)).toContainText('visita técnica');
     await expect(page.getByTestId(`journey-next-${member.id}`)).toHaveCount(0);
-    await expect(page.getByTestId(`journey-dots-${member.id}`)).toHaveAttribute('aria-label', /2/);
+    // Tested = Encontro 3 done on the dots, marker or not (Aline, 9 Nov 2026).
+    await expect(page.getByTestId(`journey-dots-${member.id}`)).toHaveAttribute('aria-label', /3/);
     await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${member.id}`)).toHaveCount(0);
   });
 
@@ -126,6 +127,8 @@ test.describe('COUGAR — the coordinator reads an org without clicking', () => 
     await page.goto('/orchestrator');
     await expect(page.getByTestId(`card-orchestrator-project-${ksa.id}`)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId(`button-visit-${ksa.id}`)).toContainText('visita técnica');
+    // Its dots show Encontro 3, too — not "só até o Encontro 2" (Aline, 9 Nov 2026).
+    await expect(page.getByTestId(`journey-dots-${ksa.id}`)).toHaveAttribute('aria-label', /3/);
     await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${ksa.id}`)).toHaveCount(0);
     // The same list at phase 2 does not move an organisation on.
     await expect(page.getByTestId('roster-group-early').getByTestId(`card-orchestrator-project-${early.id}`)).toBeVisible();

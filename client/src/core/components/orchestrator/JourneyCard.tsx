@@ -72,7 +72,13 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
  * never written — and the board filed it under "Ainda nos Encontros 1–2"
  * (prod, 22 Oct 2026). Nothing waits on that marker: the visit is chosen
  * from the tested solutions, and Encontro 4 closes an open Encontro 3 as it
- * stands. The dot for 3 stays open until the marker exists.
+ * stands.
+ *
+ * The dot for 3 is green as soon as a solution was tested, marker or not. It
+ * used to wait for the marker, and the coordination read Ksa Rosa and 20 de
+ * Novembro — both tested, neither closed — as "só até o Encontro 2" and asked
+ * where their work had gone (Aline, WhatsApp, 9 Nov 2026). The work is there;
+ * the dot now says so (JVP, 10 Nov 2026).
  */
 export function journeyClosed(p: Pick<JourneyCardData, 'w3'>): { e2: boolean; e3: boolean; e4: boolean; tested: boolean; skipped: { e2: boolean; e3: boolean } } {
   const raw = p.w3.closed ?? { e2: false, e3: false, e4: false };
@@ -82,7 +88,7 @@ export function journeyClosed(p: Pick<JourneyCardData, 'w3'>): { e2: boolean; e3
   const sk = p.w3.skipped ?? { e2: false, e3: false };
   return {
     e4: raw.e4,
-    e3: raw.e3 || raw.e4 || sk.e3,
+    e3: raw.e3 || raw.e4 || sk.e3 || tested,
     e2: raw.e2 || raw.e3 || raw.e4 || tested || sk.e2 || sk.e3,
     tested,
     skipped: { e2: sk.e2 && !raw.e2, e3: sk.e3 && !raw.e3 },
