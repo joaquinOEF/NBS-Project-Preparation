@@ -314,6 +314,9 @@ export function VisitPanel({ cohortSlug, memberId, reloadKey, onFilesChanged, on
       {phase !== null && phase >= 1 && phase < 4 && (
         <SkipToE4 cohortSlug={cohortSlug} memberId={memberId} phase={phase} prompt={!!promptSkip} onDone={() => { setPhase(4); onRecordChanged?.(); onSkipped?.(); }} />
       )}
+      {phase === 4 && !!String(fields._skip_json?.value ?? '') && String(fields._e4_closed?.value ?? '') !== 'yes' && (
+        <UndoSkipToE4 cohortSlug={cohortSlug} memberId={memberId} onDone={p => { setPhase(p); onRecordChanged?.(); }} />
+      )}
     </div>
   );
 }
@@ -364,6 +367,51 @@ export function SkipToE4({ cohortSlug, memberId, phase, prompt, onDone }: { coho
       ) : (
         <Button size="sm" variant="outline" className="mt-2 h-8 text-xs" onClick={() => setConfirming(true)} data-testid="visit-skip-e4-button">
           {t('cboView.skipE4Button', { defaultValue: 'Levar ao Encontro 4' })}
+        </Button>
+      )}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * The way back from "Levar ao Encontro 4": the organisation does the skipped
+ * encontros in full. One button, one confirmation; nothing answered is lost.
+ */
+export function UndoSkipToE4({ cohortSlug, memberId, onDone }: { cohortSlug: string; memberId: string; onDone: (phase: number) => void }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setBusy(true); setError(null);
+    try {
+      const r = await fetch(`/api/cohort/${cohortSlug}/member/${memberId}/skip-to-e4/undo`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error ?? String(r.status));
+      onDone(Number(body.phase) || 2);
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+    } finally { setBusy(false); setConfirming(false); }
+  };
+  return (
+    <div className="rounded-lg border border-dashed border-foreground/15 p-3" data-testid="visit-undo-skip-e4">
+      <p className="text-[13px] font-semibold">{t('cboView.undoSkipE4Title', { defaultValue: 'Fazer os encontros completos' })}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t('cboView.undoSkipE4Hint', { defaultValue: 'A organização foi levada direto ao Encontro 4. Se precisar, ela volta ao encontro que pulou e faz o caminho completo. Nada do que já respondeu se perde.' })}
+      </p>
+      {confirming ? (
+        <div className="mt-2 flex items-center gap-2">
+          <Button size="sm" className="h-8 text-xs" disabled={busy} onClick={go} data-testid="visit-undo-skip-e4-confirm">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('cboView.undoSkipE4Confirm', { defaultValue: 'Sim, voltar' })}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 text-xs" disabled={busy} onClick={() => setConfirming(false)}>
+            {t('common.cancel', { defaultValue: 'Cancelar' })}
+          </Button>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" className="mt-2 h-8 text-xs" onClick={() => setConfirming(true)} data-testid="visit-undo-skip-e4-button">
+          {t('cboView.undoSkipE4Button', { defaultValue: 'Voltar aos encontros pulados' })}
         </Button>
       )}
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}

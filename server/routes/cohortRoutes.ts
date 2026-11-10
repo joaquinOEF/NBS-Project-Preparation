@@ -2798,6 +2798,53 @@ export function registerCohortRoutes(app: Express): void {
   }));
 
   /**
+   * Undo "Levar ao Encontro 4": the organisation goes back to the encontro it
+   * left and does the skipped ones in full. JVP (10 Nov 2026, before the Rede's
+   * Wednesday session that skipped five organisations): "always give
+   * coordinators options to do a full pass if needed, in a non complex way".
+   * Nothing answered is erased — Encontro 4 resumes where it was when they
+   * come back to it. Refused once the proposal is closed.
+   */
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/skip-to-e4/undo', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    const id = member.cboStateId;
+    let state = getCboState(id) ?? null;
+    if (!state) {
+      const persisted = await loadCboFromDb(id);
+      if (persisted) {
+        setCboState(id, persisted.state);
+        for (const msg of persisted.messages) addCboMessage(id, msg);
+        state = persisted.state;
+      }
+    }
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    const type = ((state.sections as any)?.intervention_type?.fields ?? {}) as Record<string, { value?: unknown }>;
+    const site = ((state.sections as any)?.intervention_site?.fields ?? {}) as Record<string, { value?: unknown }>;
+    const raw = String(type._skip_json?.value ?? '');
+    if (!raw) { res.status(409).json({ error: 'this organisation was not taken to Encontro 4' }); return; }
+    if (String(type._e4_closed?.value ?? '') === 'yes') { res.status(409).json({ error: 'the initial proposal is already closed' }); return; }
+    let from = 0;
+    try { from = Number(JSON.parse(raw)?.from) || 0; } catch { /* keep 0 */ }
+    const e2 = String(site._e2_skipped?.value ?? '') === 'yes';
+    const e3 = String(type._e3_skipped?.value ?? '') === 'yes';
+    // Back to the first encontro that was skipped, never past where it was.
+    const target = Math.max(1, Math.min(from || 3, e2 ? 2 : 3));
+    const by = String(req.body?.by ?? '').trim().slice(0, 80);
+    if (e2) writeSectionFields(id, state, 'intervention_site', { _e2_skipped: '' }, () => {}, 'coordinator');
+    writeSectionFields(id, state, 'intervention_type', {
+      _e3_skipped: '',
+      _skip_json: '',
+      _skip_undone_json: JSON.stringify({ skipped: JSON.parse(raw), at: new Date().toISOString(), to: target, ...(by ? { by } : {}) }),
+    }, () => {}, 'coordinator');
+    const moved = await advanceCboPhase(id, target);
+    if (!moved.ok) { res.status(409).json({ error: `could not return to Encontro ${target} (${moved.reason})` }); return; }
+    console.log(`[skip-to-e4/undo] ${member.id}: back to Encontro ${target}`);
+    res.json({ ok: true, phase: target });
+  }));
+
+  /**
    * "O que ainda falta" — Encontro 4's questions, answered by the coordination
    * (22 Oct decision). After "Levar ao Encontro 4" the coordinator usually
    * knows some answers from the visit or a call; until now the only place to

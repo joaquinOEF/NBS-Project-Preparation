@@ -120,6 +120,45 @@ test.describe('Levar ao Encontro 4', () => {
     expect((await fields(page.request, m.cboStateId, 'intervention_site')).site_worry).toBe('alagamento');
   });
 
+  test('the way back: a skipped organisation does the full encontros, nothing answered lost (JVP, 10 Nov 2026)', async ({ page }) => {
+    test.setTimeout(150_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 8);
+    const cohort = (await api.createCohort(`Voltar ${tag}`)).cohort;
+    await api.createCoordinator({ email: `undo-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'CEA Bom Jesus', neighborhood: 'Bom Jesus', withSession: true, unlockedPhases: [1, 2] })).member;
+    await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [
+      { sectionId: 'org_profile', field: 'org_name', value: 'CEA Bom Jesus' },
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Bom Jesus' },
+      { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+    ] });
+    const skip = await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4`, { data: {} });
+    expect(skip.ok()).toBe(true);
+
+    await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
+    await expect(page.getByTestId(`journey-dots-${m.id}`).locator('[data-skipped="yes"]')).toHaveCount(2, { timeout: 30_000 });
+    await page.getByTestId(`card-orchestrator-project-${m.id}`).click();
+    await page.getByTestId('cbo-tab-visita').click();
+    await expect(page.getByTestId('visit-undo-skip-e4')).toContainText('Fazer os encontros completos');
+    await page.getByTestId('visit-undo-skip-e4-button').click();
+    await page.getByTestId('visit-undo-skip-e4-confirm').click();
+    await expect(page.getByTestId('visit-undo-skip-e4')).toHaveCount(0);
+    // Back where it left, offered the skip again; the board says Encontro 2, nothing dashed.
+    await expect(page.getByTestId('visit-skip-e4')).toContainText('Encontro 2');
+    await expect(page.getByTestId(`journey-next-${m.id}`)).toContainText('Encontro 2', { timeout: 15_000 });
+    await expect(page.getByTestId(`journey-dots-${m.id}`).locator('[data-skipped="yes"]')).toHaveCount(0);
+
+    const prof = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/profile`)).json();
+    expect(prof.profile.phase).toBe(2);
+    expect(prof.profile.sections.intervention_site.fields.site_worry.value, 'what they answered stays').toBe('alagamento');
+    expect(String(prof.profile.sections.intervention_type.fields._skip_undone_json?.value ?? '')).toContain('"to":2');
+
+    // Twice is refused: nothing to undo.
+    const again = await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4/undo`, { data: {} });
+    expect(again.status()).toBe(409);
+  });
+
   test('the route refuses an organisation already in Encontro 4', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
