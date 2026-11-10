@@ -295,7 +295,12 @@ function cluster(orgs: PortfolioOrg[], prefs: PortfolioPrefs): string[][] {
  * organisations that answer it are grouped among themselves first.
  */
 export function suggestGroups(orgs: PortfolioOrg[], prefs: PortfolioPrefs = DEFAULT_PREFS, lang: Lang = 'pt'): SuggestedGroup[] {
-  const sorted = [...orgs].sort((a, b) => a.memberId.localeCompare(b.memberId));
+  const all = [...orgs].sort((a, b) => a.memberId.localeCompare(b.memberId));
+  // ⚠️ A joint project is already a project — the organisations chose to work
+  // together and closed ONE proposal. It opens as its own column, never folded
+  // into a group with its neighbours (JVP, 10 Nov 2026). It can still be dragged.
+  const joint = all.filter(o => o.unit?.kind === 'joint');
+  const sorted = all.filter(o => o.unit?.kind !== 'joint');
   const parts = prefs.theme
     ? [sorted.filter(o => o.families.includes(prefs.theme!)), sorted.filter(o => !o.families.includes(prefs.theme!))]
     : [sorted];
@@ -320,8 +325,9 @@ export function suggestGroups(orgs: PortfolioOrg[], prefs: PortfolioPrefs = DEFA
       }
     }
   }
-  const byId = new Map(sorted.map(o => [o.memberId, o]));
-  return groups.map(ids => ({ memberIds: ids, reason: reasonFor(ids.map(i => byId.get(i)!), lang) }));
+  const byId = new Map(all.map(o => [o.memberId, o]));
+  return [...joint.map(o => [o.memberId]), ...groups]
+    .map(ids => ({ memberIds: ids, reason: reasonFor(ids.map(i => byId.get(i)!), lang) }));
 }
 
 /** Why these organisations sit together — what they actually share. */

@@ -50,6 +50,21 @@ test.describe('the pre-portfolio — suggestion and cards', () => {
     expect(theme.find(g => g.memberIds.includes('c'))!.memberIds.sort()).toEqual(['c', 'd']);
   });
 
+  test('a joint project opens as its own column — never folded into its neighbours, even by default', () => {
+    const joint = org('j', {
+      orgName: 'Ksa Rosa + COOP20', lat: -30.0205, lng: -51.2005,
+      unit: { kind: 'joint', projectId: 'p1', title: 'Corredor verde', memberIds: ['j', 'k'], orgNames: ['Ksa Rosa', 'COOP20'], points: [], background: [] },
+    });
+    for (const geoWeight of [0, 0.5, 1]) {
+      const g = suggestGroups([...ORGS, joint], { ...DEFAULT_PREFS, geoWeight });
+      const col = g.find(x => x.memberIds.includes('j'))!;
+      expect(col.memberIds, `geoWeight ${geoWeight}`).toEqual(['j']);
+      expect(col.reason).toBe('Projeto conjunto: Ksa Rosa + COOP20');
+      // The others still group collectively among themselves.
+      expect(g.filter(x => !x.memberIds.includes('j')).every(x => x.memberIds.length > 1)).toBe(true);
+    }
+  });
+
   test('deterministic, collective by default, with a reason per group', () => {
     const one = suggestGroups(ORGS, { ...DEFAULT_PREFS, geoWeight: 0 });
     const two = suggestGroups([...ORGS].reverse(), { ...DEFAULT_PREFS, geoWeight: 0 });
