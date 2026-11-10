@@ -1,3 +1,4 @@
+import { chatJoinSeparator } from '@shared/chat-join';
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Link } from 'wouter';
 import ReactMarkdown from 'react-markdown';
@@ -1429,7 +1430,7 @@ export default function CboProfilePage() {
             // at a sentence boundary (prev ends with . ! ? : ; and next starts
             // non-space), so two distinct sentences can't fuse ("profile:A few…")
             // while a sub-block token split (mid-word) is never separated.
-            const sep = /[.!?:;]$/.test(last.content) && !/^\s/.test(event.content) ? '\n\n' : '';
+            const sep = chatJoinSeparator(last.content, event.content);
             return [...prev.slice(0, -1), { ...last, content: last.content + sep + event.content }];
           }
           return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
