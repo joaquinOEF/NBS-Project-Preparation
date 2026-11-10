@@ -59,7 +59,9 @@ test.describe('Levar ao Encontro 4', () => {
     await page.getByTestId('visit-skip-e4-confirm').click();
     // Step 2: what is still missing, all optional — this org's coordination leaves it all to them.
     await expect(page.getByTestId('skip-e4-steps')).toHaveText('Passo 2 de 2');
-    await expect(page.getByTestId('e4-answers-optional')).toContainText('Tudo aqui é opcional');
+    await expect(page.getByTestId('e4-answers-optional')).toContainText('Tudo aqui é opcional, menos o lugar');
+    // The place is the one item that is not optional: it closes the proposta inicial.
+    await expect(page.getByTestId('e4a-item-place').getByTestId('e4a-place-required')).toHaveText('precisa para fechar');
     await page.getByTestId('e4-answers-leave').click();
     await expect(page.getByTestId('cbo-tab-documentos')).toHaveAttribute('data-state', 'active');
     await expect(page.getByTestId('visit-skip-e4')).toHaveCount(0);
@@ -254,8 +256,9 @@ test.describe('Levar ao Encontro 4 — the coordination answers some, the organi
     await page.getByTestId('visit-skip-e4-confirm').click();
     const form = page.getByTestId('e4-answers-skip');
     await expect(form).toBeVisible();
-    // Skipped from Encontro 2: everything is open, and each item says it is optional.
-    await expect(form.getByText('opcional', { exact: true })).toHaveCount(11);
+    // Skipped from Encontro 2: everything is open; each item says it is optional — except the place.
+    await expect(form.getByText('opcional', { exact: true })).toHaveCount(10);
+    await expect(form.getByText('precisa para fechar', { exact: true })).toHaveCount(1);
     await page.getByTestId('e4a-input-solution').selectOption('jardins-de-chuva');
     await page.getByTestId('e4a-input-size').fill('120');
     await page.getByTestId('e4a-map').click({ position: { x: 150, y: 90 } });

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import path from 'node:path';
 import * as turf from '@turf/turf';
+import { layerFor } from '../shared/city-layers';
 import { siteFacts, sitePoint, cityMapFor, resetSiteContext, warmSiteContext } from '../server/services/siteContext';
 import { searchCityDocs, cityPassageCount, tokens, resetCityDocs, warmCityDocs } from '../server/services/cityDocs';
 import { loadPlanCorpus, parseCsv } from '../server/services/planCorpus';
@@ -231,4 +232,11 @@ test.describe('the board groups by the city\'s water geography', () => {
     const g = siteGroupsFor({ site_lat: String(lat), site_lng: String(lng) });
     expect(g.polder).toBe(f.properties.nome);
   });
+});
+
+test('a pontos-de-alagamento line is the address, never the layer\'s attribute dump', () => {
+  const l = layerFor('PontosdeAlagamento.geojson');
+  expect(l?.describe).toBeTruthy();
+  const line = l!.describe!({ popupinfo: 'Rua Ernesto Alves esquina Rua Voluntários da Pátria<br><br>descrição:             <br>   Rua Ernesto Alves esquina Rua Voluntários da Pátria    <br>       <br>   FID   5    <br>   ITEM   6    <br>   ENDERECO   Rua Ernesto Alves' } as any);
+  expect(line).toBe('Ponto de alagamento registrado: Rua Ernesto Alves esquina Rua Voluntários da Pátria.');
 });
