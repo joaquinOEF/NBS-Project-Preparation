@@ -159,6 +159,21 @@ test.describe('Levar ao Encontro 4', () => {
     expect(again.status()).toBe(409);
   });
 
+  test("⚠️ the REAL Ksa Rosa shape: first-era chosen_solutions closes Encontro 3, never 'pulado' (prod batch, 10 Nov 2026)", async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 8);
+    const cohort = (await api.createCohort(`Era1 ${tag}`)).cohort;
+    await api.createCoordinator({ email: `era1-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3] })).member;
+    await api.seedState(m.cboStateId, { phase: 3, language: 'pt', sections: [
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+      { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'captacao-agua-da-chuva, compostagem, cozinha-comunitaria-biodigestor, aquecedor-solar' },
+    ] });
+    const res = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4`, { data: {} })).json();
+    expect(res).toMatchObject({ ok: true, phase: 4, closedE3: true, skipped: { e3: false } });
+  });
+
   test('the route refuses an organisation already in Encontro 4', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
