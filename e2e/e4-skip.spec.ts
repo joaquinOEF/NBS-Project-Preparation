@@ -174,7 +174,28 @@ test.describe('Levar ao Encontro 4', () => {
       { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'captacao-agua-da-chuva, compostagem, cozinha-comunitaria-biodigestor, aquecedor-solar' },
     ] });
     const res = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4`, { data: {} })).json();
-    expect(res).toMatchObject({ ok: true, phase: 4, closedE3: true, skipped: { e3: false } });
+    // Tested in Encontro 3 = went through Encontro 2: neither is "pulado".
+    expect(res).toMatchObject({ ok: true, phase: 4, closedE3: true, skipped: { e2: false, e3: false } });
+    // The way back returns to Encontro 3 (E2 was never skipped), and the move again stays clean.
+    const back = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4/undo`, { data: {} })).json();
+    expect(back).toMatchObject({ ok: true, phase: 3 });
+    const again = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4`, { data: {} })).json();
+    expect(again).toMatchObject({ ok: true, phase: 4, skipped: { e2: false, e3: false } });
+  });
+
+  test("⚠️ the REAL Ksa Rosa after an undo: back at phase 2, her first-era tests still close Encontro 3 (prod, 10 Nov 2026 evening)", async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 8);
+    const cohort = (await api.createCohort(`Era1b ${tag}`)).cohort;
+    await api.createCoordinator({ email: `era1b-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true, unlockedPhases: [1, 2, 3] })).member;
+    await api.seedState(m.cboStateId, { phase: 2, language: 'pt', sections: [
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+      { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'captacao-agua-da-chuva, compostagem, cozinha-comunitaria-biodigestor, aquecedor-solar' },
+    ] });
+    const res = await (await page.request.post(`/api/cohort/${cohort.coordinatorSlug}/member/${m.id}/skip-to-e4`, { data: {} })).json();
+    expect(res).toMatchObject({ ok: true, phase: 4, closedE3: true, skipped: { e2: false, e3: false } });
   });
 
   test('the route refuses an organisation already in Encontro 4', async ({ page }) => {

@@ -2834,7 +2834,6 @@ export function registerCohortRoutes(app: Express): void {
     if (from >= 4) { res.status(409).json({ error: 'already in Encontro 4', phase: from }); return; }
     if (from < 1) { res.status(409).json({ error: 'Encontro 1 not started' }); return; }
 
-    const skipped2 = !encontroClosed(state, 2);
     // ⚠️ Tested in Encontro 3 is Encontro 3 DONE in substance (Ksa Rosa: the
     // model ran the close itself, so the marker is missing) — closed as it
     // stands, exactly as Encontro 4's own "Fechar o Encontro 3 e seguir" does,
@@ -2844,8 +2843,13 @@ export function registerCohortRoutes(app: Express): void {
     // Ksa Rosa's tests are first-era `chosen_solutions`, and the batch move of
     // 10 Nov 2026 recorded its Encontro 3 as "pulado" although it tested four.
     const recorded = (k: string) => String(typeFields[k]?.value ?? '').trim();
-    const firstEra = (state.phase ?? 0) >= 3 && !parseTests(recorded('solution_tests_json')).length && !!(recorded('chosen_solutions') || recorded('solution_types'));
+    // ⚠️ No phase gate: both fields are written only by Encontro 3, and an undo
+    // ("Fazer os encontros completos") may have set the phase back to 2 — the
+    // real Ksa Rosa, re-moved on 10 Nov, lost her tests to `phase >= 3`.
+    const firstEra = !parseTests(recorded('solution_tests_json')).length && !!(recorded('chosen_solutions') || recorded('solution_types'));
     const testedInE3 = parseTests(String(typeFields.solution_tests_json?.value ?? '')).some(t => !!t.reaction) || firstEra;
+    // Tested in Encontro 3 = went through Encontro 2, whatever markers that era left.
+    const skipped2 = !encontroClosed(state, 2) && !testedInE3;
     const closeE3 = !encontroClosed(state, 3) && testedInE3;
     const skipped3 = !encontroClosed(state, 3) && !testedInE3;
     const by = String(req.body?.by ?? '').trim().slice(0, 80);
