@@ -2786,7 +2786,12 @@ export function registerCohortRoutes(app: Express): void {
     // stands, exactly as Encontro 4's own "Fechar o Encontro 3 e seguir" does,
     // never recorded as skipped.
     const typeFields = ((state.sections as any)?.intervention_type?.fields ?? {}) as Record<string, { value?: unknown }>;
-    const testedInE3 = parseTests(String(typeFields.solution_tests_json?.value ?? '')).some(t => !!t.reaction);
+    // Every era of record, as the board reads it (w3SignalFrom, #624): the real
+    // Ksa Rosa's tests are first-era `chosen_solutions`, and the batch move of
+    // 10 Nov 2026 recorded its Encontro 3 as "pulado" although it tested four.
+    const recorded = (k: string) => String(typeFields[k]?.value ?? '').trim();
+    const firstEra = (state.phase ?? 0) >= 3 && !parseTests(recorded('solution_tests_json')).length && !!(recorded('chosen_solutions') || recorded('solution_types'));
+    const testedInE3 = parseTests(String(typeFields.solution_tests_json?.value ?? '')).some(t => !!t.reaction) || firstEra;
     const closeE3 = !encontroClosed(state, 3) && testedInE3;
     const skipped3 = !encontroClosed(state, 3) && !testedInE3;
     const by = String(req.body?.by ?? '').trim().slice(0, 80);
