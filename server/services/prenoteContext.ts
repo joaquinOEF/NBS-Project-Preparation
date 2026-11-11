@@ -19,6 +19,11 @@ import { authorConceptNote } from './conceptNoteAuthor';
 import { cityMapFor } from './siteContext';
 import { censusForSite } from './censusContext';
 import { healSite } from './siteHealing';
+import { isFakeModelEnabled } from './fakeCboModel';
+import { getSolution } from '@shared/nbs-catalog';
+
+/** Test seam — see `authorPrenote`. Keyed by record, so parallel specs never share one. */
+export const PRENOTE_AUTHOR_FAKES = new Map<string, string>();
 
 export const PRENOTE_AUTHOR_MODEL = process.env.PRENOTE_AUTHOR_MODEL || 'claude-opus-5-5';
 
@@ -55,9 +60,17 @@ export async function prenoteInputFor(
  * over the ONE solution of the pre-note, on the strongest model. Returns the
  * authored paragraphs to store as `_prenote_authored_json`, or null.
  */
-export async function authorPrenote(input: PrenoteInput, lang: 'pt' | 'en'): Promise<{ stored: string; accepted: number; rejected: number } | null> {
+export async function authorPrenote(input: PrenoteInput, lang: 'pt' | 'en', cboStateId?: string): Promise<{ stored: string; accepted: number; rejected: number } | null> {
   const sol = prenoteSolution(input);
   if (!sol) return null;
+  // ⚠️ Test seam (CBO_FAKE_MODEL only): a stored summary the spec set for this
+  // record, "{solution}" filled with the solution being written about — so a
+  // spec can watch a re-author land without a model (e2e/e4-prenote.spec.ts).
+  const fake = cboStateId && isFakeModelEnabled() ? PRENOTE_AUTHOR_FAKES.get(cboStateId) : undefined;
+  if (fake != null) {
+    const name = getSolution(sol.id)?.[lang].label ?? sol.id;
+    return { stored: fake.split('{solution}').join(name), accepted: 1, rejected: 0 };
+  }
   const note = buildConceptNote(conceptInputFor(input, sol), lang);
   const out = await authorConceptNote(note, lang, PRENOTE_AUTHOR_MODEL);
   // The reason, said — "nada escrito" alone hid a reply cut off at its token cap.

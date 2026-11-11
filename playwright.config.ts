@@ -122,6 +122,9 @@ export default defineConfig({
           // every other spec's timeout budget.
           CBO_TURN_QUEUE_WAIT_MS: '3000',
           CBO_FAKE_MODEL: '1',
+          // A closed proposal's summary is written again 30 s after its answers
+          // change (cboAgent.ts schedulePrenoteRefresh); the spec watches it land.
+          PRENOTE_REFRESH_DEBOUNCE_MS: '1500',
           CBO_FAKE_GEOCODE: '1',
           // The data term gate (shared/data-term.ts) would stop every spec that
           // opens the org page; e2e/data-term.spec.ts re-enables it per member.

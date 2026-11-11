@@ -160,6 +160,17 @@ export interface Prenote {
    * note's authoring pass, same guards) — empty until it has run.
    */
   summary: string[];
+  /**
+   * When the summary on the page was written (ISO) — null when none shows,
+   * or when it was written before the time was recorded.
+   */
+  summaryAt?: string | null;
+  /**
+   * A summary is stored but was written from other answers (another solution,
+   * size, place…): it is not shown, and the computed page stands until it is
+   * written again (`prenoteSummaryKey`).
+   */
+  summaryStale?: boolean;
   /** One of their photographs, captioned, when there is one. */
   photo: { src: string; caption: string } | null;
   /**
@@ -619,6 +630,8 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
     orgName, place, sections, budget, total, indicators, gaps, byCoordination: coord, review, status,
     indicatorsReviewed: !!INDICATOR_MENU_REVIEW,
     summary: extra.summary,
+    summaryAt: extra.summary.length && has(type._prenote_authored_at) ? type._prenote_authored_at! : null,
+    summaryStale: extra.summaryStale,
     photo: input.photos?.[0] ?? null,
   };
 }
@@ -650,10 +663,9 @@ export function conceptInputFor(input: PrenoteInput, sol: NonNullable<Prenote['s
 function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solution']>, lang: Lang) {
   const pt = lang === 'pt';
   const ci = conceptInputFor(input, sol);
-  // A summary written about another place is not this page's (shared/site-of-record.ts).
-  const writtenFor = input.type._prenote_authored_place;
-  const current = writtenFor != null ? placeKey(input.site) : '';
-  const stored = writtenFor != null && writtenFor !== current ? undefined : input.type._prenote_authored_json;
+  // A summary written from other answers is not this page's (prenoteSummaryFresh).
+  const fresh = prenoteSummaryFresh(input);
+  const stored = fresh === true ? input.type._prenote_authored_json : undefined;
   const note = applyStoredAuthoring(buildConceptNote(ci, lang), stored, lang).note;
   const facts = conceptNoteFacts(ci, lang);
   const sec = (id: ConceptSectionId): Paragraph[] => note.sections.find(x => x.id === id)?.paragraphs ?? [];
@@ -696,8 +708,70 @@ function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solutio
     parceiros: [...partnersFromRecord, ...sec('exige').filter(p => fromRecord(p) || /visita|visit|coordena/i.test(p.sources.join(' '))).filter(notOwn).map(line)],
     pendencias: sec('pendencias').filter(p => !/pr[óo]ximos passos|next steps/i.test(p.text)).map(line),
     summary: sec('resumo').filter(p => p.authored).map(p => p.text),
+    summaryStale: fresh === false,
     contribution: facts.contribution,
   };
+}
+
+// ── The written summary, and what it was written from ───────────────────────
+// The summary is authored once, when Encontro 4 closes. It was keyed to the
+// place only, so Misturaí's proposal kept saying "…propõe implantar um parque
+// ou floresta urbana…" after the solution changed (prod, 11 Nov 2026). It is
+// now keyed to everything its text depends on; a summary written from other
+// answers is not shown — the computed page is — until it is written again.
+
+/** The answers the summary is written from, as one string. */
+export function prenoteSummaryBasis(input: PrenoteInput): string {
+  const t = input.type, s = input.site, o = input.ops ?? {};
+  const sol = prenoteSolution(input);
+  return [
+    placeKey(s), sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''),
+    s.site_worry, s.beneficiaries_note, t._e4_changes, t.construction_model, o.who_maintains, t.e4_contribution, t.e4_partners,
+  ].map(v => (v ?? '').trim()).join('¦');
+}
+
+/** A short key of `prenoteSummaryBasis` — stored as `_prenote_authored_key` with the summary. */
+export function prenoteSummaryKey(input: PrenoteInput): string {
+  // FNV-1a, 32-bit, twice (forward and reversed) — no crypto in the shared bundle.
+  const fnv = (str: string) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(36);
+  };
+  const basis = prenoteSummaryBasis(input);
+  return `v1:${fnv(basis)}${fnv(Array.from(basis).reverse().join(''))}`;
+}
+
+const STOP = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'com', 'and', 'of', 'the']);
+const stems = (label: string) => normText(label).split(' ').filter(w => w.length >= 4 && !STOP.has(w)).map(w => w.slice(0, 5));
+
+/**
+ * Whether the stored summary may show: true (written from these answers),
+ * false (written from others — hidden), null (nothing stored).
+ *
+ * A summary stored before the key existed carries only the place it was
+ * written about (`_prenote_authored_place`), or nothing. It is kept while
+ * that place still holds AND its text still names the current solution —
+ * it did not record the solution it was written for, and the name in its
+ * own words is the one trace of it — so existing proposals do not all go
+ * stale at once, but Misturaí's does.
+ */
+export function prenoteSummaryFresh(input: PrenoteInput): boolean | null {
+  const t = input.type;
+  if (!has(t._prenote_authored_json)) return null;
+  if (has(t._prenote_authored_key)) return t._prenote_authored_key === prenoteSummaryKey(input);
+  if (t._prenote_authored_place != null && t._prenote_authored_place !== placeKey(input.site)) return false;
+  const sol = prenoteSolution(input);
+  if (!sol) return false;
+  const s = getSolution(sol.id);
+  if (!s) return true;
+  let raw = '';
+  try { raw = (JSON.parse(t._prenote_authored_json!) as any[]).flatMap(x => (x?.paragraphs ?? []).map((p: any) => String(p?.text ?? ''))).join(' '); } catch { raw = ''; }
+  // normText caps at 160 characters; the whole summary is read here.
+  const text = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ');
+  // Every word of the solution's name, in Portuguese or in English.
+  const names = (label: string) => { const st = stems(label); return st.length > 0 && st.every(x => text.includes(x)); };
+  return names(s.pt.label) || names(s.en.label);
 }
 
 /** The basis an edit to `section` is pinned to — the route stores it with the text. */
