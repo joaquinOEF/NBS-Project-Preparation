@@ -57,6 +57,52 @@ async function step(request: APIRequestContext, cboId: string, message: string, 
 }
 
 test.describe('Encontro 4 — the pre-note, walked', () => {
+  test('⚠️ Misturaí\'s shape: nothing tested, the visit says captação, the note says horta — horta is offered, "É essa mesmo" is the visit\'s, and "Ver todas" reaches every solution', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const seed = async () => {
+      const { cboId } = await api.newSession();
+      await api.seedState(cboId, { phase: 4, language: 'pt', sections: [
+        ...BASE_FIELDS.filter(f => !['solution_tests_json', 'chosen_solutions'].includes(f.field)), ...PLACE,
+        { sectionId: 'intervention_site', field: 'site_worry', value: 'heat,inundation' },
+        { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+        { sectionId: 'intervention_type', field: '_visit_json', value: JSON.stringify({ solutionId: 'captacao-agua-da-chuva', recordedAt: 'x', date: '2026-10-01' }) },
+        { sectionId: 'intervention_type', field: 'technical_note', value: 'Organização tem:\nHorta na praça e na Casa D\n\nOrganização quer ter:\nHorta - Gerar mudas para distribuição\nCaptação de água da chuva\nPlantio de árvores na beira do Arroio' },
+      ] });
+      return cboId;
+    };
+    const r = page.request;
+    // 1 · horta is offered, said as theirs
+    let id = await seed();
+    let s = await step(r, id, 'Vamos começar o Encontro 4.', 'text');
+    expect(s.ask.question).toBe('Depois da visita técnica, a indicação foi: **Captação de água da chuva · visita em 01/10/2026**. Qual vira a proposta inicial?');
+    expect(s.labels[0]).toBe('Captação de água da chuva');
+    expect(s.labels).toContain('Hortas urbanas');
+    const horta = s.ask.options.find((o: any) => o.label === 'Hortas urbanas');
+    expect(horta?.description).toBe('Vocês já falaram dela');
+    s = await step(r, id, 'Hortas urbanas');
+    let sol = JSON.parse((await stateOf(r, id)).sections.intervention_type.fields._e4_solution_json.value);
+    expect(sol).toMatchObject({ solutionId: 'hortas-urbanas', source: 'organizacao' });
+    // 2 · "È essa mesmo", typed, is the visit's — not "não achei no catálogo"
+    id = await seed();
+    await step(r, id, 'Vamos começar o Encontro 4.', 'text');
+    s = await step(r, id, 'È essa mesmo', 'text');
+    expect(s.events.some(e => e.type === 'chat' && /Não achei essa no catálogo/.test(e.content ?? ''))).toBe(false);
+    sol = JSON.parse((await stateOf(r, id)).sections.intervention_type.fields._e4_solution_json.value);
+    expect(sol).toMatchObject({ solutionId: 'captacao-agua-da-chuva', source: 'visita' });
+    // 3 · "Ver todas" → a group → any solution
+    id = await seed();
+    await step(r, id, 'Vamos começar o Encontro 4.', 'text');
+    s = await step(r, id, 'Ver todas as soluções');
+    expect(s.ask.question).toBe('De qual grupo?');
+    s = await step(r, id, s.labels[0]);
+    expect(s.ask.question).toMatch(/^Qual, de /);
+    const pick = s.labels[1];
+    s = await step(r, id, pick);
+    sol = JSON.parse((await stateOf(r, id)).sections.intervention_type.fields._e4_solution_json.value);
+    expect(sol.solutionId).toBeTruthy();
+  });
+
   test('a visit that indicated several: "Qual delas vira a proposta inicial?", and the one picked is the visit\'s', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -68,8 +114,11 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     ] });
     const r = page.request;
     let s = await step(r, cboId, 'Vamos começar o Encontro 4.', 'text');
-    expect(s.ask.question).toBe('Depois da visita técnica, foram indicadas: **Jardins de chuva**, **Biovaletas**. Qual delas vira a proposta inicial?');
-    expect(s.labels).toEqual(['Jardins de chuva', 'Biovaletas', 'Queremos outra']);
+    // ONE question (11 Nov 2026): the visit's, then what they tested, then "Ver todas".
+    expect(s.ask.question).toBe('Depois da visita técnica, a indicação foi: **Jardins de chuva · 140 m²**, e também **Biovaletas**. No Encontro 3 vocês testaram **Corredores verdes**. Qual vira a proposta inicial?');
+    expect(s.labels.slice(0, 3)).toEqual(['Jardins de chuva', 'Biovaletas', 'Corredores verdes']);
+    expect(s.labels[s.labels.length - 1]).toBe('Ver todas as soluções');
+    expect(s.labels, 'what they turned down is not offered back').not.toContain('Pavimentos permeáveis');
     s = await step(r, cboId, 'Biovaletas');
     const sol = JSON.parse((await stateOf(r, cboId)).sections.intervention_type.fields._e4_solution_json.value);
     expect(sol).toMatchObject({ solutionId: 'biovaletas', source: 'visita' });
@@ -176,8 +225,9 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     s = await step(r, cboId, 'Fechar o Encontro 3 e seguir');
     // No visit recorded: they pick, and the choice is marked as theirs.
     expect(s.ask.question).toBe('Qual solução vira a proposta inicial?');
-    expect(s.labels).toEqual(['Teto verde', 'Outra solução']);
-    s = await step(r, cboId, 'Outra solução');
+    expect(s.labels[0]).toBe('Teto verde');
+    expect(s.labels[s.labels.length - 1]).toBe('Ver todas as soluções');
+    // A name typed at the question is an answer.
     s = await step(r, cboId, 'jardins de chuva', 'text');
     let st = await stateOf(r, cboId);
     expect(parseE4Solution(st.sections.intervention_type.fields._e4_solution_json.value)).toMatchObject({ solutionId: 'jardins-de-chuva', source: 'organizacao' });
@@ -284,8 +334,8 @@ test.describe('Encontro 4 — on the organisation\'s phone', () => {
     await expect(door).toBeVisible({ timeout: 30_000 });
     await door.click();
     const opt = (label: string) => page.locator('[data-testid^="cbo-option-"]').filter({ hasText: label }).first();
-    await expect(opt('É essa ✓')).toBeVisible({ timeout: 30_000 });
-    await opt('É essa ✓').click();
+    await expect(opt('Jardins de chuva')).toBeVisible({ timeout: 30_000 });
+    await opt('Jardins de chuva').click();
     await expect(page.getByText(/Continua esse tamanho/)).toBeVisible({ timeout: 30_000 });
     await opt('Isso ✓').click();
     await expect(page.getByText(/continua sendo/)).toBeVisible({ timeout: 30_000 });
