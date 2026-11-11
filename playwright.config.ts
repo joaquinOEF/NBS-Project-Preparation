@@ -20,7 +20,11 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   // HTML report (open with `npm run test:e2e:report`) + concise console list.
   reporter: [['html', { open: 'never' }], ['list']],
-  timeout: 30_000,
+  // 60 s, not 30: every chip click now waits for the chip guard to arm (up to
+  // ~1 s after the previous answer — client/src/core/lib/chip-tap-guard.ts),
+  // which put the chip-heavy E2 specs at 20–25 s alone and over 30 s in a
+  // parallel run.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL,
@@ -75,6 +79,7 @@ export default defineConfig({
         // regressions for bugs that reached the field
         /cougar-e2-bairro-selectable/,      // clicks swallowed by pointer drift
         /cougar-chip-opens-file-picker/,    // chip that needed a file didn't open it
+        /cbo-chip-tap-guard/,               // new chips under the finger took the tap meant for the last ones
         /cougar-workshop-open-atomic/,      // opening a workshop was two writes
         /cougar-cohort-selection-persist/,  // reload dropped the chosen cohort
         /cougar-e2-site-card-clarity/,      // the card asked two questions at once

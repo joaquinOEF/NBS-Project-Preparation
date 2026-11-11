@@ -90,6 +90,7 @@ import { CboPrenoteCard } from '@/core/components/cbo/CboPrenoteCard';
 import { CboProjectNote } from '@/core/components/cbo/CboProjectNote';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
+import { chipArmDelay } from '@/core/lib/chip-tap-guard';
 
 const MapMicroapp = lazy(() => import('@/core/components/maps/MapMicroapp'));
 const InterventionSelector = lazy(() => import('@/core/components/maps/InterventionSelector'));
@@ -538,6 +539,25 @@ export default function CboProfilePage() {
   const handleSelectRef = useRef<(label: string) => void>(() => {});
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
+
+  // ⚠️ A NEW QUESTION'S CHIPS DO NOT TAKE THE TAP MEANT FOR THE LAST ONE —
+  // client/src/core/lib/chip-tap-guard.ts (Conceito Arte, 11 Nov 2026: ~40
+  // answers 0.2–1 s apart, all at the same position). `armedQuestionKey` is the
+  // question whose chips accept input; derived per render, so a question that
+  // replaces another inside one render (a batch's next question) is never shown
+  // armed for a frame. Taps and keyboard only — typed and spoken answers are
+  // deliberate and go straight through handleSelectOption.
+  const questionKey = currentQuestion ? `${currentQuestion.id}#${currentQuestionIdx}` : '';
+  const [armedQuestionKey, setArmedQuestionKey] = useState('');
+  const chipsArmed = !!questionKey && armedQuestionKey === questionKey;
+  const chipsArmedRef = useRef(false);
+  chipsArmedRef.current = chipsArmed;
+  const lastAnswerAtRef = useRef(0);
+  useEffect(() => {
+    if (!questionKey) return;
+    const timer = setTimeout(() => setArmedQuestionKey(questionKey), chipArmDelay(Date.now(), Date.now(), lastAnswerAtRef.current));
+    return () => clearTimeout(timer);
+  }, [questionKey]);
 
   // Restore a pending prompt from the transcript (PERSIST-PROMPTS). The server
   // persists every user-prompting tool as a `composer` message; if the LAST
@@ -1355,6 +1375,15 @@ export default function CboProfilePage() {
     function handleKeyDown(e: KeyboardEvent) {
       const opts = currentQuestion!.options;
       const isInInput = document.activeElement === inputRef.current;
+      // The chip guard holds the keyboard too: Enter and a letter answer (or
+      // toggle) exactly like a tap. Swallowed, not queued — a key held through
+      // a question change is the keyboard twin of the finger left on B.
+      const isChipKey = !isInInput && !e.ctrlKey && !e.metaKey && !e.altKey
+        && (e.key === 'Enter' || (e.key.length === 1 && /[a-z]/i.test(e.key)));
+      if (isChipKey && !chipsArmedRef.current) {
+        const idx = e.key.length === 1 ? e.key.toUpperCase().charCodeAt(0) - 65 : -1;
+        if (e.key === 'Enter' || (idx >= 0 && idx < opts.length)) { e.preventDefault(); return; }
+      }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { if (!isInInput) e.preventDefault(); return; }
       if (e.key === 'ArrowDown') {
         if (isInInput) return;
@@ -1857,6 +1886,7 @@ export default function CboProfilePage() {
     // React invokes updaters twice under StrictMode, so that was a latent
     // double-send — survived only because sendMessage's own guard swallowed the
     // second one, which is the very guard whose silence caused this bug.
+    lastAnswerAtRef.current = Date.now(); // the chip guard's "previous answer"
     const updated = { ...questionAnswers, [currentQuestionIdx]: label };
     if (Object.keys(updated).length === totalQuestions) {
       const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
@@ -2882,6 +2912,7 @@ export default function CboProfilePage() {
                   selectedIdx={selectedOptionIdx}
                   onSelect={handleSelectOption}
                   disabled={isStreaming}
+                  armed={chipsArmed}
                   answeredValue={questionAnswers[currentQuestionIdx]}
                   questionNumber={totalQuestions > 1 ? currentQuestionIdx + 1 : undefined}
                   multiSelected={multiSelectedOptions}
@@ -3754,6 +3785,7 @@ function CboQuestionCard({
   selectedIdx,
   onSelect,
   disabled,
+  armed = true,
   answeredValue,
   questionNumber,
   multiSelected,
@@ -3768,6 +3800,12 @@ function CboQuestionCard({
   selectedIdx: number;
   onSelect: (label: string) => void;
   disabled: boolean;
+  /**
+   * False while the chip guard holds (client/src/core/lib/chip-tap-guard.ts):
+   * the options are rendered `disabled` — a tap does nothing, and Playwright's
+   * auto-wait waits for them — rather than clickable-and-ignored.
+   */
+  armed?: boolean;
   answeredValue?: string;
   questionNumber?: number;
   multiSelected?: Set<string>;
@@ -3800,8 +3838,11 @@ function CboQuestionCard({
     (answeredValue ?? '').split(',').map(s => s.trim()).filter(Boolean)
   );
 
+  // Live options are inert until the guard arms them; transcript ones always.
+  const inert = !!readOnly || !armed;
+
   const handleClick = (label: string, action?: string, uploadPurpose?: string) => {
-    if (disabled || readOnly) return;
+    if (disabled || readOnly || !armed) return;
     if (isMulti && onMultiToggle) {
       onMultiToggle(label);
     } else {
@@ -3821,7 +3862,7 @@ function CboQuestionCard({
 
   /** Reaches the composer instead of answering. */
   const compose = (mode: 'write' | 'record', seed?: string) => {
-    if (disabled || readOnly) return;
+    if (disabled || readOnly || !armed) return;
     onComposeAction?.(mode, seed);
   };
 
@@ -3857,8 +3898,8 @@ function CboQuestionCard({
           if (opt.action === 'upload') {
             return (
               <button key={i} type="button"
-                onClick={() => { if (!disabled && !readOnly) onUploadAction?.(); }}
-                disabled={readOnly}
+                onClick={() => { if (!disabled && !readOnly && armed) onUploadAction?.(); }}
+                disabled={inert}
                 data-testid={readOnly ? `cbo-answered-option-${i}` : 'cbo-option-upload'}
                 data-option-label={opt.label}
                 className={`w-full text-left px-3 py-3 rounded-md border-2 border-dashed text-sm transition-all flex items-center gap-3 ${
@@ -3878,7 +3919,7 @@ function CboQuestionCard({
             return (
               <button key={i} type="button"
                 onClick={() => compose(opt.action, opt.seed)}
-                disabled={readOnly}
+                disabled={inert}
                 data-testid={readOnly ? `cbo-answered-option-${i}` : `cbo-option-${opt.action}`}
                 data-option-label={opt.label}
                 className={`w-full text-left px-3 py-3 rounded-md border text-sm transition-all flex items-center gap-3 ${
@@ -3901,7 +3942,7 @@ function CboQuestionCard({
           const isHighlighted = readOnly ? isPicked : isMulti ? isChecked : isFocused;
           return (
             <button key={i} onClick={() => handleClick(opt.label, opt.action, opt.uploadPurpose)}
-              disabled={readOnly}
+              disabled={inert}
               aria-current={isPicked || undefined}
               data-testid={readOnly ? `cbo-answered-option-${i}` : `cbo-option-${i}`}
               data-option-label={opt.label}
@@ -3924,7 +3965,7 @@ function CboQuestionCard({
         })}
       </div>
       {isMulti && multiSet.size > 0 && !answeredValue && !readOnly && (
-        <Button size="sm" onClick={onMultiConfirm} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
+        <Button size="sm" onClick={onMultiConfirm} disabled={disabled || !armed} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
           <Check className="w-3 h-3" /> {t('cbo.confirmSelected', { defaultValue: 'Confirm {{n}} selected', n: multiSet.size })}
         </Button>
       )}
