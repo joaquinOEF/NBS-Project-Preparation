@@ -288,12 +288,20 @@ test.describe('the written summary follows the answers', () => {
     expect(change({ ops: { who_maintains: 'voluntarios' } }).summary).toEqual([]);
     expect(change({ type: { e4_contribution: 'o terreno' } }).summary).toEqual([]);
     expect(change({ type: { e4_partners: 'a prefeitura' } }).summary).toEqual([]);
+    // Their own words for what should change (#646) — quoted by the summary.
+    expect(change({ type: { _e4_changes_words: 'Produzir os almoços que hoje recebemos prontos' } }).summary, 'their words changed').toEqual([]);
     expect(change({ site: { _site_lat: '-30.0222082', _site_lng: '-51.2112536' } }).summary, 'another place').toEqual([]);
     // What the summary is not written from leaves it standing.
     expect(change({ type: { _prenote_review_json: JSON.stringify({ status: 'revisada', at: 'x' }) } }).summary).toHaveLength(1);
     // Written again over the new answers: it shows again.
     const moved = { ...written, type: { ...written.type, _e4_solution_json: JSON.stringify({ solutionId: 'jardins-de-chuva', source: 'organizacao', areaM2: 300 }) } };
     expect(buildPrenote({ ...moved, type: { ...moved.type, _prenote_authored_key: prenoteSummaryKey(moved) } }).summary).toHaveLength(1);
+  });
+
+  test('a key stored before their words counted still matches a record without words (closed proposals are not all rewritten)', () => {
+    const base: PrenoteInput = { site: { bairro: 'Floresta' }, org: {}, type: { _e4_solution_json: JSON.stringify({ solutionId: 'jardins-de-chuva', source: 'organizacao', areaM2: 50 }) } } as any;
+    const withEmpty: PrenoteInput = { ...base, type: { ...base.type, _e4_changes_words: '' } } as any;
+    expect(prenoteSummaryKey(withEmpty)).toBe(prenoteSummaryKey(base));
   });
 
   test('a summary from before the key: kept while its place holds and it names the solution', () => {
