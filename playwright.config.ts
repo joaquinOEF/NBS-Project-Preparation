@@ -20,7 +20,11 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   // HTML report (open with `npm run test:e2e:report`) + concise console list.
   reporter: [['html', { open: 'never' }], ['list']],
-  timeout: 30_000,
+  // 60 s, not 30: every chip click now waits for the chip guard to arm (up to
+  // ~1 s after the previous answer — client/src/core/lib/chip-tap-guard.ts),
+  // which put the chip-heavy E2 specs at 20–25 s alone and over 30 s in a
+  // parallel run.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL,
