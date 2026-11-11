@@ -561,6 +561,16 @@ async function serveE4Inner(
           const m = nextPlace()!;
           writeType({ _e4_place_pending: 'yes', _e4_place_member: m.memberId });
           const g = guesses[m.memberId];
+          // Street only (no house number): the map opens on it — never "Isso" on a street.
+          if (g?.writes.intervention_site && g.confidence !== 'high') {
+            const where = g.pt.replace(/^o lugar: /, ''), whereEn = g.en.replace(/^the place: /, '');
+            ask(
+              `O lugar da **${m.orgName}** ainda não está marcado no mapa. Pelo endereço que ela deu, achamos a **${where}**, mas não o número. O mapa abre nessa rua: toquem na porta.`,
+              `**${m.orgName}**'s place is not marked on the map yet. From the address it gave we found **${whereEn}**, but not the number. The map opens on that street: tap the door.`,
+              [{ pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa nessa rua', dEn: 'Opens the map on that street' }],
+            );
+            return finish(detail);
+          }
           if (g?.writes.intervention_site) {
             const where = g.pt.replace(/^o lugar: /, ''), whereEn = g.en.replace(/^the place: /, '');
             ask(
@@ -585,13 +595,15 @@ async function serveE4Inner(
         writeType({ _e4_place_pending: 'yes' });
         const guess = placeGuess();
         if (guess) {
-          // A street with no house number on the map: close, not certain — so asked on its own.
+          // ⚠️ A street with no house number is NOT a place: the same address
+          // landed ~1.7 km apart depending on how it was typed, and Ksa Rosa's
+          // "Isso ✓" pinned the wrong stretch (11 Nov 2026). The map opens ON
+          // that street; they tap the door.
           ask(
-            `Pelo endereço que vocês deram, o lugar fica por aqui: **${guess.pt.replace(/^o lugar: /, '')}**. É aqui?`,
-            `From the address you gave, the place is around here: **${guess.en.replace(/^the place: /, '')}**. Is it here?`,
+            `Pelo endereço, achamos a **${guess.pt.replace(/^o lugar: /, '')}**, mas não o número. O mapa abre nessa rua: toquem na porta de vocês.`,
+            `From the address we found **${guess.en.replace(/^the place: /, '')}**, but not the number. The map opens on that street: tap your door.`,
             [
-              { pt: E4C.isso.pt, en: E4C.isso.en, dPt: 'Marca esse ponto', dEn: 'Marks this point' },
-              { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa pra ajustar', dEn: 'Opens the map to adjust' },
+              { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa nessa rua', dEn: 'Opens the map on that street' },
             ],
           );
           return finish(detail);
@@ -1264,15 +1276,17 @@ async function serveE4Inner(
   if (P && type('_e4_place_pending') === 'yes') {
     const m = P.members().find(x => x.memberId === type('_e4_place_member'));
     const g = m ? guesses[m.memberId] : undefined;
-    if (m && g?.writes.intervention_site && is(E4C.isso)) {
+    if (m && g?.writes.intervention_site && g.confidence === 'high' && is(E4C.isso)) {
       // ⚠️ Written to THAT member's record (J2): the joint proposal reads it from there.
       P.writeMemberSite(m.memberId, g.writes.intervention_site);
       writeType({ _e4_place_pending: '', _e4_place_member: '' });
       say(`Lugar da ${m.orgName} marcado ✓`, `${m.orgName}'s place marked ✓`);
       return serve('place-from-address');
     }
-    if (m && is(E4C.marcarAgora)) {
-      pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(m.bairro ? { focusZone: m.bairro.split(',')[0].trim() } : {}) } } as any);
+    if (m && (is(E4C.marcarAgora) || is(E4C.isso))) {
+      const w = g?.writes.intervention_site as Record<string, string> | undefined;
+      const fp = w?._site_lat ? { lat: Number(w._site_lat), lng: Number(w._site_lng), label: g!.pt.replace(/^o lugar: /, '') } : null;
+      pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(m.bairro ? { focusZone: m.bairro.split(',')[0].trim() } : {}), ...(fp ? { focusPoint: fp } : {}) } } as any);
       return finish('open-site-map');
     }
     // An old chip still on screen: read, and the place is asked again.
@@ -1283,14 +1297,17 @@ async function serveE4Inner(
   }
   if (!P && type('_e4_place_pending') === 'yes') {
     const guess = placeGuess();
-    if (guess && is(E4C.isso) && guess.writes.intervention_site) {
-      deps.writeFields(SITE, guess.writes.intervention_site);
-      writeType({ _e4_place_pending: '' });
-      say('Lugar marcado ✓', 'Place marked ✓');
-      return serve('place-from-address');
-    }
-    if (is(E4C.marcarAgora)) {
-      pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(site('bairro') ? { focusZone: site('bairro').split(',')[0].trim() } : {}) } } as any);
+    // The street the address found, as the map's starting point (never the site).
+    const streetPoint = (g: E4Suggestion | null | undefined) => {
+      const w = g?.writes.intervention_site as Record<string, string> | undefined;
+      const lat = Number(w?._site_lat), lng = Number(w?._site_lng);
+      return Number.isFinite(lat) && Number.isFinite(lng) && w?._site_lat ? { lat, lng, label: (g!.pt || '').replace(/^o lugar: /, '') } : null;
+    };
+    // An "Isso ✓" from the old question: the street is not the door — the map opens on it.
+    if (is(E4C.marcarAgora) || (guess && is(E4C.isso))) {
+      const fp = streetPoint(guess);
+      if (fp && is(E4C.isso)) say('Falta só a porta: o mapa abre nessa rua.', 'Just the door left: the map opens on that street.');
+      pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(site('bairro') ? { focusZone: site('bairro').split(',')[0].trim() } : {}), ...(fp ? { focusPoint: fp } : {}) } } as any);
       return finish('open-site-map');
     }
     // A question asked before the place became required may still carry the

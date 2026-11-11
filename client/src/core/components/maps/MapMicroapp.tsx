@@ -307,7 +307,8 @@ export default function MapMicroapp({
   // ("como você quer achar o lugar?") covers a map whose place is already known.
   const simpleSite = !!params.focusZone && isComposite && !footprintMode;
   const [simpleChoice, setSimpleChoice] = useState<'none' | 'search' | 'map'>(
-    'none'
+    // A street already found (focusPoint): straight to tapping the door.
+    params.focusPoint ? 'map' : 'none'
   );
   // Known places INSIDE the bairro (parks/schools/wetlands from the OSM
   // snapshots, clipped to the zone polygon) offered as one-tap picks in the
@@ -2041,6 +2042,32 @@ export default function MapMicroapp({
     return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [footprintMode, mapReady]);
+
+  // Encontro 4: the street was found, not the number — open ON it, at street
+  // level, with a reference pin; the tap that follows is the site. Staggered
+  // like the footprint view: the bairro fit can still land after the first
+  // setView while the panel opens. One-shot; the user may pan away after.
+  const focusPointRef = useRef(false);
+  useEffect(() => {
+    const fp = params.focusPoint;
+    if (!fp || focusPointRef.current || !mapReady || !mapRef.current) return;
+    if (!Number.isFinite(fp.lat) || !Number.isFinite(fp.lng)) return;
+    focusPointRef.current = true;
+    const map = mapRef.current;
+    let moved = false;
+    map.once('dragstart', () => { moved = true; });
+    const hold = () => {
+      if (moved || mapRef.current !== map) return;
+      try { map.invalidateSize(); map.setView([fp.lat, fp.lng], 17); } catch {}
+    };
+    hold();
+    const timers = [setTimeout(hold, 400), setTimeout(hold, 1100), setTimeout(hold, 1800)];
+    const ref = L.circleMarker([fp.lat, fp.lng], { radius: 6, color: '#ffffff', weight: 2, fillColor: '#f59e0b', fillOpacity: 1, interactive: false });
+    ref.addTo(map);
+    if (fp.label) ref.bindTooltip(fp.label, { permanent: true, direction: 'top', offset: [0, -6] });
+    return () => { timers.forEach(clearTimeout); try { ref.remove(); } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady]);
 
   // Simple site mode: "Marcar no mapa" arms point-dropping and KEEPS it armed
   // (the generic point handler disarms after each drop), so a second tap moves
