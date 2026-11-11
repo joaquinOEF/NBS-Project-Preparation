@@ -60,6 +60,33 @@ export function solutionsNamedIn(text: string | null | undefined): string[] {
 }
 
 /**
+ * Looser than `solutionsNamedIn`, for OFFERING, never for recording: the words
+ * a visit note or a profile uses for a solution ("Horta – gerar mudas",
+ * "composteira de maior capacidade", "biodigestor"). Misturaí's visit note said
+ * "Horta" and Encontro 4 never offered it (11 Nov 2026). Not used where a name
+ * becomes a test — a bare "horta" there would invent an Encontro 3 answer.
+ */
+const LOOSE: Array<[RegExp, string]> = [
+  [/\bhortas?\b/, 'hortas-urbanas'],
+  [/\bcomposteiras?\b|\bcompostagem\b/, 'compostagem'],
+  [/\bbiodigestor(es)?\b/, 'cozinha-comunitaria-biodigestor'],
+  [/\bcisternas?\b|\bcaptacao\b/, 'captacao-agua-da-chuva'],
+  [/\b(telhados?|tetos?) verdes?\b/, 'teto-verde'],
+  [/\bplantio de arvores\b|\barborizacao\b/, 'corredores-verdes'],
+  [/\bescolas? verdes?\b/, 'escola-verde'],
+];
+export function solutionsMentionedIn(text: string | null | undefined): string[] {
+  const t = ` ${norm(text ?? '')} `;
+  const out = [...solutionsNamedIn(text)];
+  const at = (id: string) => { const m = LOOSE.find(([, x]) => x === id); return m ? t.search(m[0]) : -1; };
+  for (const [re, id] of LOOSE) if (re.test(t) && !out.includes(id)) out.push(id);
+  return out.filter(id => NBS_SOLUTIONS.some(s => s.id === id)).sort((a, b) => {
+    const pa = t.indexOf(` ${norm(NBS_SOLUTIONS.find(s => s.id === a)!.pt.label)} `), pb = t.indexOf(` ${norm(NBS_SOLUTIONS.find(s => s.id === b)!.pt.label)} `);
+    return (pa >= 0 ? pa : at(a)) - (pb >= 0 ? pb : at(b));
+  });
+}
+
+/**
  * The tests a record carries, whatever era it is from. Older eras have no
  * reaction on record; they are read as the choice the organisation made then
  * ("faz-sentido"), exactly as `seedTestsFromChosen` already did for ids.

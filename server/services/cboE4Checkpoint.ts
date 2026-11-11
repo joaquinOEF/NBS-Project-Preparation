@@ -27,9 +27,9 @@ import { beneficiariesHint } from '@shared/census';
 import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
-import { getSolution, NBS_SOLUTIONS, orderSolutionsByMechanism, mechanismNote, type NbsSolution } from '@shared/nbs-catalog';
+import { getSolution, NBS_SOLUTIONS, NBS_FAMILIAS, orderSolutionsByMechanism, mechanismNote, type NbsSolution } from '@shared/nbs-catalog';
 import { testOf } from '@shared/w3-tests';
-import { testsOf, solutionsNamedIn } from '@shared/recorded-solutions';
+import { testsOf, solutionsNamedIn, solutionsMentionedIn } from '@shared/recorded-solutions';
 import { SOLUTION_COSTS, roundAreaM2 } from '@shared/w3-sizing';
 import { parseSpokenArea } from '@shared/w3-area-speech';
 import { WHO, type WhoId } from '@shared/w3-criteria';
@@ -112,6 +112,7 @@ export const E4C = {
   eEssa: { pt: 'É essa ✓', en: "That's the one ✓" },
   outra: { pt: 'Queremos outra', en: 'We want another' },
   outraSolucao: { pt: 'Outra solução', en: 'Another solution' },
+  verTodas: { pt: 'Ver todas as soluções', en: 'See all solutions' },
   isso: { pt: 'Isso ✓', en: 'Right ✓' },
   mudou: { pt: 'Mudou', en: 'It changed' },
   naoSeiTamanho: { pt: 'Não sei ainda', en: "Don't know yet" },
@@ -351,6 +352,70 @@ async function serveE4Inner(
 
   const showNote = () => pushEvent({ type: 'show_prenote', prenote: page() } as any);
 
+  /**
+   * ONE question for the solution (Vila Flores Rede, 11 Nov 2026): the visit's
+   * recommendation(s) first, then what they tested, then what their record
+   * names (the visit note, their notes), then — only to fill — the catalogue
+   * by their worry; and "Ver todas". Before: "É essa?" on the visit alone, and
+   * after "Queremos outra" four hazard picks that never included what they
+   * asked for (Misturaí wanted a horta; Ksa Rosa asked which ones she had tested).
+   */
+  const solutionCandidates = (): Array<{ id: string; why: 'visita' | 'testada' | 'gostou' | 'registro' | 'sugestao' }> => {
+    const out: Array<{ id: string; why: 'visita' | 'testada' | 'gostou' | 'registro' | 'sugestao' }> = [];
+    const add = (id: string, why: (typeof out)[number]['why']) => { if (getSolution(id) && !out.some(x => x.id === id)) out.push({ id, why }); };
+    const visit = parseVisit(type('_visit_json'));
+    if (visit && type('_e4_visit_declined') !== 'yes') for (const id of visitSolutionIds(visit)) add(id, 'visita');
+    for (const t of [...tests()].sort((a, b) => (a.reaction === 'faz-sentido' ? 0 : 1) - (b.reaction === 'faz-sentido' ? 0 : 1))) {
+      if (t.reaction !== 'nao-e-pra-gente') add(t.solutionId, t.reaction === 'faz-sentido' ? 'gostou' : 'testada');
+    }
+    for (const id of solutionsMentionedIn([type('technical_note'), type('project_notes')].join('\n'))) add(id, 'registro');
+    if (out.length < 4) {
+      const interest = site('nbs_interest').split(',').map(x => x.trim()).filter(Boolean);
+      const pool: NbsSolution[] = interest.length ? NBS_SOLUTIONS.filter(x => interest.includes(x.familiaId)) : NBS_SOLUTIONS;
+      const worries = site('site_worry').split(',').map(w => w.trim()).filter(Boolean);
+      for (const x of orderSolutionsByMechanism(pool.length ? pool : NBS_SOLUTIONS, worries)) { if (out.length >= 4) break; add(x.id, 'sugestao'); }
+    }
+    return out.slice(0, 7);
+  };
+  const askSolution = (detail: string): true => {
+    const cands = solutionCandidates();
+    const visitIds = cands.filter(c => c.why === 'visita').map(c => c.id);
+    const testedIds = tests().filter(t => getSolution(t.solutionId)).map(t => t.solutionId);
+    const names = (ids: string[]) => ids.map(id => `**${label(id)}**`).join(', ');
+    // The visit's main one with its size and date, as recorded; the others by name.
+    const visitNow = parseVisit(type('_visit_json'));
+    const visitLine = (lang: 'pt' | 'en') => {
+      if (!visitNow || !visitIds.length) return '';
+      const main = visitIds.includes(visitNow.solutionId) ? `**${visitSummary({ ...visitNow, also: undefined }, lang)}**` : '';
+      const rest = visitIds.filter(id => id !== visitNow.solutionId);
+      return [main, rest.length ? (lang === 'pt' ? `e também ${names(rest)}` : `and also ${names(rest)}`) : ''].filter(Boolean).join(lang === 'pt' ? ', ' : ', ');
+    };
+    const qPt = visitIds.length
+      ? `Depois da visita técnica, a indicação foi: ${visitLine('pt')}.${testedIds.some(id => !visitIds.includes(id)) ? ` No Encontro 3 vocês testaram ${names(testedIds.filter(id => !visitIds.includes(id)))}.` : ''} Qual vira a proposta inicial?`
+      : testedIds.length ? 'Qual solução vira a proposta inicial?' : 'No Encontro 3 nenhuma solução foi testada. Qual vira a proposta inicial?';
+    const qEn = visitIds.length
+      ? `After the technical visit, the recommendation was: ${visitLine('en')}.${testedIds.some(id => !visitIds.includes(id)) ? ` In Encontro 3 you tested ${names(testedIds.filter(id => !visitIds.includes(id)))}.` : ''} Which one becomes the initial proposal?`
+      : testedIds.length ? 'Which solution becomes the initial proposal?' : 'No solution was tested in Encontro 3. Which one becomes the initial proposal?';
+    const worries = site('site_worry').split(',').map(w => w.trim()).filter(Boolean);
+    const WHY: Record<string, [string, string]> = {
+      visita: ['Indicada na visita técnica', 'Recommended by the technical visit'],
+      gostou: ['Fez sentido no Encontro 3', 'Made sense in Encontro 3'],
+      testada: ['Testada no Encontro 3', 'Tested in Encontro 3'],
+      registro: ['Vocês já falaram dela', 'You have mentioned it'],
+      sugestao: ['', ''],
+    };
+    writeType({ _e4_solution_pending: 'pick' });
+    ask(qPt, qEn, [
+      ...cands.map(c => {
+        const why = c.why === 'sugestao' ? mechanismNote(c.id, worries, L) : null;
+        const [dPt, dEn] = c.why === 'sugestao' ? [why ?? '', why ?? ''] : WHY[c.why];
+        return { pt: label(c.id), en: label(c.id), ...(dPt ? { dPt, dEn } : {}) };
+      }),
+      { pt: E4C.verTodas.pt, en: E4C.verTodas.en, dPt: 'Todas as soluções, por grupo', dEn: 'Every solution, by group' },
+    ]);
+    return finish(detail);
+  };
+
   /** Serve the current step. Every branch ends on an ask_user. */
   const serve = (detail: string): true => {
     const s = step();
@@ -367,6 +432,13 @@ async function serveE4Inner(
         return finish(detail);
       }
       case 'solution': {
+        if (!P) {
+          say(
+            `Hoje a gente monta a **proposta inicial** de vocês: uma página com o problema, a solução, o que ela muda, como medir, quanto custa e com quem. Quase tudo já está no registro — eu só pergunto o que falta. Primeiro, a solução.`,
+            `Today we put together your **initial proposal**: one page with the problem, the solution, what it changes, how to measure it, what it costs and who with. Almost all of it is already on the record — I only ask what is missing. First, the solution.`,
+          );
+          return askSolution(detail);
+        }
         const visit = parseVisit(type('_visit_json'));
         if (visit && type('_e4_visit_declined') !== 'yes') {
           if (P) sayJointOpening();
@@ -904,9 +976,15 @@ async function serveE4Inner(
     // ⚠️ A name TYPED at "Qual vira a pré-nota?" is an answer too — not only
     // after "Outra solução". Before, it went to the model, which chose nothing,
     // and the question came back (simulated Conceito Arte, 47 turns, 17 Oct).
-    if (pendingSolution === 'other' || pendingSolution === 'pick') {
+    if ((pendingSolution === 'other' || pendingSolution === 'pick') && !is(E4C.verTodas) && !is(E4C.eEssa)) {
+      // "È essa mesmo" (Misturaí, 10 Nov 2026) — the visit's recommendation,
+      // not an unknown name ("Não achei essa no catálogo").
+      const visitNow = parseVisit(type('_visit_json'));
+      if (visitNow && /(^|\s)(e|é|è)\s+essa\b|\bessa mesmo\b|\ba da visita\b/i.test(raw)) return pickSolution(visitNow.solutionId, 'visita');
       const named = solutionsNamedIn(raw);
-      if (named.length === 1) return pickSolution(named[0], 'organizacao');
+      // A solution the visit indicated stays the visit's, tapped or typed.
+      const fromVisit = (id: string) => (visitNow && visitSolutionIds(visitNow).includes(id) ? 'visita' as const : 'organizacao' as const);
+      if (named.length === 1) return pickSolution(named[0], fromVisit(named[0]));
       if (named.length > 1) {
         // Several in one sentence ("jardins de chuva com biovaletas"): one
         // becomes the page, the rest stay in their words on the record.
@@ -918,7 +996,7 @@ async function serveE4Inner(
       const n = (s: string) => deps.normChip(s).replace(/[^a-z0-9à-ú ]/gi, '');
       const hit = NBS_SOLUTIONS.find(s => n(s.pt.label) === n(raw) || n(s.en.label) === n(raw))
         ?? NBS_SOLUTIONS.find(s => n(raw).length >= 4 && (n(s.pt.label).includes(n(raw)) || n(raw).includes(n(s.pt.label))));
-      if (hit) return pickSolution(hit.id, 'organizacao');
+      if (hit) return pickSolution(hit.id, fromVisit(hit.id));
       // Not a solution name: their words go on record for the coordination,
       // and the list comes back.
       writeType({ project_notes: [type('project_notes'), raw.slice(0, 300)].filter(Boolean).join('\n') });
@@ -1087,6 +1165,30 @@ async function serveE4Inner(
     if (is(E4C.outra)) {
       writeType({ _e4_visit_declined: 'yes', _e4_solution_pending: '' });
       return serve('visit-declined');
+    }
+  }
+  if (pendingSolution === 'pick' && !P) {
+    if (is(E4C.verTodas)) {
+      writeType({ _e4_solution_pending: 'familia' });
+      ask('De qual grupo?', 'Which group?', NBS_FAMILIAS.map(f => ({ pt: f.pt.label, en: f.en.label })));
+      return finish('solution-all');
+    }
+    const visit = parseVisit(type('_visit_json'));
+    const vids = visit ? visitSolutionIds(visit) : [];
+    // An "É essa ✓" from a question asked before (old sessions, a stale tab).
+    if (is(E4C.eEssa) && visit) return pickSolution(visit.solutionId, 'visita');
+    const chosen = NBS_SOLUTIONS.find(s => deps.normChip(label(s.id)) === msg);
+    if (chosen) return pickSolution(chosen.id, vids.includes(chosen.id) ? 'visita' : 'organizacao');
+  }
+  if (pendingSolution === 'familia') {
+    const fam = NBS_FAMILIAS.find(f => deps.normChip(isPt ? f.pt.label : f.en.label) === msg || deps.normChip(f.pt.label) === msg);
+    if (fam) {
+      writeType({ _e4_solution_pending: 'pick' });
+      ask(isPt ? `Qual, de ${fam.pt.label}?` : `Which one, from ${fam.en.label}?`, `Which one, from ${fam.en.label}?`, [
+        ...NBS_SOLUTIONS.filter(s => s.familiaId === fam.id).map(s => ({ pt: label(s.id), en: label(s.id) })),
+        { pt: E4C.verTodas.pt, en: E4C.verTodas.en, dPt: 'Outro grupo', dEn: 'Another group' },
+      ]);
+      return finish('solution-family');
     }
   }
   if (pendingSolution === 'pick') {
