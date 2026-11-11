@@ -78,6 +78,7 @@ export default defineConfig({
         /cougar-workshop-open-atomic/,      // opening a workshop was two writes
         /cougar-cohort-selection-persist/,  // reload dropped the chosen cohort
         /cougar-e2-site-card-clarity/,      // the card asked two questions at once
+        /cougar-e3-close-chip-first-era/,   // "Fechar o Encontro 3" re-opened the shelf on a closed first-era record
         // ranking guardrails (pure functions — milliseconds, real coverage)
         /cougar-e2-familia-ranking-context/,
         /cougar-e2-risk-summary/, /cougar-e2-one-encoding-per-step/,
