@@ -57,6 +57,7 @@ import { parseSpokenArea, SPOKEN_AREA_SOURCE } from '@shared/w3-area-speech';
 import { detailQuestionFor } from '@shared/w3-detail-questions';
 import { parseDig, pendingDig, type DigPairing } from '@shared/w3-dig';
 import { getSolution, SOLUTION_MECHANISMS } from '@shared/nbs-catalog';
+import { recordedSolutionIds, testsOf } from '@shared/recorded-solutions';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
 import { scoreW3Maturity } from '@shared/w3-maturity';
@@ -384,8 +385,13 @@ async function serveE3Inner(
    * bioswale beside its garden got a closing card showing only the garden,
    * which is precisely the case the four-state verdict exists to handle.
    */
-  const liveSolutions = () =>
-    read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
+  /** The type section as plain strings — what the every-era readers take. */
+  const typeRecord = (): Record<string, string> =>
+    Object.fromEntries(Object.entries(fieldsOf(TYPE)).map(([k, v]) => [k, String(v?.value ?? '')]));
+  // Every era of record (shared/recorded-solutions.ts): `chosen_solutions`
+  // first — derived from the reactions since the loop, so identical for every
+  // record the loop wrote — else the first era's NAMES in `solution_types`.
+  const liveSolutions = () => recordedSolutionIds(typeRecord());
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
   /** The dig, read live: the pass lands mid-session and the beat must see it. */
   const liveDig = () => parseDig(read(TYPE)('dig_json'));
@@ -418,9 +424,19 @@ async function serveE3Inner(
   const ensureTests = (): SolutionTest[] => {
     const have = liveTests();
     if (have.length) return have;
-    const seeded = seedTestsFromChosen(have, liveSolutions());
-    if (seeded.length) deps.writeFields(TYPE, { solution_tests_json: serializeTests(seeded) });
-    return seeded;
+    const chosenIds = read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
+    if (chosenIds.length) {
+      const seeded = seedTestsFromChosen(have, chosenIds);
+      if (seeded.length) deps.writeFields(TYPE, { solution_tests_json: serializeTests(seeded) });
+      return seeded;
+    }
+    // ⚠️ The FIRST era: names in `solution_types`, no ids, no tests (Conceito
+    // Arte, prod 11 Nov 2026). Read with the same reader E4 and the board use —
+    // reading only the two later eras sent her "Fechar o Encontro 3 ✓" to the
+    // test shelf. Read, not written: the board tells the eras apart by whether
+    // `solution_tests_json` exists (cohortRoutes `firstEra`), so a seed stored
+    // here would rewrite her history as tests she never took.
+    return testsOf(typeRecord());
   };
   /** The solution whose card is being built or reacted to right now. */
   const openTest = () => read(TYPE)('_test_open');
@@ -2782,6 +2798,11 @@ async function serveE3Inner(
     return await showComparison();
   }
   if (is(E3C.fecharE3)) {
+    // ⚠️ Closed stays closed. The chat model offers this chip on a record that
+    // is already closed (Conceito Arte, 11 Nov 2026); the tap re-renders the
+    // end — the same thing a return to a closed encontro does — and never
+    // re-opens the shelf or the closing box.
+    if (type('_e3_closed')) return ranTail() ? await closeE3() : closeAtComparison();
     if (!ensureTests().length) return await askSolution();
     return type('_closing_asked') === 'yes' || deps.quickTests ? closeAtComparison() : askClosing();
   }
