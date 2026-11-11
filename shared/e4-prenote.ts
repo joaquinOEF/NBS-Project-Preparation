@@ -727,6 +727,10 @@ export function prenoteSummaryBasis(input: PrenoteInput): string {
   return [
     placeKey(s), sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''),
     s.site_worry, s.beneficiaries_note, t._e4_changes, t.construction_model, o.who_maintains, t.e4_contribution, t.e4_partners,
+    // Their own words at "O que querem ver mudar" (#646) — the summary quotes
+    // them. Appended only when present, so a key stored before this line
+    // existed still matches and closed proposals are not all rewritten at once.
+    ...((t._e4_changes_words ?? '').trim() ? [t._e4_changes_words] : []),
   ].map(v => (v ?? '').trim()).join('¦');
 }
 
