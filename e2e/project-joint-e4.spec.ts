@@ -123,7 +123,7 @@ test.describe('projects — the joint proposal (Encontro 4 for a project)', () =
     expect(s.question).toMatch(/Mais ou menos de que tamanho/);
     s = await step(r, P, '40 por 3', 'text');
     // J2: the member without a pin, by name, from HER address.
-    expect(s.question).toMatch(new RegExp(`O lugar da \\*\\*${KSA}\\*\\* ainda não está marcado no mapa. Pelo endereço que ela deu, fica por aqui: \\*\\*Voluntários da Pátria 1039`));
+    expect(s.question).toMatch(new RegExp(`O lugar da \\*\\*${KSA}\\*\\* ainda não está marcado no mapa. Pelo endereço que ela deu, fica por aqui: \\*\\*Voluntários da Pátria,? 1039`)); // with or without the comma IBGE's CNEFE label carries (#648)
     // W2 (10 Nov): the place is required — for every member, no skip chip.
     expect(s.labels).toEqual(['Isso ✓', 'Marcar o lugar agora']);
     // An old "Seguir sem o lugar" still on screen is read, and the place asked again.
