@@ -225,6 +225,11 @@ export interface OpenMapParams {
   // bairro (satellite via allowDeferSite), other bairros hidden. If the name
   // doesn't match any zone, the map falls back to the normal zone step.
   focusZone?: string;
+  // Encontro 4 place step: an address found only to the STREET (no house
+  // number). The map opens at street level on this point, with a reference
+  // pin, already in "tap the door" mode — the point never becomes the site by
+  // itself (Ksa Rosa's pin landed ~1 km off, 11 Nov 2026).
+  focusPoint?: { lat: number; lng: number; label?: string };
   // E2 map step — a site candidate extracted from the org's uploaded docs, to
   // pre-place for the user to validate ("é aqui?") instead of picking blind.
   // Tiered: a precise place geocodes to a pin; a bairro-only hint pre-selects

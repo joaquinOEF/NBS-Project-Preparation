@@ -111,7 +111,7 @@ test.describe('Encontro 4, live', () => {
     expect((await fields(page.request, cboId, 'intervention_type')).e4_partners ?? '').toBe('');
   });
 
-  test('an address without a house number is a guess: asked on its own, "É aqui?"', async ({ page }) => {
+  test('an address without a house number is NOT a place: the map opens on that street to tap the door (11 Nov 2026)', async ({ page }) => {
     test.setTimeout(120_000);
     const cboId = await seeded(page, 'Rua das Flores, Restinga');
     await chat(page.request, cboId, 'Vamos começar o Encontro 4.', 'text');
@@ -119,9 +119,48 @@ test.describe('Encontro 4, live', () => {
     let s = await chat(page.request, cboId, 'Isso ✓');
     expect(s.q).not.toContain('o lugar:'); // not in the card
     if (/^Pelo que vocês já contaram/.test(s.q)) s = await chat(page.request, cboId, 'Está certo ✓');
-    expect(s.q).toMatch(/o lugar fica por aqui: .*É aqui\?/s);
-    s = await chat(page.request, cboId, 'Isso ✓');
-    expect((await fields(page.request, cboId, 'intervention_site'))._site_lat).toBeTruthy();
+    expect(s.q).toMatch(/achamos a .*mas não o número\. O mapa abre nessa rua/s);
+    // An old "Isso ✓" (a stale tab) does not pin the street: it opens the map ON it.
+    const ev = await page.request.post(`/api/cbo/${cboId}/chat`, { data: { message: 'Isso ✓', lang: 'pt', turnKind: 'chip' } });
+    const events = (await ev.text()).split('\n\n').filter(b => b.startsWith('data:')).map(b => { try { return JSON.parse(b.slice(5)); } catch { return null; } }).filter(Boolean);
+    const open = events.find((e: any) => e.type === 'open_map');
+    expect(open?.params?.focusPoint?.lat, 'the map opens on the street the address found').toBeTruthy();
+    expect((await fields(page.request, cboId, 'intervention_site'))._site_lat ?? '', 'the street is never the pin by itself').toBe('');
+    // The tap on the map is the place.
+    await chat(page.request, cboId, 'Map selection (1 site)\n- [custom] Porta at (-30.1501, -51.1302)', 'map');
+    expect((await fields(page.request, cboId, 'intervention_site'))._site_lat).toBe('-30.1501');
+  });
+
+  test('in the browser: "Marcar o lugar agora" opens the map ON the street the address found, labelled', async ({ page }) => {
+    test.setTimeout(150_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Rua ${tag}`)).cohort;
+    await api.createCoordinator({ email: `rua-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Coletivo Teste', neighborhood: 'Restinga', withSession: true, unlockedPhases: [1, 2, 3, 4] })).member;
+    await api.seedState(m.cboStateId, { phase: 4, language: 'pt', sections: [
+      { sectionId: 'org_profile', field: 'org_name', value: 'Coletivo Teste' },
+      { sectionId: 'intervention_site', field: 'bairro', value: 'Restinga' },
+      { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+      { sectionId: 'intervention_site', field: 'site_address', value: 'Rua das Flores, Restinga' },
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+      { sectionId: 'intervention_type', field: 'solution_tests_json', value: JSON.stringify([{ solutionId: 'jardins-de-chuva', reaction: 'faz-sentido', areaM2: 80, who: 'nos', testedAt: 'x' }]) },
+      { sectionId: 'intervention_type', field: '_visit_json', value: JSON.stringify({ solutionId: 'jardins-de-chuva', areaM2: 80, recordedAt: 'x' }) },
+      { sectionId: 'intervention_type', field: '_e4_recap_done', value: 'yes' },
+    ] });
+    let s = await chat(page.request, m.cboStateId, 'Vamos começar o Encontro 4.', 'text');
+    for (let i = 0; i < 6 && !/mas não o número/.test(s.q); i++) s = await chat(page.request, m.cboStateId, s.labels[0]);
+    expect(s.q).toMatch(/mas não o número/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
+    await page.getByText('Continuar de onde parei').click({ timeout: 15_000 }).catch(() => {});
+    await page.getByRole('button', { name: /^Começar/ }).click({ timeout: 15_000 }).catch(() => {});
+    const opt = page.locator('[data-testid^="cbo-option-"][data-option-label="Marcar o lugar agora"]');
+    await expect(opt).toBeVisible({ timeout: 30_000 });
+    await opt.click();
+    // The street's reference pin, labelled, on the open map.
+    await expect(page.locator('.leaflet-tooltip').filter({ hasText: 'Rua das Flores' }).first()).toBeVisible({ timeout: 30_000 });
   });
 
   test('the coordination sees the same suggestions to prefill its form — nothing saved by itself', async ({ page }) => {
