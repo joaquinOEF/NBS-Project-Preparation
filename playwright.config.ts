@@ -75,6 +75,7 @@ export default defineConfig({
         // regressions for bugs that reached the field
         /cougar-e2-bairro-selectable/,      // clicks swallowed by pointer drift
         /cougar-chip-opens-file-picker/,    // chip that needed a file didn't open it
+        /cbo-chip-tap-guard/,               // new chips under the finger took the tap meant for the last ones
         /cougar-workshop-open-atomic/,      // opening a workshop was two writes
         /cougar-cohort-selection-persist/,  // reload dropped the chosen cohort
         /cougar-e2-site-card-clarity/,      // the card asked two questions at once
