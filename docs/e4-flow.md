@@ -72,6 +72,33 @@ menu (`shared/e4-indicators.ts`, reviewed once by Robson via
 per-section rewrites pinned to their inputs) and the print
 (`/api/cbo/:id/prenote`, `…/member/:id/document/prenota`).
 
+### The written summary follows the answers (11 Nov 2026)
+
+The page's "Resumo" is the one model-written part (`runPrenoteAuthor`,
+cboAgent.ts → `authorPrenote`, prenoteContext.ts), written when Encontro 4
+closes. It was keyed to the place only, so Misturaí's kept "…propõe implantar
+um parque ou floresta urbana…" after the solution changed. It is now stored
+with `_prenote_authored_key` = `prenoteSummaryKey` over everything it is
+written from: the place, the solution, its size, the problem, quem é atingido,
+o que querem ver mudar, quem faz, quem cuida, contrapartida, parceiros. A
+mismatch hides it (`summaryStale`; the computed page shows) and it is written
+again:
+
+- at the next close;
+- by itself, 30 s after the last change to a closed proposal
+  (`schedulePrenoteRefresh`, on every persist; no retry of answers already
+  tried — `_prenote_authoring_key`);
+- on **"Atualizar a proposta"** in the drawer's pre-note panel
+  (`POST …/member/:id/prenote/refresh`, 202; the panel polls until `authoring`
+  is false).
+
+A summary stored before the key (only `_prenote_authored_place`) is kept while
+its place holds AND its text still names the current solution — it never
+recorded the solution, so its own words are the one trace. The print carries
+"Resumo escrito em DD/MM/AAAA às HH:MM" (Porto Alegre time) under a summary
+that shows, and nothing when it is hidden. Joint proposals have no written
+summary yet.
+
 ## A project's Encontro 4 (10 Nov 2026)
 
 A project's shared session runs these same beats for ONE joint solution

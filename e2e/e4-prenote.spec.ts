@@ -2,7 +2,8 @@ import { placeKey } from '../shared/site-of-record';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
-import { buildPrenote, prenoteGaps, prenoteSolution, householdsFrom, editBasis, type PrenoteInput } from '../shared/e4-prenote';
+import { buildPrenote, prenoteGaps, prenoteSolution, householdsFrom, editBasis, prenoteSummaryKey, type PrenoteInput } from '../shared/e4-prenote';
+import { renderPrenoteHtml, summaryWrittenLine } from '../server/services/prenotePrint';
 
 // THE PRE-NOTE — Encontro 4's one page, mostly computed.
 //
@@ -246,5 +247,148 @@ test.describe('the pre-note reads the whole record', () => {
     expect(at(placeKey(site)), 'written about this place').toBe(1);
     expect(at('-30.0175,-51.2139'), 'written about the old pin').toBe(0);
     expect(at(undefined), 'a summary from before the key existed is kept').toBe(1);
+  });
+});
+
+// THE SUMMARY FOLLOWS THE ANSWERS (Misturaí, prod 11 Nov 2026). The written
+// summary was keyed to the place only: Encontro 4 closed on "parques e
+// florestas urbanas", the solution changed, and the page kept saying
+// "…propõe implantar um parque ou floresta urbana…". It is now keyed to every
+// answer it is written from; a summary written from others is hidden (the
+// computed page shows) until it is written again — at the next close, a few
+// seconds after a closed proposal's answers change, or on "Atualizar a proposta".
+const SUMMARY = 'A Ksa Rosa propõe jardins de chuva no pátio da Voluntários da Pátria, no bairro Floresta, para segurar a água que hoje alaga o pátio.';
+const storedSummary = (text: string) => JSON.stringify([{ section: 'resumo', paragraphs: [{ text, sources: ['Encontros 2 e 3'] }] }]);
+
+test.describe('the written summary follows the answers', () => {
+  const keyed = (input: PrenoteInput, extra: Record<string, string> = {}): PrenoteInput =>
+    ({ ...input, type: { ...input.type, _prenote_authored_json: storedSummary(SUMMARY), _prenote_authored_key: prenoteSummaryKey(input), _prenote_authored_at: '2026-11-11T17:05:00.000Z', ...extra } });
+
+  test('keyed to the solution, its size and the Encontro 4 answers', () => {
+    const p = buildPrenote(keyed(RICH));
+    expect(p.summary).toHaveLength(1);
+    expect(p.summaryAt).toBe('2026-11-11T17:05:00.000Z');
+    expect(p.summaryStale).toBe(false);
+
+    const written = keyed(RICH);
+    const change = (patch: { type?: Record<string, string>; site?: Record<string, string>; ops?: Record<string, string> }) =>
+      buildPrenote({ ...written, type: { ...written.type, ...patch.type }, site: { ...written.site, ...patch.site }, ops: { ...written.ops, ...patch.ops } });
+    // Another solution — Misturaí's case.
+    const other = change({ type: { _e4_solution_json: JSON.stringify({ solutionId: 'corredores-verdes', source: 'organizacao', units: 30 }) } });
+    expect(other.summary, 'written about another solution').toEqual([]);
+    expect(other.summaryStale).toBe(true);
+    expect(other.summaryAt, 'no date for a summary that does not show').toBeNull();
+    expect(other.sections.length, 'the computed page still shows').toBeGreaterThan(3);
+    // Same solution, another size.
+    expect(change({ type: { _e4_solution_json: JSON.stringify({ solutionId: 'jardins-de-chuva', source: 'organizacao', areaM2: 300 }) } }).summary).toEqual([]);
+    // Each Encontro 4 answer the summary is written from.
+    expect(change({ site: { beneficiaries_note: 'umas 90 famílias' } }).summary).toEqual([]);
+    expect(change({ type: { _e4_changes: 'calor' } }).summary).toEqual([]);
+    expect(change({ type: { construction_model: 'empresa' } }).summary).toEqual([]);
+    expect(change({ ops: { who_maintains: 'voluntarios' } }).summary).toEqual([]);
+    expect(change({ type: { e4_contribution: 'o terreno' } }).summary).toEqual([]);
+    expect(change({ type: { e4_partners: 'a prefeitura' } }).summary).toEqual([]);
+    expect(change({ site: { _site_lat: '-30.0222082', _site_lng: '-51.2112536' } }).summary, 'another place').toEqual([]);
+    // What the summary is not written from leaves it standing.
+    expect(change({ type: { _prenote_review_json: JSON.stringify({ status: 'revisada', at: 'x' }) } }).summary).toHaveLength(1);
+    // Written again over the new answers: it shows again.
+    const moved = { ...written, type: { ...written.type, _e4_solution_json: JSON.stringify({ solutionId: 'jardins-de-chuva', source: 'organizacao', areaM2: 300 }) } };
+    expect(buildPrenote({ ...moved, type: { ...moved.type, _prenote_authored_key: prenoteSummaryKey(moved) } }).summary).toHaveLength(1);
+  });
+
+  test('a summary from before the key: kept while its place holds and it names the solution', () => {
+    const legacy = (text: string, solution?: string): PrenoteInput => ({
+      ...RICH,
+      type: {
+        ...RICH.type, _prenote_authored_json: storedSummary(text), _prenote_authored_place: placeKey(RICH.site),
+        ...(solution ? { _e4_solution_json: JSON.stringify({ solutionId: solution, source: 'organizacao', areaM2: 140 }) } : {}),
+      },
+    });
+    expect(buildPrenote(legacy(SUMMARY)).summary, 'names jardins de chuva, the solution on the page').toHaveLength(1);
+    expect(buildPrenote(legacy(SUMMARY)).summaryAt, 'no time recorded then').toBeNull();
+    const misturai = 'A organização propõe implantar um parque ou floresta urbana no terreno da Voluntários da Pátria, no bairro Floresta.';
+    expect(buildPrenote(legacy(misturai)).summary, 'the solution changed to jardins de chuva').toEqual([]);
+    expect(buildPrenote(legacy(misturai)).summaryStale).toBe(true);
+    expect(buildPrenote(legacy(misturai, 'parques-e-florestas-urbanas')).summary, 'still the park').toHaveLength(1);
+  });
+
+  test('the print says when the summary was written — and nothing when it is hidden', () => {
+    const html = renderPrenoteHtml(buildPrenote(keyed(RICH)), 'pt');
+    expect(html).toContain('Resumo escrito em 11/11/2026 às 14:05');
+    // Porto Alegre's time, in either language.
+    expect(summaryWrittenLine('2026-11-11T17:05:00.000Z', 'en')).toBe('Summary written on 11/11/2026 at 14:05');
+    const staleHtml = renderPrenoteHtml(buildPrenote(keyed(RICH, { _e4_changes: 'calor' })), 'pt');
+    expect(staleHtml).not.toContain('Resumo escrito em');
+    expect(staleHtml).not.toContain('segurar a água que hoje alaga');
+    expect(staleHtml).toContain('Jardins de chuva');
+  });
+});
+
+test.describe('the written summary — "Atualizar a proposta"', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('the button writes it again; a changed answer hides it and it is written again by itself', async ({ page, playwright, baseURL }) => {
+    test.setTimeout(90_000);
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const tag = randomUUID().slice(0, 6);
+    const cohort = (await api.createCohort(`Pre-nota resumo ${tag}`)).cohort;
+    await api.createCoordinator({ email: `prenote-sum-${tag}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true })).member;
+    const base = `/api/cohort/${cohort.coordinatorSlug}/member/${m.id}`;
+    const fields = [
+      ...Object.entries(ANSWERED.org!).map(([field, value]) => ({ sectionId: 'org_profile', field, value })),
+      ...Object.entries(ANSWERED.site).map(([field, value]) => ({ sectionId: 'intervention_site', field, value })),
+      ...Object.entries(ANSWERED.type).map(([field, value]) => ({ sectionId: 'intervention_type', field, value })),
+      ...Object.entries(ANSWERED.ops!).map(([field, value]) => ({ sectionId: 'operations_sustain', field, value })),
+    ];
+    await api.seedState(m.cboStateId, { phase: 4, language: 'pt', sections: fields });
+
+    // Encontro 4 not closed: no summary to write yet.
+    expect((await page.request.post(`${base}/prenote/refresh`)).status()).toBe(409);
+    await api.seedState(m.cboStateId, { sections: [{ sectionId: 'intervention_type', field: '_e4_closed', value: 'yes' }] });
+
+    // Coordinator routes only.
+    const anon = await playwright.request.newContext({ baseURL });
+    expect((await anon.post(`${base}/prenote/refresh`)).status()).toBe(401);
+    await anon.dispose();
+
+    const get = async () => (await (await page.request.get(`${base}/prenote`)).json()) as { prenote: any; authoring: boolean; closed: boolean };
+    expect((await get()).closed).toBe(true);
+    expect((await get()).prenote.summary).toEqual([]);
+
+    // What the fake model writes for this record ({solution} = the solution's name).
+    await page.request.post(`/__test/cbo/${m.cboStateId}/prenote-author`, {
+      data: { stored: storedSummary('A Ksa Rosa propõe {solution} na Voluntários da Pátria, no bairro Floresta, para segurar a água que hoje alaga o pátio.') },
+    });
+    expect((await page.request.post(`${base}/prenote/refresh`)).status()).toBe(202);
+    await expect.poll(async () => (await get()).prenote.summary.join(' '), { timeout: 20_000, intervals: [1000] }).toMatch(/propõe Jardins de chuva/);
+    const done = await get();
+    expect(done.authoring).toBe(false);
+    expect(done.prenote.summaryAt).toBeTruthy();
+    expect(await (await page.request.get(`${base}/document/prenota`)).text()).toMatch(/Resumo escrito em \d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}/);
+
+    // The solution changes on a closed proposal: the summary is hidden at once…
+    const ans = await page.request.post(`${base}/e4-answers`, { data: { answers: { solutionId: 'corredores-verdes', size: 30 } } });
+    expect(ans.ok()).toBe(true);
+    const hidden = await get();
+    expect(hidden.prenote.summary).toEqual([]);
+    expect(hidden.prenote.summaryStale).toBe(true);
+    const hiddenHtml = await (await page.request.get(`${base}/document/prenota`)).text();
+    expect(hiddenHtml).not.toContain('Resumo escrito em');
+    expect(hiddenHtml).not.toContain('propõe Jardins de chuva');
+    // …and written again by itself over the new answers (debounced).
+    await expect.poll(async () => (await get()).prenote.summary.join(' '), { timeout: 25_000, intervals: [1000] }).toMatch(/propõe Corredores verdes/);
+
+    // The drawer: the line that says when it was written, and the button.
+    await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
+    await page.getByTestId(`card-orchestrator-project-${m.id}`).click({ timeout: 30_000 });
+    await page.getByTestId('cbo-tab-documentos').click();
+    await expect(page.getByTestId('prenote-summary-when')).toContainText('Resumo escrito em');
+    await page.getByTestId('prenote-refresh').click();
+    await expect.poll(async () => (await get()).authoring, { timeout: 20_000, intervals: [1000] }).toBe(false);
+    await expect(page.getByTestId('prenote-summary-when')).toContainText('Resumo escrito em', { timeout: 15_000 });
+    await expect(page.getByTestId('prenote-refresh')).toBeEnabled();
+    await page.request.post(`/__test/cbo/${m.cboStateId}/prenote-author`, { data: { stored: null } });
   });
 });

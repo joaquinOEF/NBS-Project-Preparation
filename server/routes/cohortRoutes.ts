@@ -45,7 +45,7 @@ import { simulationEnabled, simEligibility, simulatedEncontros, simulationRuns, 
 import { createDocument, deleteDocument, getOrgIdForCboState } from '../services/documentPersistence';
 import { buildOrgProfile } from '@shared/org-profile';
 import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
-import { addCboMessage, flushNow, rereadFiles, advanceCboPhase } from '../services/cboAgent';
+import { addCboMessage, flushNow, rereadFiles, advanceCboPhase, refreshPrenoteSummary, isPrenoteAuthoring } from '../services/cboAgent';
 import { upload, uploadErrorHandler, storeDocument, UPLOAD_RUNS_DIR } from './uploadRoutes';
 import { saveAndParseUpload } from '../services/fileParser';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
@@ -2629,7 +2629,37 @@ export function registerCohortRoutes(app: Express): void {
     if (!state) { res.json({ prenote: null }); return; }
     const lang = req.query.lang === 'en' ? 'en' : 'pt';
     const full = await prenoteInputFor(member.cboStateId, state.sections, lang, { orgId: member.orgId, cohortLines: cohortLinesFor, photoUrl: id => `/api/cohort/${req.params.coordinatorSlug}/member/${member.id}/documents/${id}/file` });
-    res.json({ prenote: buildPrenote(full, lang) });
+    // `authoring`: the summary is being written right now ("Atualizar a proposta").
+    // `closed`: Encontro 4 closed — the summary is written only for a closed proposal.
+    res.json({ prenote: buildPrenote(full, lang), authoring: isPrenoteAuthoring(member.cboStateId), closed: encontroClosed(state as any, 4) });
+  }));
+
+  /**
+   * "Atualizar a proposta" — the coordination writes the proposal's summary
+   * again now, over the record as it stands (the Rede asked for it, 11 Nov
+   * 2026). The same pass that runs when Encontro 4 closes and when a closed
+   * proposal's answers change; it takes ~30–50 s, so this answers at once and
+   * the drawer polls the prenote until `authoring` is false.
+   */
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/prenote/refresh', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    // The pass reads the in-memory record — hydrate it like a reconnecting session.
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) {
+      const persisted = await loadCboFromDb(member.cboStateId);
+      if (persisted) {
+        setCboState(member.cboStateId, persisted.state);
+        for (const msg of persisted.messages) addCboMessage(member.cboStateId, msg);
+        state = persisted.state;
+      }
+    }
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    if (!encontroClosed(state as any, 4)) { res.status(409).json({ error: 'Encontro 4 is not closed yet' }); return; }
+    if (!prenoteSolution(prenoteInputFromSections(state.sections))) { res.status(409).json({ error: 'the proposal has no solution yet' }); return; }
+    void refreshPrenoteSummary(member.cboStateId).then(() => flushNow(member.cboStateId!));
+    res.status(202).json({ ok: true, authoring: true });
   }));
 
   /**

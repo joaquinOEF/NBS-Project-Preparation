@@ -85,6 +85,7 @@ import { recordedSolutionIds } from '@shared/recorded-solutions';
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
 import { serveE4Checkpoint } from "./cboE4Checkpoint";
 import { prenoteInputFor, authorPrenote } from "./prenoteContext";
+import { prenoteInputFromSections, prenoteSummaryFresh, prenoteSummaryKey } from "@shared/e4-prenote";
 import { reemitPending, withPendingQuestion, recordingPush } from "./pendingQuestion";
 import { parsePending, PENDING_FIELD } from "@shared/pending-question";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
@@ -245,6 +246,7 @@ export function debouncedPersist(id: string) {
     persistCbo(id).catch(e => console.error(`[cbo] persist(${id}) failed`, e));
     saveTimers.delete(id);
   }, SAVE_DEBOUNCE_MS));
+  schedulePrenoteRefresh(id);
 }
 
 // Immediate, durable flush — cancels any pending debounce and persists now.
@@ -4495,26 +4497,69 @@ function setAuthoringState(cboId: string, value: string): void {
 }
 
 /**
- * The pre-note's written summary, when Encontro 4 closes (prenoteContext.ts).
- * Fire and forget: the page is complete without it, and a run that fails
- * leaves the deterministic page exactly as it was.
+ * The pre-note's written summary, when Encontro 4 closes (prenoteContext.ts),
+ * when a closed proposal's answers change (`schedulePrenoteRefresh`), and when
+ * the coordination asks for it ("Atualizar a proposta"). Fire and forget: the
+ * page is complete without it, and a run that fails leaves the deterministic
+ * page exactly as it was.
+ *
+ * The summary is stored with the key of the answers it was written from
+ * (`prenoteSummaryKey`, shared/e4-prenote.ts) — a later change to any of them
+ * hides it and the computed page shows until this runs again. Misturaí's
+ * kept naming the solution it had changed away from (prod, 11 Nov 2026).
+ *
+ * One run per record at a time: a request while one is running is remembered
+ * and runs once after it, over the record as it then stands.
  */
-async function runPrenoteAuthor(cboId: string): Promise<void> {
+const prenoteAuthorInFlight = new Map<string, Promise<void>>();
+const prenoteAuthorAgain = new Set<string>();
+
+export function isPrenoteAuthoring(cboId: string): boolean {
+  return prenoteAuthorInFlight.has(cboId);
+}
+
+function runPrenoteAuthor(cboId: string): Promise<void> {
+  const running = prenoteAuthorInFlight.get(cboId);
+  if (running) { prenoteAuthorAgain.add(cboId); return running; }
+  const run = prenoteAuthorOnce(cboId).finally(() => {
+    prenoteAuthorInFlight.delete(cboId);
+    if (prenoteAuthorAgain.delete(cboId)) void runPrenoteAuthor(cboId);
+  });
+  prenoteAuthorInFlight.set(cboId, run);
+  return run;
+}
+
+/** The coordination's "Atualizar a proposta": write the summary again now. */
+export function refreshPrenoteSummary(cboId: string): Promise<void> {
+  return runPrenoteAuthor(cboId);
+}
+
+async function prenoteAuthorOnce(cboId: string): Promise<void> {
   const started = Date.now();
   try {
     const state = getCboState(cboId);
     if (!state?.sections?.intervention_type) return;
     const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
     const input = await prenoteInputFor(cboId, state.sections, lang, { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
-    const out = await authorPrenote(input, lang);
+    // The answers this run writes from — taken BEFORE the model call, so an
+    // answer changed while it runs leaves the result keyed to the old one
+    // (hidden), and the next refresh writes it again.
+    const key = prenoteSummaryKey(input);
+    const out = await authorPrenote(input, lang, cboId);
     const fresh = getCboState(cboId);
     if (!fresh?.sections?.intervention_type) return;
-    fresh.sections.intervention_type.fields._prenote_authoring = { value: out ? 'done' : 'skipped', confidence: 'high', source: 'agent', userEdited: false } as any;
+    const f = fresh.sections.intervention_type.fields as any;
+    const mark = (value: string, confidence = 'high') => ({ value, confidence, source: 'agent', userEdited: false });
+    f._prenote_authoring = mark(out ? 'done' : 'skipped');
+    // What the last attempt was written from — an automatic refresh does not
+    // retry the same answers after a run that wrote nothing.
+    f._prenote_authoring_key = mark(key);
     if (out) {
-      fresh.sections.intervention_type.fields._prenote_authored_json = { value: out.stored, confidence: 'medium', source: 'agent', userEdited: false } as any;
-      // The place it was written about: a later correction retires it (shared/site-of-record.ts).
-      const siteNow: any = (fresh.sections as any).intervention_site?.fields ?? {};
-      fresh.sections.intervention_type.fields._prenote_authored_place = { value: placeKey(Object.fromEntries(Object.entries(siteNow).map(([k, v]: [string, any]) => [k, v?.value]))), confidence: 'high', source: 'agent', userEdited: false } as any;
+      f._prenote_authored_json = mark(out.stored, 'medium');
+      f._prenote_authored_key = mark(key);
+      f._prenote_authored_at = mark(new Date().toISOString());
+      // Kept for the records read before the key existed (prenoteSummaryFresh).
+      f._prenote_authored_place = mark(placeKey(input.site));
     }
     setCboState(cboId, fresh);
     debouncedPersist(cboId);
@@ -4522,6 +4567,41 @@ async function runPrenoteAuthor(cboId: string): Promise<void> {
   } catch (err: any) {
     console.error(`[prenote-author] ${cboId} failed (the page stands as computed):`, err?.message || err);
   }
+}
+
+/**
+ * A closed proposal whose answers changed is written again — debounced, so a
+ * coordinator filling five answers in a row costs one run, not five. Checked
+ * on every persist (cheap: no model, no I/O) and acted on only when the
+ * stored summary no longer matches the record and those answers have not
+ * been tried already.
+ */
+const PRENOTE_REFRESH_DEBOUNCE_MS = Number(process.env.PRENOTE_REFRESH_DEBOUNCE_MS) || 30_000;
+const prenoteRefreshTimers = new Map<string, NodeJS.Timeout>();
+
+function schedulePrenoteRefresh(cboId: string): void {
+  const state = cboStates.get(cboId);
+  if (!state || (state as any).metadata?.project || !encontroClosed(state as any, 4)) return;
+  const existing = prenoteRefreshTimers.get(cboId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    prenoteRefreshTimers.delete(cboId);
+    try {
+      if (prenoteAuthorInFlight.has(cboId)) return; // its own persist re-checks when it ends
+      const st = getCboState(cboId);
+      if (!st?.sections?.intervention_type || (st as any).metadata?.project || !encontroClosed(st as any, 4)) return;
+      const input = prenoteInputFromSections(st.sections);
+      if (prenoteSummaryFresh(input) === true) return;
+      const key = prenoteSummaryKey(input);
+      if (input.type._prenote_authoring_key === key) return;
+      console.log(`[prenote-author] ${cboId}: answers changed since the summary was written — writing it again`);
+      void runPrenoteAuthor(cboId);
+    } catch (err: any) {
+      console.error(`[prenote-author] ${cboId} refresh check failed:`, err?.message || err);
+    }
+  }, PRENOTE_REFRESH_DEBOUNCE_MS);
+  timer.unref?.();
+  prenoteRefreshTimers.set(cboId, timer);
 }
 
 async function runConceptNoteAuthor(cboId: string): Promise<void> {

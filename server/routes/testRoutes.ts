@@ -19,6 +19,7 @@ import type { Express, Request, Response, RequestHandler, NextFunction } from 'e
 import { eq, like, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { placeSiteFromAddress } from '../services/cboAgent';
+import { PRENOTE_AUTHOR_FAKES } from '../services/prenoteContext';
 import { db } from '../db';
 import {
   createEmptyCboState,
@@ -202,6 +203,16 @@ export function registerTestRoutes(app: Express): void {
   app.post('/__test/cbo/:id/evict', wrap(async (req, res) => {
     await flushNow(req.params.id);
     setCboState(req.params.id, undefined as any);
+    res.json({ ok: true });
+  }));
+
+  // The pre-note's written summary under the fake model: the stored JSON the
+  // next run for this record writes ("{solution}" = the solution's name). Body
+  // { stored: string } sets it, { stored: null } clears it (prenoteContext.ts).
+  app.post('/__test/cbo/:id/prenote-author', wrap(async (req, res) => {
+    const stored = req.body?.stored;
+    if (stored == null) PRENOTE_AUTHOR_FAKES.delete(req.params.id);
+    else PRENOTE_AUTHOR_FAKES.set(req.params.id, String(stored));
     res.json({ ok: true });
   }));
 

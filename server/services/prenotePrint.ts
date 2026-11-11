@@ -24,6 +24,7 @@ const T = {
     status: 'Situação',
     summary: 'Resumo',
     summarySrc: 'Escrito sobre os fatos desta página; cada número e fonte foi conferido com eles.',
+    summaryAt: (d: string, h: string) => `Resumo escrito em ${d} às ${h}`,
     source: 'Fonte',
     missing: 'Falta',
     edited: 'ajustado pela coordenação',
@@ -42,6 +43,7 @@ const T = {
     status: 'Status',
     summary: 'Summary',
     summarySrc: 'Written over the facts on this page; every figure and source was checked against them.',
+    summaryAt: (d: string, h: string) => `Summary written on ${d} at ${h}`,
     source: 'Source',
     missing: 'Missing',
     edited: 'adjusted by the coordination',
@@ -53,6 +55,22 @@ const T = {
     print: 'Print or save as PDF',
   },
 };
+
+/**
+ * When the summary was written, in Porto Alegre's time — one small line under
+ * it, so a reader holding two copies can tell which is current. Only for a
+ * summary that shows: a stale one is hidden by `buildPrenote` and the page
+ * prints as computed, with no date.
+ */
+export function summaryWrittenLine(iso: string | null | undefined, lang: 'pt' | 'en'): string {
+  if (!iso) return '';
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(at).map(x => [x.type, x.value]));
+  return T[lang].summaryAt(`${parts.day}/${parts.month}/${parts.year}`, `${parts.hour}:${parts.minute}`);
+}
 
 export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt', opts: { joint?: boolean } = {}): string {
   const t = T[lang];
@@ -71,7 +89,7 @@ export function renderPrenoteHtml(p: Prenote, lang: 'pt' | 'en' = 'pt', opts: { 
     </section>`;
   }).join('');
 
-  const summary = p.summary.length ? `<section class="sec summary"><h2>${esc(t.summary)}</h2>${p.summary.map(x => `<p>${md(x)}</p>`).join('')}<p class="src">${esc(t.summarySrc)}</p></section>` : '';
+  const summary = p.summary.length ? `<section class="sec summary"><h2>${esc(t.summary)}</h2>${p.summary.map(x => `<p>${md(x)}</p>`).join('')}<p class="src">${esc(t.summarySrc)}</p>${p.summaryAt ? `<p class="src summary-at" data-testid="summary-at">${esc(summaryWrittenLine(p.summaryAt, lang))}</p>` : ''}</section>` : '';
   const photo = p.photo ? `<figure class="photo"><img alt="" src="${esc(p.photo.src)}" onerror="this.closest('figure').remove()"><figcaption>${esc(p.photo.caption)}</figcaption></figure>` : '';
   const body = `
   <p class="status"><strong>${esc(t.status)}:</strong> ${esc(p.status)}</p>

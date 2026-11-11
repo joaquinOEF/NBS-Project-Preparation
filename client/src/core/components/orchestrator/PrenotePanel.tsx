@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ExternalLink, Loader2, Pencil, X } from 'lucide-react';
+import { Check, ExternalLink, Loader2, Pencil, RefreshCw, X } from 'lucide-react';
 import type { Prenote, PrenoteSectionId } from '@shared/e4-prenote';
 
 export function PrenotePanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: string; memberId: string; reloadKey: number }) {
@@ -26,17 +26,41 @@ export function PrenotePanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: 
   const [draft, setDraft] = useState('');
   // Bumped after a write, so the panel reads back what the page will print.
   const [tick, setTick] = useState(0);
+  // The summary being written again ("Atualizar a proposta"), and whether
+  // Encontro 4 closed (the summary is written only for a closed proposal).
+  const [authoring, setAuthoring] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     fetch(`${base}/prenote`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then(d => { if (!cancelled) setNote(d.prenote ?? null); })
+      .then(d => { if (!cancelled) { setNote(d.prenote ?? null); setAuthoring(!!d.authoring); setClosed(!!d.closed); } })
       .catch(() => { if (!cancelled) setNote(null); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [base, reloadKey, tick]);
+
+  // While the summary is being written, read the page back every few seconds;
+  // it lands in the panel and in the print the moment it is stored.
+  useEffect(() => {
+    if (!authoring) return;
+    const id = setTimeout(() => setTick(n => n + 1), 4000);
+    return () => clearTimeout(id);
+  }, [authoring, tick]);
+
+  const refresh = async () => {
+    setRefreshFailed(false);
+    const r = await fetch(`${base}/prenote/refresh`, { method: 'POST', credentials: 'include' }).catch(() => null);
+    if (!r?.ok) { setRefreshFailed(true); return; }
+    setAuthoring(true);
+  };
+  const writtenAt = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' às');
+  };
 
   const patch = async (path: string, body: unknown) => {
     setBusy(true); setFailed(false);
@@ -84,6 +108,28 @@ export function PrenotePanel({ cohortSlug, memberId, reloadKey }: { cohortSlug: 
           {t('cboView.open', { defaultValue: 'Abrir' })}<ExternalLink className="h-3 w-3" />
         </a>
       </div>
+
+      {note.solution && closed && (
+        // The written summary: when it was written, or why the page shows the
+        // computed text — and the button that writes it again now.
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5" data-testid="prenote-summary-status">
+          <p className="min-w-0 flex-1 text-[11.5px] text-muted-foreground" data-testid="prenote-summary-when">
+            {authoring
+              ? t('cboView.prenoteRefreshing', { defaultValue: 'Reescrevendo o resumo… (cerca de um minuto)' })
+              : note.summaryStale
+                ? t('cboView.prenoteSummaryStale', { defaultValue: 'O resumo foi escrito com respostas anteriores e está oculto — a página mostra o texto calculado até ser reescrito.' })
+                : note.summary.length
+                  ? (note.summaryAt ? t('cboView.prenoteSummaryAt', { defaultValue: 'Resumo escrito em {{when}}', when: writtenAt(note.summaryAt) }) : null)
+                  : t('cboView.prenoteSummaryNone', { defaultValue: 'Ainda sem resumo escrito — a página mostra o texto calculado.' })}
+          </p>
+          <button type="button" disabled={authoring} onClick={refresh} data-testid="prenote-refresh"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] font-semibold disabled:opacity-50">
+            {authoring ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            {t('cboView.prenoteRefresh', { defaultValue: 'Atualizar a proposta' })}
+          </button>
+          {refreshFailed && <p className="w-full text-[11px] text-destructive">{t('cboView.prenoteRefreshFailed', { defaultValue: 'Não começou — tenta de novo' })}</p>}
+        </div>
+      )}
 
       {note.solution && (
         <>
