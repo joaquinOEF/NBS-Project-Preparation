@@ -1,0 +1,19 @@
+{
+  "source": "IBGE, CNEFE 2022",
+  "original": "IBGE — Cadastro Nacional de Endereços para Fins Estatísticos, Censo Demográfico 2022",
+  "url": "https://ftp.ibge.gov.br/Cadastro_Nacional_de_Enderecos_para_Fins_Estatisticos/Censo_Demografico_2022/Arquivos_CNEFE/CSV/Municipio/43_RS/4314902_PORTO_ALEGRE.zip",
+  "municipality": {
+    "code": "4314902",
+    "name": "Porto Alegre"
+  },
+  "builtAt": "2026-11-11",
+  "rows": 762239,
+  "rowsKept": 738974,
+  "droppedNoNumber": 23228,
+  "droppedCoarseCoordinate": 37,
+  "streets": 7532,
+  "addresses": 279517,
+  "bairros": 153,
+  "precision": "lat/lng rounded to 1e-5 degrees (~1 m); apartments at one number averaged",
+  "bytes": 1223214
+}
