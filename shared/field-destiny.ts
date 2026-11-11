@@ -236,6 +236,22 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
     labelEn: 'What the organisation already has to put into the project',
     skipIf: NO_ANSWER,
   },
+  // ── Read from machine fields, given a name a reader looks for ─────────────
+  // `_visit_json` and `_e4_changes_words` hold answers, but `_` names are
+  // skipped by every generic reader — so the summary author never knew which
+  // solution the visit recommended, nor the words an organisation gave for
+  // what it wants to change (JVP, 11 Nov 2026: "is something saved but not
+  // leveraged?"). conceptNoteFacts derives these two from them.
+  visit_recommendation: {
+    feeds: 'intervencao',
+    labelPt: 'Indicação da visita técnica',
+    labelEn: 'The technical visit recommended',
+  },
+  changes_in_their_words: {
+    feeds: 'resultados',
+    labelPt: 'O que a organização quer ver mudar, nas palavras dela',
+    labelEn: 'What the organisation wants to see change, in its words',
+  },
   e4_partners: {
     feeds: 'exige',
     labelPt: 'Com quem a organização já conversou sobre o projeto',
@@ -518,3 +534,55 @@ export function routeModelWrite(
   const home = NOTES_HOME[notesField];
   return { sectionId: home, field: notesField, value: appendNote(readField(home, notesField), field, value), kind: 'rerouted', tried: field, suggestions: suggestReaderFields(field) };
 }
+
+// ============================================================================
+// MACHINE FIELDS THAT HOLD AN ANSWER — each names its reader
+// ============================================================================
+// `warnIfOrphan` and `hasReader` let every `_x` field pass as "machinery". Most
+// are (which step is open, what is pending). Some are not: they hold what an
+// organisation or the coordination SAID — the solution chosen, the visit's
+// recommendation, the pin, the words for what should change. Those escaped the
+// guarantee above. Every `_x` field written by the Encontro 4, visit, skip and
+// project flows is classified here; e2e/machine-fields.spec.ts scans the code
+// and fails on one that is not, and proves each answer's reader.
+// ============================================================================
+
+/** `_x` fields that hold an answer, and where it is read. */
+export const MACHINE_ANSWERS: Record<string, string> = {
+  _e4_solution_json: 'the proposta inicial (buildPrenote → solution), the pre-portfolio, the summary author (via the solution it is written for)',
+  _e4_changes: 'buildPrenote → impacto (the tapped indicators)',
+  _e4_changes_words: 'buildPrenote → impacto (quoted) and the summary facts as changes_in_their_words',
+  _visit_json: 'buildPrenote (solution source), roster card, Perfil, synergy report, and the summary facts as visit_recommendation',
+  _site_lat: 'the place: city maps, census, board, buildPrenote',
+  _site_lng: 'the place: city maps, census, board, buildPrenote',
+  _site_from_address: 'buildPrenote → lugar (said as "pelo endereço")',
+  _prenote_edits_json: 'buildPrenote → a section the coordination rewrote',
+  _prenote_review_json: 'buildPrenote → the review stamp on the page',
+  _e4_benef_group: 'buildPrenote → quem é atingido (their chip)',
+  _e4_who_declined: 'buildPrenote → quem faz (an answered "não sabemos")',
+  _e4_partners_declined: 'buildPrenote → parceiros (an answered "ninguém")',
+  _e4_contrib_declined: 'buildPrenote → contrapartida (an answered "nada ainda")',
+  _e4_visit_declined: 'the solution question (the visit is no longer offered first)',
+  _skip_json: 'the board (dots "pulado"), the visit tab, the contexto step',
+  _skip_undone_json: 'the record of a way back, read by the undo route',
+  _e2_skipped: 'the board dots',
+  _e3_skipped: 'the board dots',
+  _e3_closed: 'encontroClosed(3), the board',
+  _e3_closed_by: 'the board (closed by coordination)',
+  _e4_closed: 'encontroClosed(4), the pre-portfolio, the board',
+  _prenote_authored_json: 'buildPrenote → the written summary',
+  _prenote_authored_place: 'buildPrenote → whether the summary still matches the place',
+};
+
+/** `_x` fields that are step state only — what is open, pending, shown. Nothing said lives here. */
+export const MACHINERY = new Set([
+  '_e2_closed',
+  '_e4_opened', '_e4_step', '_e4_reopened', '_e4_draft_shown',
+  '_e4_approve_pending', '_e4_change_pending', '_e4_gap_pending',
+  '_e4_context_pending', '_e4_context_done',
+  '_e4_place_pending', '_e4_place_member', '_e4_place_skipped',
+  '_e4_problem_pending', '_e4_problem_pick', '_e4_problem_ok',
+  '_e4_recap_pending', '_e4_recap_pick', '_e4_recap_skip', '_e4_recap_done', '_e4_recap_json',
+  '_e4_size_pending', '_e4_size_ask', '_e4_size_ok',
+  '_e4_solution_pending',
+]);
