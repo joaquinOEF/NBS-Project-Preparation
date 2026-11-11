@@ -57,6 +57,25 @@ async function step(request: APIRequestContext, cboId: string, message: string, 
 }
 
 test.describe('Encontro 4 — the pre-note, walked', () => {
+  test('a size said in m² is kept as said, and said back (Ksa Rosa: "Aproximadamente 12m2" became 10 m²)', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cboId } = await api.newSession();
+    await api.seedState(cboId, { phase: 4, language: 'pt', sections: [
+      ...BASE_FIELDS.filter(f => f.field !== 'site_area_m2'), ...PLACE,
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+      { sectionId: 'intervention_type', field: '_e4_solution_json', value: JSON.stringify({ solutionId: 'jardins-de-chuva', source: 'organizacao' }) },
+    ] });
+    const r = page.request;
+    let s = await step(r, cboId, 'Vamos começar o Encontro 4.', 'text');
+    if (/Continua esse tamanho/.test(s.ask.question)) s = await step(r, cboId, 'Mudou');
+    expect(s.ask.question).toMatch(/Mais ou menos de que tamanho/);
+    s = await step(r, cboId, 'Aproximadamente 12m2', 'text');
+    expect(s.events.some(e => e.type === 'chat' && /Anotado: \*\*12 m²\*\* ✓/.test(e.content ?? '')), 'said back').toBe(true);
+    const sol = JSON.parse((await stateOf(r, cboId)).sections.intervention_type.fields._e4_solution_json.value);
+    expect(sol.areaM2).toBe(12);
+  });
+
   test('a visit that indicated several: "Qual delas vira a proposta inicial?", and the one picked is the visit\'s', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');

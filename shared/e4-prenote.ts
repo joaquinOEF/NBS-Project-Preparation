@@ -325,7 +325,7 @@ function basisOf(id: PrenoteSectionId, input: PrenoteInput, sol: Prenote['soluti
     // The census section is computed from public data, not from anything they answered.
     entorno: [],
     solucao: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t.construction_model],
-    impacto: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes],
+    impacto: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes, t._e4_changes_words],
     indicadores: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t._e4_changes, s.beneficiaries_note],
     orcamento: [sol?.id, String(sol?.areaM2 ?? ''), String(sol?.units ?? ''), t.construction_model, t.e4_contribution, o.opex_band],
     parceiros: [sol?.id, t.e4_partners, o.who_maintains, s.land_tenure],
@@ -436,9 +436,14 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   if (chosenChanges.length) {
     impact.push(W(pt ? `O que a organização quer ver mudar: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.` : `What the organisation wants to see change: ${chosenChanges.map(i => i.label.toLowerCase()).join('; ')}.`, byCoord('mudancas', theirs)));
   }
+  // Their own sentences at that step, quoted — what no menu holds ("aumentar o
+  // café da manhã, produzir os almoços", Ksa Rosa, 11 Nov 2026).
+  for (const said of String(type._e4_changes_words ?? '').split('\n').map(x => x.trim()).filter(Boolean)) {
+    impact.push(W(pt ? `Nas palavras da organização: “${said.replace(/[.\s]+$/, '')}.”` : `In the organisation's words: “${said.replace(/[.\s]+$/, '')}.”`, theirs));
+  }
   sections.push({
     id: 'impacto', title: L.impacto, lines: impact,
-    missing: has(type._e4_changes) ? null : (pt ? 'Falta a organização dizer o que quer ver mudar.' : 'Still missing: what the organisation wants to see change.'),
+    missing: has(type._e4_changes) || has(type._e4_changes_words) ? null : (pt ? 'Falta a organização dizer o que quer ver mudar.' : 'Still missing: what the organisation wants to see change.'),
   });
 
   // ── 4 · Indicadores ───────────────────────────────────────────────────────
