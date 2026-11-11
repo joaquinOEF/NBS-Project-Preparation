@@ -33,6 +33,7 @@
 //     own sentences appear as quotation and nothing else addresses the reader.
 // ============================================================================
 
+import { parseVisit, visitSummary } from './e4-visit';
 import { censusLines, relevanceFor, CENSUS_SOURCE } from './census';
 import { readableSpeech } from './readable-speech';
 import { parseDocumentNotes, toCardNote, ALL_SOLUTIONS } from './w3-document-notes';
@@ -270,6 +271,23 @@ export interface ConceptNoteFacts {
  * answer into the document — which is the property that was missing when eight
  * answers went nowhere.
  */
+/**
+ * Answers kept in machine fields (`_x`), under the names the registry declares
+ * (field-destiny.ts → visit_recommendation, changes_in_their_words). A value
+ * already present wins — that is how the registry's spec proves them.
+ */
+function withDerived(all: Record<string, string | undefined>, lang: Lang): Record<string, string | undefined> {
+  const out = { ...all };
+  if (!out.visit_recommendation) {
+    const v = parseVisit(all._visit_json);
+    if (v) out.visit_recommendation = visitSummary(v, lang);
+  }
+  if (!out.changes_in_their_words && all._e4_changes_words) {
+    out.changes_in_their_words = String(all._e4_changes_words).split('\n').map(x => x.trim()).filter(Boolean).join(' / ');
+  }
+  return out;
+}
+
 function collectedFields(all: Record<string, string | undefined>, lang: Lang): ConceptNoteFacts['collected'] {
   const out: ConceptNoteFacts['collected'] = [];
   for (const [field, d] of Object.entries(FIELD_DESTINY)) {
@@ -570,7 +588,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     // ⚠️ Gathered from the DESTINY REGISTRY, not from a list in this file. A
     // field declared `feeds` reaches the page without anybody editing
     // concept-note.ts — which is the only version of this that cannot rot.
-    collected: collectedFields({ ...(input.site ?? {}), ...(input.org ?? {}), ...(input.w3 ?? {}) }, lang),
+    collected: collectedFields(withDerived({ ...(input.site ?? {}), ...(input.org ?? {}), ...(input.w3 ?? {}) }, lang), lang),
     dug: digParagraphs(parseDig(input.w3?.dig_json ?? input.site?.dig_json), lang),
     // ⚠️ Passed through untouched, never assembled here. The lines arrive
     // already de-identified from cohortContext.ts; building any of them from a
@@ -683,7 +701,7 @@ const ABSENCE = /\bnenhum[ao]?\b|\baus[êe]ncia\b|\bn[ãa]o (?:foi|foram|h[áa]|
 export const groundedInAbsence = (basedOn: string): boolean => ABSENCE.test(basedOn ?? '');
 
 /** Fields the COORDINATION writes, never the organisation — attributed as such. */
-const COORDINATION_FIELDS = new Set(['technical_note']);
+const COORDINATION_FIELDS = new Set(['technical_note', 'visit_recommendation']);
 
 const STATE_SENTENCE: Record<VerdictState, { pt: string; en: string }> = {
   ready: {
