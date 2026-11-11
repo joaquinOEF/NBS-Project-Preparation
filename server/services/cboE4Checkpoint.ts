@@ -781,6 +781,14 @@ async function serveE4Inner(
     return serve('solution');
   };
 
+  /** Their sentences for one step, one per line, never the same twice. */
+  const addWords = (prev: string, said: string): string => {
+    const line = said.replace(/\s+/g, ' ').trim().slice(0, 600);
+    const lines = prev.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!line || lines.some(l => l.toLowerCase() === line.toLowerCase())) return lines.join('\n');
+    return [...lines, line].slice(-4).join('\n');
+  };
+
   // ── Routing ───────────────────────────────────────────────────────────────
   if (E4_ENTRY.test(raw) || E4_RESUME.test(raw)) {
     // ⚠️ A return re-asks EXACTLY what was on screen. Some questions are not a
@@ -931,13 +939,16 @@ async function serveE4Inner(
         const byUnits = SOLUTION_COSTS[sol.solutionId]?.basis === 'unit';
         const spoken = byUnits ? null : parseSpokenArea(raw);
         const units = byUnits ? Number((raw.match(/\d[\d.]*/)?.[0] ?? '').replace(/\./g, '')) : 0;
-        // Rounded like a traced shape — except a size given as two sides ("10 por
-        // 12"), which is a measurement and keeps its value.
-        const area = spoken ? (spoken.basis === 'dimensions' ? Math.round(spoken.m2) : roundAreaM2(spoken.m2)) : 0;
+        // ⚠️ A size SAID is kept as said — "Aproximadamente 12m2" was stored as
+        // 10 m² (Ksa Rosa, 11 Nov 2026). Only hectares are rounded: "meio
+        // hectare" is not a measurement to the metre.
+        const area = spoken ? (spoken.basis === 'hectares' ? roundAreaM2(spoken.m2) : Math.round(spoken.m2)) : 0;
         const next: E4Solution = { ...sol, ...(area ? { areaM2: area } : {}), ...(units > 0 ? { units } : {}) };
         if (spoken || units > 0) {
           writeType({ _e4_solution_json: JSON.stringify(next), _e4_size_ok: 'yes', _e4_size_pending: '', _e4_size_ask: '' });
-          say('Anotado ✓', 'Noted ✓');
+          // Said back, so a misread is seen at once.
+          const said = area ? `${area.toLocaleString(isPt ? 'pt-BR' : 'en-US')} m²` : `${units}`;
+          say(`Anotado: **${said}** ✓`, `Noted: **${said}** ✓`);
           return serve('size-said');
         }
         say(
@@ -965,7 +976,10 @@ async function serveE4Inner(
       // A doubt ("o que é contrapartida?") still goes to the model, and the step comes back.
       if (!isChip && !raw.includes('?')) {
         deps.writeFields(TYPE, { project_notes: [type('project_notes'), `O que querem ver mudar: ${raw.slice(0, 400)}`].filter(Boolean).join('\n') });
-        say('Anotado ✓ — fica nas palavras de vocês.', 'Noted ✓ — in your own words.');
+        // ⚠️ …and with the step itself, so the proposal prints them (Ksa Rosa, 11
+        // Nov 2026: "o campo impacto esperado não salvou" — it had, in the notes only).
+        writeType({ _e4_changes_words: addWords(type('_e4_changes_words'), raw) });
+        say('Anotado ✓ — entra na proposta, nas palavras de vocês.', 'Noted ✓ — it goes into the proposal, in your words.');
         ask(
           chips.length ? 'E qual destes mede melhor essa mudança?' : 'Anotado.',
           chips.length ? 'And which of these measures that change best?' : 'Noted.',

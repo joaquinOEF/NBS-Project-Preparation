@@ -119,6 +119,10 @@ test.describe('Levar ao Encontro 4', () => {
 
     type = await fields(page.request, m.cboStateId, 'intervention_type');
     expect(type.project_notes).toContain('O que querem ver mudar: Que a praça pare de alagar');
+    // …and printed in the proposal's "O que muda", quoted (Ksa Rosa, 11 Nov 2026: "não salvou").
+    expect(type._e4_changes_words).toBe('Que a praça pare de alagar quando chove.');
+    const note = await (await page.request.get(`/api/cbo/${m.cboStateId}/prenote?lang=pt`)).text();
+    expect(note).toContain('Nas palavras da organização: “Que a praça pare de alagar quando chove.”');
     expect(type.project_notes, 'what they told goes where every pass reads it').toContain('já plantou mudas com 30 famílias');
     expect((await fields(page.request, m.cboStateId, 'intervention_site')).site_worry).toBe('alagamento');
   });
