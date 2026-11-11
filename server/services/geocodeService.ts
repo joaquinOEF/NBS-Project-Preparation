@@ -23,6 +23,7 @@
 
 import { isFakeGeocodeEnabled } from './runtimeEnv';
 import { isCoordinateSiteName } from '@shared/site-name';
+import { lookupCnefe, isCnefeHit, type CnefeHit } from './cnefeAddress';
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 
@@ -149,14 +150,33 @@ export async function reverseGeocode(
 // several Brazilian cities, and an unbounded search happily returns the wrong
 // one — silently, with confident coordinates.
 const POA_VIEWBOX = '-51.32,-29.93,-51.01,-30.27'; // W,N,E,S
-const fwdCache = new Map<string, { lat: number; lng: number; label: string; precise?: boolean } | null>();
+
+// 11 Nov 2026: Nominatim has no house numbers here — the two wordings of Ksa
+// Rosa's address landed ~1.7 km apart, both street-level. A street + number is
+// now looked up FIRST in IBGE's CNEFE 2022 (server/services/cnefeAddress.ts,
+// a committed file — no network), and only a miss reaches Nominatim.
+export type ForwardGeocodeHit = {
+  lat: number;
+  lng: number;
+  label: string;
+  precise?: boolean;
+} & Partial<Pick<CnefeHit, 'source' | 'match' | 'matchedNumber' | 'bairro' | 'bairroMismatch'>>;
+
+const fwdCache = new Map<string, ForwardGeocodeHit | null>();
 
 export async function forwardGeocode(
   query: string,
   cityHint = 'Porto Alegre, Rio Grande do Sul, Brasil',
-): Promise<{ lat: number; lng: number; label: string; precise?: boolean } | null> {
+): Promise<ForwardGeocodeHit | null> {
   const q = query.trim();
   if (q.length < 4) return null;
+  // Official address points first. Offline, so it also runs under the fake
+  // geocoder: e2e exercises the real lookup, and only the fallback is faked.
+  // The index is Porto Alegre's only.
+  if (/porto alegre/i.test(cityHint)) {
+    const cnefe = lookupCnefe(q);
+    if (isCnefeHit(cnefe)) return cnefe;
+  }
   // e2e seam: a fixed POA coordinate, so the address path is testable without
   // reaching Nominatim. Refuses in a deployment (see runtimeEnv).
   if (isFakeGeocodeEnabled()) {

@@ -443,17 +443,19 @@ test.describe('the place from an address, editable by the coordination (JVP, 10 
     await expect(page.getByTestId('e4a-input-address')).toHaveValue('Voluntários da Pátria 1039, Floresta, Porto Alegre');
     await page.getByTestId('e4a-find-address').click();
     await expect(page.getByTestId('e4a-address-note')).toContainText('Confira o ponto no mapa');
+    await expect(page.getByTestId('e4a-address-note')).toContainText('IBGE, CNEFE 2022');
     await expect(page.getByTestId('e4a-pin')).toBeVisible();
     // Nothing is written until saved.
     expect((await fields(page.request, m.cboStateId, 'intervention_site'))._site_lat ?? '').toBe('');
     await page.getByTestId('e4-answers-save').click();
     await expect(page.getByTestId('e4-answers-saved')).toBeVisible();
     const site = await fields(page.request, m.cboStateId, 'intervention_site');
-    expect(Number(site._site_lat)).toBeCloseTo(-30.0267, 3);
+    // IBGE's CNEFE 2022 point for that door (not the fake geocoder's fixed one).
+    expect(Number(site._site_lat)).toBeCloseTo(-30.0244, 3);
     expect(site.site_address).toBe('Voluntários da Pátria 1039, Floresta, Porto Alegre');
     // The board follows the record (#628): the member's place is the new point.
     const board = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}`)).json();
-    expect(board.members.find((x: any) => x.id === m.id).site.coordinates[0]).toBeCloseTo(-30.0267, 3);
+    expect(board.members.find((x: any) => x.id === m.id).site.coordinates[0]).toBeCloseTo(-30.0244, 3);
   });
 });
 

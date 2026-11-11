@@ -2626,6 +2626,8 @@
     "e4aPlaceHint": "Toque no mapa para marcar o lugar.",
     "e4aAddrNotFound": "Não encontramos esse endereço — toque no mapa para marcar.",
     "e4aAddrFound": "Encontrado. Confira o ponto no mapa e ajuste com um toque, se precisar.",
+    "e4aAddrFoundSrc": "Encontrado{{src}}. Confira o ponto no mapa e ajuste com um toque, se precisar.",
+    "e4aAddrNearest": "Encontramos o número mais próximo registrado ({{n}}){{src}}. Confira o ponto no mapa e ajuste com um toque, se precisar.",
     "e4aAddrApprox": "Encontramos a rua, não o número: o ponto é aproximado — ajuste com um toque no mapa.",
     "e4aAddrPh": "Endereço (ex.: Rua Voluntários da Pátria, 1039)",
     "e4aAddrFind": "Localizar no mapa",

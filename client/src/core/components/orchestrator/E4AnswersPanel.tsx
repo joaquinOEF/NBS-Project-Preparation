@@ -116,9 +116,14 @@ function AddressFinder({ base, initial, onFound }: { base: string; initial: stri
       if (!r.ok) { setNote(t('cboView.e4aAddrNotFound', { defaultValue: 'Não encontramos esse endereço — toque no mapa para marcar.' }) as string); return; }
       const hit = await r.json();
       onFound(hit.lat, hit.lng, q.trim());
-      setNote(hit.precise
-        ? (t('cboView.e4aAddrFound', { defaultValue: 'Encontrado. Confira o ponto no mapa e ajuste com um toque, se precisar.' }) as string)
-        : (t('cboView.e4aAddrApprox', { defaultValue: 'Encontramos a rua, não o número: o ponto é aproximado — ajuste com um toque no mapa.' }) as string));
+      // The official address file says so by name, and says when the point is
+      // the nearest recorded number rather than theirs.
+      const src = hit.source ? ` (${hit.source})` : '';
+      setNote(hit.precise && hit.match === 'nearest' && hit.matchedNumber
+        ? (t('cboView.e4aAddrNearest', { defaultValue: 'Encontramos o número mais próximo registrado ({{n}}){{src}}. Confira o ponto no mapa e ajuste com um toque, se precisar.', n: hit.matchedNumber, src }) as string)
+        : hit.precise
+          ? (t('cboView.e4aAddrFoundSrc', { defaultValue: 'Encontrado{{src}}. Confira o ponto no mapa e ajuste com um toque, se precisar.', src }) as string)
+          : (t('cboView.e4aAddrApprox', { defaultValue: 'Encontramos a rua, não o número: o ponto é aproximado — ajuste com um toque no mapa.' }) as string));
     } finally { setBusy(false); }
   };
   return (

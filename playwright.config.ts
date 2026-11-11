@@ -78,6 +78,7 @@ export default defineConfig({
         /cougar-workshop-open-atomic/,      // opening a workshop was two writes
         /cougar-cohort-selection-persist/,  // reload dropped the chosen cohort
         /cougar-e2-site-card-clarity/,      // the card asked two questions at once
+        /cnefe-address/,                    // Ksa Rosa's two wordings landed 1.7 km apart
         // ranking guardrails (pure functions — milliseconds, real coverage)
         /cougar-e2-familia-ranking-context/,
         /cougar-e2-risk-summary/, /cougar-e2-one-encoding-per-step/,

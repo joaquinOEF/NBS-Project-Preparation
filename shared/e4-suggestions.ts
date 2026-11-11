@@ -95,6 +95,18 @@ export function partnersSaid(messages: Msg[]): string[] {
   return out.slice(0, 6);
 }
 
+/** Where the point came from, said plainly — the official file by name, and when it is the nearest number rather than theirs. */
+function placeSource(p: { source?: string; match?: 'exact' | 'nearest'; matchedNumber?: number }): { sourcePt: string; sourceEn: string } {
+  if (!p.source) return { sourcePt: 'o endereço que vocês deram, localizado no mapa', sourceEn: 'the address you gave, found on the map' };
+  if (p.match === 'nearest' && p.matchedNumber) {
+    return {
+      sourcePt: `o endereço que vocês deram, no número mais próximo registrado (${p.matchedNumber}) — ${p.source}`,
+      sourceEn: `the address you gave, at the nearest recorded number (${p.matchedNumber}) — ${p.source}`,
+    };
+  }
+  return { sourcePt: `o endereço que vocês deram, localizado no mapa — ${p.source}`, sourceEn: `the address you gave, found on the map — ${p.source}` };
+}
+
 /**
  * Everything worth offering back, given the record and what was said.
  * `place` is the geocode the server ran on `addressSaid` (null when none).
@@ -105,7 +117,8 @@ export function e4Suggestions(input: {
   buildFromE3?: string | null;
   /** Partners already on the record (prior_collaboration_detail…), see recordedPartners. */
   recordedPartners?: string[];
-  place?: { lat: number; lng: number; label: string; precise?: boolean } | null;
+  /** `source`/`match`/`matchedNumber` come from the official address file (IBGE, CNEFE 2022). */
+  place?: { lat: number; lng: number; label: string; precise?: boolean; source?: string; match?: 'exact' | 'nearest'; matchedNumber?: number } | null;
   hasPlace: boolean;
 }): E4Suggestion[] {
   const { site, type } = input;
@@ -116,7 +129,7 @@ export function e4Suggestions(input: {
     out.push({
       key: 'lugar', confidence: input.place.precise ? 'high' : 'medium',
       pt: `o lugar: ${input.place.label}`, en: `the place: ${input.place.label}`,
-      sourcePt: 'o endereço que vocês deram, localizado no mapa', sourceEn: 'the address you gave, found on the map',
+      ...placeSource(input.place),
       writes: { intervention_site: { _site_lat: String(input.place.lat), _site_lng: String(input.place.lng), _site_from_address: 'yes', ...(site.site_name ? {} : { site_name: input.place.label }) } },
     });
   }
