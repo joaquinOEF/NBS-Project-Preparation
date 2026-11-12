@@ -302,6 +302,51 @@ test.describe('Encontro 4 — the pre-note, walked', () => {
     expect(st.sections.intervention_type.fields._e4_changes.value.split(',').length).toBeGreaterThan(1);
   });
 
+  test('⚠️ "O lugar no mapa" keeps the pin until a new one is marked (Associação Desabafa lost theirs, 11 Nov 2026)', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cboId } = await api.newSession();
+    await api.seedState(cboId, { phase: 4, language: 'pt', sections: [
+      ...BASE_FIELDS, ...PLACE,
+      { sectionId: 'intervention_type', field: '_e3_closed', value: 'yes' },
+    ] });
+    const r = page.request;
+    await step(r, cboId, 'Vamos começar o Encontro 4.', 'text');
+    let s = await step(r, cboId, 'Jardins de chuva');
+    for (const msg of ['Isso ✓', 'Isso ✓', 'Não sei dizer', 'Menos água parada / menos alagamento', 'Isso ✓', 'A própria organização', 'Não é bem isso', 'Nada por enquanto', 'Ninguém ainda']) s = await step(r, cboId, msg);
+    expect(s.ask.question).toBe('Está bom assim?');
+    s = await step(r, cboId, 'Pode fechar ✓');
+    const pin = async () => { const f = (await stateOf(r, cboId)).sections.intervention_site.fields; return `${f._site_lat?.value},${f._site_lng?.value}`; };
+
+    // Asked again — and the pin is still there while they decide.
+    s = await step(r, cboId, 'Mudar algo');
+    s = await step(r, cboId, 'O lugar no mapa');
+    expect(s.ask.question).toMatch(/O mapa abre no lugar marcado hoje/);
+    expect(s.labels).toEqual(['Marcar o lugar agora', 'Deixar como está']);
+    expect(await pin()).toBe('-30.0198,-51.2032');
+    // They open the map and close it without marking: a return asks the same, the pin stays.
+    s = await step(r, cboId, 'Marcar o lugar agora');
+    const open = s.events.find(e => e.type === 'open_map');
+    expect(open?.params?.focusPoint, 'the map opens on today\'s pin').toMatchObject({ lat: -30.0198, lng: -51.2032 });
+    s = await step(r, cboId, 'Continuar da Fase 4', 'text');
+    expect(s.ask.question).toMatch(/O mapa abre no lugar marcado hoje/);
+    expect(await pin()).toBe('-30.0198,-51.2032');
+    // "Deixar como está": the old pin, and the check again.
+    s = await step(r, cboId, 'Deixar como está');
+    expect(s.ask.question).toBe('Está bom assim?');
+    expect(await pin()).toBe('-30.0198,-51.2032');
+
+    // A new point marked: it replaces the old one.
+    await step(r, cboId, 'Mudar algo');
+    await step(r, cboId, 'O lugar no mapa');
+    await step(r, cboId, 'Marcar o lugar agora');
+    s = await step(r, cboId, 'Map selection (composite mode):\n- [custom] Ponto marcado (-30.0246, -51.2172) at (-30.0246, -51.2172)\nTotal: 1 assets, 0 sampled points', 'map');
+    expect(s.ask.question).toBe('Está bom assim?');
+    expect(await pin()).toBe('-30.0246,-51.2172');
+    const t = (await stateOf(r, cboId)).sections.intervention_type.fields;
+    expect(t._e4_place_redo?.value ?? '').toBe('');
+  });
+
   test('a question in their own words goes to the model — and the step comes back', async ({ page }) => {
     const api = new TestApi(page.request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');

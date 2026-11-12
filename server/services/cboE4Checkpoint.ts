@@ -41,7 +41,7 @@ import type { E4Suggestion } from '@shared/e4-suggestions';
 import type { CensusAround } from '@shared/census';
 import type { Prenote } from '@shared/e4-prenote';
 import {
-  buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER, recordedContribution, recordedPartners,
+  addTheirWords, buildPrenote, prenoteInputFromSections, prenoteSolution, parseE4Solution, GAP_ORDER, recordedContribution, recordedPartners,
   type E4Solution, type PrenoteInput,
 } from '@shared/e4-prenote';
 
@@ -117,6 +117,7 @@ export const E4C = {
   mudou: { pt: 'Mudou', en: 'It changed' },
   naoSeiTamanho: { pt: 'Não sei ainda', en: "Don't know yet" },
   marcarAgora: { pt: 'Marcar o lugar agora', en: 'Mark the place now' },
+  manterLugar: { pt: 'Deixar como está', en: 'Keep it as it is' },
   seguirSemLugar: { pt: 'Seguir sem o lugar', en: 'Carry on without the place' },
   naoSei: { pt: 'Não sei dizer', en: 'I could not say' },
   todas: { pt: 'Todas essas', en: 'All of these' },
@@ -337,6 +338,8 @@ async function serveE4Inner(
     // Required — for an organisation and for every member of a project: an
     // old `_e4_place_skipped(_members)` no longer lets the proposal close without one.
     if (!hasPlace()) return 'place';
+    // "Mudar algo → O lugar no mapa": asked again, the old pin kept until a new one is marked.
+    if (!P && type('_e4_place_redo') === 'yes') return 'place';
     if (type('_e4_problem_ok') !== 'yes') return 'problem';
     if (type('_skip_json') && type('_e4_context_done') !== 'yes') return 'contexto';
     if (type('_e4_draft_shown') !== 'yes') return 'draft';
@@ -593,6 +596,20 @@ async function serveE4Inner(
           return finish(detail);
         }
         writeType({ _e4_place_pending: 'yes' });
+        // ⚠️ "O lugar no mapa" used to ERASE the pin before asking: Associação
+        // Desabafa opened the map, closed it, and their proposal had no place
+        // (11 Nov 2026). The pin stays until a new one is marked; the map opens on it.
+        if (type('_e4_place_redo') === 'yes' && hasPlace()) {
+          ask(
+            'O mapa abre no lugar marcado hoje. Toquem no lugar certo — ou deixem como está.',
+            'The map opens on the place marked today. Tap the right place — or keep it as it is.',
+            [
+              { pt: E4C.marcarAgora.pt, en: E4C.marcarAgora.en, dPt: 'Abre o mapa no lugar de hoje', dEn: "Opens the map on today's place" },
+              { pt: E4C.manterLugar.pt, en: E4C.manterLugar.en, dPt: 'Fica o lugar que já está marcado', dEn: 'The place already marked stays' },
+            ],
+          );
+          return finish(detail);
+        }
         const guess = placeGuess();
         if (guess) {
           // ⚠️ A street with no house number is NOT a place: the same address
@@ -865,13 +882,7 @@ async function serveE4Inner(
     return serve('solution');
   };
 
-  /** Their sentences for one step, one per line, never the same twice. */
-  const addWords = (prev: string, said: string): string => {
-    const line = said.replace(/\s+/g, ' ').trim().slice(0, 600);
-    const lines = prev.split('\n').map(x => x.trim()).filter(Boolean);
-    if (!line || lines.some(l => l.toLowerCase() === line.toLowerCase())) return lines.join('\n');
-    return [...lines, line].slice(-4).join('\n');
-  };
+  const addWords = addTheirWords;
 
   // ── Routing ───────────────────────────────────────────────────────────────
   if (E4_ENTRY.test(raw) || E4_RESUME.test(raw)) {
@@ -884,7 +895,7 @@ async function serveE4Inner(
     if (type('_e4_place_pending') === 'yes') {
       const marked = P
         ? !!P.members().find(x => x.memberId === type('_e4_place_member'))?.pinned
-        : !!(site('_site_lat') || site('site_lat'));
+        : type('_e4_place_redo') !== 'yes' && !!(site('_site_lat') || site('site_lat'));
       if (marked) {
         writeType({ _e4_place_pending: '', _e4_place_member: '' });
         return serve('place-marked-elsewhere');
@@ -914,7 +925,7 @@ async function serveE4Inner(
       _site_lat: s[3], _site_lng: s[4],
       ...(s[5] && !site('site_area_m2') ? { site_area_m2: String(roundAreaM2(Number(s[5]))) } : {}),
     });
-    writeType({ _e4_place_pending: '' });
+    writeType({ _e4_place_pending: '', _e4_place_redo: '' });
     say('Lugar marcado ✓', 'Place marked ✓');
     return serve('place-marked');
   }
@@ -1303,9 +1314,18 @@ async function serveE4Inner(
       const lat = Number(w?._site_lat), lng = Number(w?._site_lng);
       return Number.isFinite(lat) && Number.isFinite(lng) && w?._site_lat ? { lat, lng, label: (g!.pt || '').replace(/^o lugar: /, '') } : null;
     };
+    const redo = type('_e4_place_redo') === 'yes' && hasPlace();
+    if (redo && is(E4C.manterLugar)) {
+      writeType({ _e4_place_pending: '', _e4_place_redo: '' });
+      say('O lugar fica como estava ✓', 'The place stays as it was ✓');
+      return serve('place-kept');
+    }
     // An "Isso ✓" from the old question: the street is not the door — the map opens on it.
     if (is(E4C.marcarAgora) || (guess && is(E4C.isso))) {
-      const fp = streetPoint(guess);
+      const pinLat = Number(site('_site_lat') || site('site_lat')), pinLng = Number(site('_site_lng') || site('site_lng'));
+      const fp = redo && Number.isFinite(pinLat) && Number.isFinite(pinLng)
+        ? { lat: pinLat, lng: pinLng, label: site('site_name') || (isPt ? 'O lugar de hoje' : "Today's place") }
+        : streetPoint(guess);
       if (fp && is(E4C.isso)) say('Falta só a porta: o mapa abre nessa rua.', 'Just the door left: the map opens on that street.');
       pushEvent({ type: 'open_map', params: { preset: 'e2_site_focused', ...(site('bairro') ? { focusZone: site('bairro').split(',')[0].trim() } : {}), ...(fp ? { focusPoint: fp } : {}) } } as any);
       return finish('open-site-map');
@@ -1423,7 +1443,7 @@ async function serveE4Inner(
     if (which) {
       const reopen = { _e4_change_pending: '', _e4_reopened: type('_e4_closed') === 'yes' ? 'yes' : '' };
       if (which === 'solucao') writeType({ ...reopen, _e4_solution_json: '', _e4_size_ok: '', _e4_visit_declined: '' });
-      if (which === 'lugar') { deps.writeFields(SITE, { _site_lat: '', _site_lng: '', site_lat: '', site_lng: '' }); writeType({ _e4_place_skipped: '' }); }
+      if (which === 'lugar') writeType({ _e4_place_skipped: '', _e4_place_redo: 'yes' });
       if (which === 'problemaPrincipal') writeType({ _e4_problem_ok: '' });
       if (which === 'problema') deps.writeFields(SITE, { beneficiaries_note: '' });
       if (which === 'impacto') writeType({ _e4_changes: '' });

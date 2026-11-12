@@ -202,6 +202,18 @@ const brl = (v: number, lang: Lang) => `R$ ${Math.round(v).toLocaleString(lang =
 const range = (lo: number, hi: number, lang: Lang) => (lo === hi ? brl(lo, lang) : `${brl(lo, lang)}–${brl(hi, lang)}`);
 const label = (s: NbsSolution | undefined, lang: Lang) => (s ? (lang === 'pt' ? s.pt.label : s.en.label) : '');
 
+/**
+ * Their sentences for one step (`_e4_changes_words`), one per line, never the
+ * same twice, the last four kept. The chat and the coordinator's form both write
+ * through it, so a sentence typed in either is the same line.
+ */
+export function addTheirWords(prev: string, said: string): string {
+  const line = said.replace(/\s+/g, ' ').trim().slice(0, 600);
+  const lines = (prev || '').split('\n').map(x => x.trim()).filter(Boolean);
+  if (!line || lines.some(l => l.toLowerCase() === line.toLowerCase())) return lines.join('\n');
+  return [...lines, line].slice(-4).join('\n');
+}
+
 export function parseE4Solution(raw: string | undefined): E4Solution | null {
   if (!raw) return null;
   try {
@@ -676,7 +688,8 @@ function recordParagraphs(input: PrenoteInput, sol: NonNullable<Prenote['solutio
   });
   // A paragraph from the record itself — an answer, a question asked in the room, a file.
   // Answers the pre-note already prints in its own words — not twice.
-  const ownLabels = ['beneficiaries_note', 'e4_contribution', 'e4_partners', 'site_story']
+  // `changes_in_their_words` is the impact section's own quote ("Nas palavras da organização").
+  const ownLabels = ['beneficiaries_note', 'e4_contribution', 'e4_partners', 'site_story', 'changes_in_their_words']
     .map(f => (FIELD_DESTINY as any)[f]).filter((d: any) => d && 'feeds' in d).map((d: any) => `**${pt ? d.labelPt : d.labelEn}:**`);
   const notOwn = (p: Paragraph) => !ownLabels.some(l => p.text.startsWith(l));
   const fromRecord = (p: Paragraph) => p.sources.some(x => /organiza[çc][ãa]o, nos encontros|organisation, during|Encontro 3 question|pergunta do Encontro 3|arquivo enviado|file sent/i.test(x));
