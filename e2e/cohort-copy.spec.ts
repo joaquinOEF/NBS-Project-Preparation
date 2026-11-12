@@ -163,7 +163,7 @@ test.describe('production → staging: a whole cohort, then Encontro 3 for those
 
 test.describe('the simulator never invents a place', () => {
   test.use({ locale: 'pt-BR' });
-  test('an organisation with no site on record walks Encontros 3 and 4 and still has no coordinates', async ({ page }) => {
+  test('an organisation with no site on record walks Encontro 3, stops at Encontro 4\'s place, and still has no coordinates', async ({ page }) => {
     // Ksa Rosa, staging copy 19 Oct: no site in production; the walk traced a
     // footprint at a default coordinate and the pre-portfolio grouped it with
     // a slope project 9 km away.
@@ -189,7 +189,12 @@ test.describe('the simulator never invents a place', () => {
       return run?.status;
     }, { timeout: 150_000, intervals: [2000] }).toBe('done');
     const st = (await (await page.request.get(`/api/cbo/${m.cboStateId}`)).json()).state;
-    expect(st.sections.intervention_type.fields._e4_closed?.value).toBe('yes');
+    // The place is required to close Encontro 4 (#634) and a walk never invents
+    // one: it stops there, said as such — not a failure, not a closed proposal.
+    const runs = (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/simulations`)).json()).runs;
+    expect(runs.find((x: any) => x.memberId === m.id)?.waiting).toBe('place');
+    expect(st.sections.intervention_type.fields._e3_closed?.value).toBe('yes');
+    expect(st.sections.intervention_type.fields._e4_closed?.value ?? '').not.toBe('yes');
     expect(st.sections.intervention_site.fields._site_lat, 'no place was invented').toBeUndefined();
   });
 });

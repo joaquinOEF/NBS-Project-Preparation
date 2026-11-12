@@ -101,6 +101,8 @@ export interface SimRun {
   /** The last thing the workshop asked, for the roster's progress line. */
   step: string;
   error?: string;
+  /** Walked as far as it can go: Encontro 4 waits on the place, which only the organisation marks. */
+  waiting?: 'place';
   startedAt: string;
   endedAt?: string;
 }
@@ -193,8 +195,18 @@ function mapPayload(state: CboState): string | null {
   return `Map selection (composite mode):\n- [custom] Área desenhada (5 vertices) (drawn area) at (${lat}, ${lng}) · ${m2} m²\nTotal: 1 asset, 0 sampled points`;
 }
 
-/** The encontro's own way past the map when there is no place to trace. */
+/**
+ * The encontro's own way past the map when there is no place to trace.
+ * Encontro 4 has none since the place became required (#634, JVP 10 Nov
+ * 2026): there the walk stops at the place step — see `waitsForPlace`.
+ */
 const NO_PLACE: Record<3 | 4, string> = { 3: 'Ainda não sei o tamanho', 4: 'Seguir sem o lugar' };
+/** Encontro 4 asking for a place the record does not have: a walk cannot go further without inventing one. */
+function waitsForPlace(state: CboState, n: 3 | 4): boolean {
+  if (n !== 4 || placeOnRecord(state)) return false;
+  const f = (state.sections as any)?.intervention_type?.fields ?? {};
+  return String(f._e4_place_pending?.value ?? '') === 'yes' || String(f._e4_step?.value ?? '') === 'place';
+}
 const MARKS_A_PLACE = /marcar o lugar|desenhar no mapa|mark the place|draw on the map/i;
 
 async function simulate(memberId: string, cboId: string, baseUrl: string, run: SimRun): Promise<void> {
@@ -227,6 +239,11 @@ async function walk(n: 3 | 4, cboId: string, baseUrl: string, run: SimRun, lang:
     const events = await chat(baseUrl, cboId, { ...turn, lang });
     state = (await loadState(cboId))!;
     if (closedNow(state, n)) break;
+    if (waitsForPlace(state, n)) {
+      run.waiting = 'place';
+      console.log(`[e3-sim] ${run.orgName}: Encontro 4 stops at the place — only the organisation marks it (${turns} turns)`);
+      return;
+    }
 
     if (events.some(e => e.type === 'open_map')) {
       const payload = mapPayload(state);

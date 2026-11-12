@@ -13,7 +13,7 @@ import { Button } from '@/core/components/ui/button';
 export interface SimMember { memberId: string; eligible: boolean; reason: string | null; simulated: boolean; encontros?: number[]; simulatedEncontros?: number[] }
 export interface SimRun {
   memberId: string; orgName: string; status: 'queued' | 'running' | 'done' | 'failed';
-  turns: number; step: string; error?: string; encontro?: number;
+  turns: number; step: string; error?: string; encontro?: number; waiting?: 'place';
 }
 export interface Simulations {
   enabled: boolean;
@@ -80,6 +80,8 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
   const ready = sim.eligible.size;
   const running = sim.runs.filter(r => r.status === 'queued' || r.status === 'running');
   const failed = sim.runs.filter(r => r.status === 'failed');
+  // Walked as far as a walk may: Encontro 4 waits on a place only the organisation can mark.
+  const waitPlace = sim.runs.filter(r => r.status === 'done' && r.waiting === 'place');
   const waitingE2 = sim.members.filter(m => m.reason === 'e2-open').length;
   if (!ready && !running.length && !failed.length && !sim.simulated.size) return null;
 
@@ -112,7 +114,7 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
           {t('orchestrator.simulation.start', { defaultValue: 'Simulate up to Encontro 4 ({{n}})', n: ready })}
         </Button>
       </div>
-      {(running.length > 0 || failed.length > 0) && (
+      {(running.length > 0 || failed.length > 0 || waitPlace.length > 0) && (
         <ul className="mt-2 space-y-1 pl-6" data-testid="simulation-runs">
           {running.map(r => (
             <li key={r.memberId} className="flex items-center gap-1.5 text-violet-900/80 dark:text-violet-200/80">
@@ -122,6 +124,11 @@ export function SimulationStrip({ sim }: { sim: Simulations }) {
                 ? t('orchestrator.simulation.queued', { defaultValue: 'waiting' })
                 : t('orchestrator.simulation.turn', { defaultValue: 'Encontro {{e}} · turn {{n}}', e: r.encontro ?? 3, n: r.turns })}</span>
               {r.step && <span className="truncate text-muted-foreground">· {r.step}</span>}
+            </li>
+          ))}
+          {waitPlace.map(r => (
+            <li key={r.memberId} className="text-amber-800 dark:text-amber-300" data-testid={`simulation-waits-place-${r.memberId}`}>
+              <span className="font-medium">{r.orgName}</span> · {t('orchestrator.simulation.waitsPlace', { defaultValue: 'Encontro 4 waits for the place — only the organisation marks it' })}
             </li>
           ))}
           {failed.map(r => (

@@ -541,6 +541,7 @@
       "startHint": "Um modelo faz o papel de cada organização, a partir do registro dela, pelos encontros reais que faltam — o Encontro 3 e depois o 4 (a proposta inicial). Usa a visita técnica se houver uma registrada. A sessão fica marcada como simulada.",
       "start": "Simular até o Encontro 4 ({{n}})",
       "queued": "na fila",
+      "waitsPlace": "O Encontro 4 espera o lugar — só a organização marca",
       "turn": "Encontro {{e}} · turno {{n}}",
       "badgeHint": "Estes encontros foram feitos por um modelo a partir do registro desta organização — não são as palavras dela",
       "badge": "{{which}} simulado",
