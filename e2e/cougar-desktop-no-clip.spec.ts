@@ -71,7 +71,8 @@ for (const width of DESKTOP_WIDTHS) {
 
       // The tour card's scale labels — the exact pixels cut off in the field
       // screenshot — are fully visible.
-      const label = page.getByText('mais risco');
+      // "mais risco" became "mais ameaça" when the scale moved to official hazard data (#632).
+      const label = page.getByText('mais ameaça');
       await expect(label).toBeVisible();
       const box = (await label.boundingBox())!;
       expect(box.x + box.width).toBeLessThanOrEqual(m.vw + 1);

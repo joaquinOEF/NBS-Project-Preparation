@@ -113,11 +113,13 @@ test.describe('COUGAR — per-org context bundle export', () => {
     expect(context).toContain('não tem sombra nenhuma');
     expect(context.indexOf('Nas palavras da organização')).toBeLessThan(context.indexOf('## O lugar'));
 
-    // RULE 1 — no risk figure is presented as measured at the site.
-    expect(context).toMatch(/médias? do BAIRRO INTEIRO/i);
+    // RULE 1 — no risk figure is presented as measured at the site: our own
+    // estimate, a rank of the WHOLE bairro (wording since #630).
+    expect(context).toMatch(/estimativa da OEF/i);
+    expect(context).toMatch(/posição do BAIRRO INTEIRO/);
     for (const line of context.split('\n')) {
       if (/^- (Enchente|Calor|Deslizamento): \*\*\d+/.test(line)) {
-        expect(line, 'a risk line without its bairro caveat').toContain('média do bairro');
+        expect(line, 'a risk line without its bairro caveat').toContain('estimativa OEF — posição do bairro');
       }
     }
 
@@ -238,7 +240,7 @@ test.describe('context bundle — the recommendation states its provenance', () 
   test('risk lines always carry the bairro caveat, and internals stay out', () => {
     const md = buildContextMarkdown({ ...BASE, state: stateWithReco({ source: 'model', served: [], baseline: [] }) } as any);
     for (const line of md.split('\n')) {
-      if (/^- (Enchente|Calor|Deslizamento): \*\*\d+/.test(line)) expect(line).toContain('média do bairro');
+      if (/^- (Enchente|Calor|Deslizamento): \*\*\d+/.test(line)) expect(line).toContain('estimativa OEF — posição do bairro');
     }
     expect(md).not.toMatch(/_bairro_flood_pct|_reco_json/);
   });

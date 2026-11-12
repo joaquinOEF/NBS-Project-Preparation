@@ -508,6 +508,7 @@
       "startHint": "A model plays each organisation from its own record through the real encontros it is missing — Encontro 3, then Encontro 4 (the initial proposal). Uses a technical visit if one is recorded. The session is marked as simulated.",
       "start": "Simulate up to Encontro 4 ({{n}})",
       "queued": "waiting",
+      "waitsPlace": "Encontro 4 waits for the place — only the organisation marks it",
       "turn": "Encontro {{e}} · turn {{n}}",
       "badgeHint": "These encontros were played by a model from this organisation’s record — these are not its own words",
       "badge": "{{which}} simulated",
