@@ -388,6 +388,16 @@ test.describe('the written summary — "Atualizar a proposta"', () => {
     // …and written again by itself over the new answers (debounced).
     await expect.poll(async () => (await get()).prenote.summary.join(' '), { timeout: 25_000, intervals: [1000] }).toMatch(/propõe Corredores verdes/);
 
+    // Their words, passed on by the coordination (Ksa Rosa said hers on a call):
+    // quoted as theirs, kept once, and never marked as the coordination's answer.
+    const words = 'aumentar o número de vezes que oferecemos café da manhã para a comunidade';
+    for (let i = 0; i < 2; i++) expect((await page.request.post(`${base}/e4-answers`, { data: { answers: { palavras: words } } })).ok()).toBe(true);
+    const wv: any = await (await page.request.get(`${base}/e4-answers`)).json();
+    expect(JSON.stringify(wv.values ?? {})).not.toContain('palavras');
+    const withWords = await (await page.request.get(`${base}/document/prenota`)).text();
+    expect(withWords).toContain(`Nas palavras da organização: “${words}.”`);
+    expect(withWords.split(words).length - 1, 'said once, printed once').toBe(1);
+
     // The drawer: the line that says when it was written, and the button.
     await page.goto(`/orchestrator?cohort=${cohort.coordinatorSlug}`);
     await page.getByTestId(`card-orchestrator-project-${m.id}`).click({ timeout: 30_000 });

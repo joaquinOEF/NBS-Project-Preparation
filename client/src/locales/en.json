@@ -2592,6 +2592,7 @@
     "e4aSiteName": "Name of the place (e.g. the yard at the headquarters)",
     "e4aBenefPh": "e.g. about 40 households on the street below, and the children at the crèche",
     "e4aChangesNeedsSolution": "The options depend on the solution — pick one above, or leave it to the organisation.",
+    "e4aChangesWordsPh": "In their words, if they said it (e.g. on a call or in a message)",
     "e4aOther": "Something else, in their words",
     "e4aPartnersPh": "Names, if you know them",
     "e4aContext": "Anything else the coordination knows?",

@@ -580,7 +580,7 @@ export const MACHINERY = new Set([
   '_e4_opened', '_e4_step', '_e4_reopened', '_e4_draft_shown',
   '_e4_approve_pending', '_e4_change_pending', '_e4_gap_pending',
   '_e4_context_pending', '_e4_context_done',
-  '_e4_place_pending', '_e4_place_member', '_e4_place_skipped',
+  '_e4_place_pending', '_e4_place_member', '_e4_place_skipped', '_e4_place_redo',
   '_e4_problem_pending', '_e4_problem_pick', '_e4_problem_ok',
   '_e4_recap_pending', '_e4_recap_pick', '_e4_recap_skip', '_e4_recap_done', '_e4_recap_json',
   '_e4_size_pending', '_e4_size_ask', '_e4_size_ok',

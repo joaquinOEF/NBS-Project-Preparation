@@ -54,6 +54,7 @@ interface Draft {
   context?: string;
   beneficiarios?: string;
   mudancas?: string[];
+  palavras?: string;
   quemFaz?: string;
   quemCuida?: string;
   contrib?: string[];
@@ -301,10 +302,18 @@ export function E4AnswersPanel({
           placeholder={t('cboView.e4aBenefPh', { defaultValue: 'ex.: umas 40 famílias da rua de baixo, e as crianças da creche' }) as string}
           className="w-full rounded-md border border-border bg-background px-2 py-1 text-[12.5px] leading-snug" />
       );
-      case 'mudancas': return changeChips.length ? (
-        <Chips testid="e4a-changes" selected={draft.mudancas ?? []} onToggle={id => set({ mudancas: toggle(draft.mudancas, id) })}
-          options={changeChips.map(c => ({ id: c.indicatorId, label: c.label }))} />
-      ) : <p className="text-[11.5px] italic text-muted-foreground">{t('cboView.e4aChangesNeedsSolution', { defaultValue: 'As opções dependem da solução — escolha uma acima, ou deixe para a organização.' })}</p>;
+      case 'mudancas': return (
+        <div className="space-y-1.5">
+          {changeChips.length ? (
+            <Chips testid="e4a-changes" selected={draft.mudancas ?? []} onToggle={id => set({ mudancas: toggle(draft.mudancas, id) })}
+              options={changeChips.map(c => ({ id: c.indicatorId, label: c.label }))} />
+          ) : <p className="text-[11.5px] italic text-muted-foreground">{t('cboView.e4aChangesNeedsSolution', { defaultValue: 'As opções dependem da solução — escolha uma acima, ou deixe para a organização.' })}</p>}
+          {/* Their sentence, as they said it — quoted on the page as theirs ("Nas palavras da organização"). */}
+          <textarea rows={2} value={draft.palavras ?? ''} onChange={e => set({ palavras: e.target.value })} data-testid="e4a-input-palavras"
+            placeholder={t('cboView.e4aChangesWordsPh', { defaultValue: 'Nas palavras deles, se disseram (ex.: numa ligação ou mensagem)' }) as string}
+            className="w-full rounded-md border border-border bg-background px-2 py-1 text-[12.5px] leading-snug" />
+        </div>
+      );
       case 'quem-faz-obra': return (
         <Chips testid="e4a-build" selected={draft.quemFaz ? [draft.quemFaz] : []} onToggle={id => set({ quemFaz: draft.quemFaz === id ? undefined : id })}
           options={BUILD.map(b => ({ id: b.id, label: opt(b) }))} />
@@ -348,6 +357,7 @@ export function E4AnswersPanel({
       ...(draft.context?.trim() ? { context: draft.context.trim() } : {}),
       ...(draft.beneficiarios?.trim() ? { beneficiarios: draft.beneficiarios.trim() } : {}),
       ...(draft.mudancas?.length ? { mudancas: draft.mudancas } : {}),
+      ...(draft.palavras?.trim() ? { palavras: draft.palavras.trim() } : {}),
       ...(draft.quemFaz ? { quemFaz: draft.quemFaz } : {}),
       ...(draft.quemCuida ? { quemCuida: draft.quemCuida } : {}),
       ...(contrib ? { contrapartida: contrib } : {}),

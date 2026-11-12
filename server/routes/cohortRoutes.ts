@@ -70,7 +70,7 @@ import { renderComparisonHtml, renderScenarioHtml } from '../services/comparison
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
-import { buildPrenote, prenoteInputFromSections, prenoteSolution, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
+import { addTheirWords, buildPrenote, prenoteInputFromSections, prenoteSolution, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
 import { BUILD, MAINTAIN, COORD_KEYS, COORD_ANSWERS_FIELD, parseCoordAnswers, answeredByCoordination, type CoordKey } from '@shared/e4-options';
 import { getSolution, NBS_SOLUTIONS, orderSolutionsByMechanism } from '@shared/nbs-catalog';
 import { SOLUTION_COSTS } from '@shared/w3-sizing';
@@ -3083,6 +3083,7 @@ export function registerCohortRoutes(app: Express): void {
       siteW._site_lat = lat.toFixed(6);
       siteW._site_lng = lng.toFixed(6);
       typeW._e4_place_skipped = '';
+      typeW._e4_place_redo = '';
       written.place = `${siteW._site_lat},${siteW._site_lng}`;
     }
     const siteName = str(a.siteName, 120);
@@ -3103,6 +3104,11 @@ export function registerCohortRoutes(app: Express): void {
     if (beneficiarios) { siteW.beneficiaries_note = beneficiarios; written.beneficiarios = beneficiarios; }
     const mudancas = Array.isArray(a.mudancas) ? a.mudancas.map(x => str(x, 60)).filter(x => /^[a-z0-9-]+$/.test(x)) : [];
     if (mudancas.length) { typeW._e4_changes = mudancas.join(','); written.mudancas = typeW._e4_changes; }
+    // Their own sentence for what should change, as they said it (a call, a message) —
+    // the same line the chat keeps, quoted on the page as theirs.
+    const palavras = str(a.palavras, 600);
+    // Not a coordination answer: the words are theirs, so the section is not marked "pela coordenação".
+    if (palavras) typeW._e4_changes_words = addTheirWords(type._e4_changes_words || '', palavras);
     const quemFaz = str(a.quemFaz, 40);
     if (BUILD.some(b => b.id === quemFaz)) { typeW.construction_model = quemFaz; written['quem-faz-obra'] = quemFaz; }
     const quemCuida = str(a.quemCuida, 40);
@@ -3112,7 +3118,7 @@ export function registerCohortRoutes(app: Express): void {
     const parceiros = str(a.parceiros);
     if (parceiros) { typeW.e4_partners = parceiros; written.parceiros = parceiros; }
 
-    if (!Object.keys(written).length && !context && !siteName) { res.json({ ok: true, ...e4AnswersView(state) }); return; }
+    if (!Object.keys(written).length && !context && !siteName && !palavras) { res.json({ ok: true, ...e4AnswersView(state) }); return; }
 
     const prev = parseCoordAnswers(type[COORD_ANSWERS_FIELD]);
     const by = str(req.body?.by, 80);
@@ -3127,7 +3133,7 @@ export function registerCohortRoutes(app: Express): void {
     writeSectionFields(id, state, 'intervention_type', typeW, () => {}, 'coordinator');
     await flushNow(id);
     if (context) void rereadFiles(id);
-    console.log(`[e4-answers] ${got.member.id}: ${Object.keys(written).join(', ') || '-'}${context ? ' +context' : ''}`);
+    console.log(`[e4-answers] ${got.member.id}: ${Object.keys(written).join(', ') || '-'}${context ? ' +context' : ''}${palavras ? ' +palavras' : ''}`);
     res.json({ ok: true, ...e4AnswersView(state) });
   }));
 
