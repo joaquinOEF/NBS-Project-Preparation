@@ -22,6 +22,8 @@ import { buildJointPrenote, jointSections, memberPinned, memberPlace, type Joint
 import type { E4Suggestion } from '@shared/e4-suggestions';
 import type { E4ProjectHooks } from './cboE4Checkpoint';
 import { cityMapFor, sitePoint } from './siteContext';
+import { cityExposure, siteClimateTriggers } from './cityClimateContext';
+import { cityClimateLines } from '@shared/city-climate-context';
 import { censusAroundMany } from './censusContext';
 import { healSite } from './siteHealing';
 import { suggestionsFor } from './e4Suggestions';
@@ -119,7 +121,13 @@ export async function loadJointContext(project: CohortProject, projectState: Cbo
       const where = memberPlace(m.state?.sections) || m.orgName;
       for (const f of cityMapFor(site)) cityMap.push({ text: `**${where}** (${m.orgName}): ${f.text}`, source: f.source });
     }
-    return { cityMap, census: points.length ? censusAroundMany(points, { withNearby: true }) : null };
+    const census = points.length ? censusAroundMany(points, { withNearby: true }) : null;
+    // The city's climate context: a line bears on the project when it bears on any member's place.
+    const ts = live.map(m => siteClimateTriggers(healSite(siteOf(m.state)), null)).filter((t): t is NonNullable<typeof t> => !!t);
+    const cityContext = ts.length
+      ? cityClimateLines(cityExposure(), { below2024: ts.some(t => t.below2024), inSgbSector: ts.some(t => t.inSgbSector), incomeAround: census?.incomeMedian ?? null }, lang)
+      : [];
+    return { cityMap, census, cityContext };
   };
   const input = (ps: CboState): PrenoteInput => ({ ...prenoteInputFromSections(jointSections(ps.sections, members, project.title)), ...extras() });
 

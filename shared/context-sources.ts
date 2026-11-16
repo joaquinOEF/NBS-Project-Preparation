@@ -42,7 +42,7 @@ export const CONTEXT_SOURCES = {
   knowledge: 'the knowledge slice: approval routes and their timings, and the funding landscape from the 26 Aug workshop',
   cohort: 'what the other organisations in this cohort are doing',
   artefacts: 'what earlier passes produced — the dossier, roadmap, concept note',
-  city: "the city's own plans and maps — the PLAC and its 30 actions, the 2025 Plano Diretor, Regenera Dilúvio, Centro+4D, and what SMAMUS's map layers say at the marked site (knowledge/porto-alegre/city, `npm run city:import`)",
+  city: "the city's own plans and maps — the PLAC and its 30 actions, the 2025 Plano Diretor, Regenera Dilúvio, Centro+4D, what SMAMUS's map layers say at the marked site (knowledge/porto-alegre/city, `npm run city:import`), and the city's climate context where it bears on that site (knowledge/porto-alegre/census-2022/exposure.json, shared/city-climate-context.ts)",
   visit: "the coordination's technical visit — the solution and size it recommends (`_visit_json`), what it saw on the ground (`technical_note`) and the files it attached (documents marked `visita_tecnica`), always attributed to the coordination, never to the organisation",
 } as const;
 

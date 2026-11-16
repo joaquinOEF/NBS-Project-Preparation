@@ -265,7 +265,7 @@ STOP and wait for the user's map selection after calling this tool.`,
     "Read a knowledge file for detailed data. Use when you need more information than what's in the city context. ONLY reads from the knowledge/ folder.",
     {
       folder: z.string().describe("Folder: porto-alegre, _interventions, _co-benefits, _financing-sources, _evidence, _success-cases, _inclusive-action"),
-      file: z.string().describe("File name, e.g. 'urban-forests.md', 'climate-risks.md'"),
+      file: z.string().describe("File name, e.g. 'urban-forests.md', 'climate-risks.md', 'disaster-history-and-climate-justice.md' (disasters already lived and who lives in the risk areas)"),
     },
     async (args: any) => {
       const fs = require('fs');
