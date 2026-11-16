@@ -1250,7 +1250,7 @@ STOP and wait for the user's map selection after calling this tool.`,
 - _success-cases/: brazilian-municipal.md (Curitiba, Recife, BH, São Paulo, Salvador examples)
 - _evidence/: impact-benchmarks.md, funded-projects-brazil.md (GCF, World Bank, GEF projects)
 - _financing-sources/: preparation-facilities.md, international.md, brazilian-domestic.md
-- porto-alegre/: climate-risks.md, local-precedents.md, existing-plans.md, stakeholders.md, baseline-data.md
+- porto-alegre/: climate-risks.md, disaster-history-and-climate-justice.md (disasters already lived, who lives in the risk areas — the 'why NbS here' context; on an organisation's page compare income, not race), local-precedents.md, existing-plans.md, stakeholders.md, baseline-data.md
 - _cougar/: nbs-mapping-criteria.md, ecosystem-assessment-summary.md, sample-cbo-vilaflores.md
 
 USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — read relevant files and share insights.`,
@@ -3853,7 +3853,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       const full = await prenoteInputFor(cboId, state.sections, lang === 'en' ? 'en' : 'pt', { cohortLines: cohortLinesFor, photoUrl: id => `/api/documents/${id}/original` });
       // The census and the site as documents read it (siteHealing.ts) — or the
       // card in the chat would differ from the print.
-      return { photos: full.photos, cohort: full.cohort, cityMap: full.cityMap, census: full.census, site: full.site };
+      return { photos: full.photos, cohort: full.cohort, cityMap: full.cityMap, census: full.census, cityContext: full.cityContext, site: full.site };
     },
     suggestions: () => suggestionsFor(state, getCboMessages(cboId).map(m => ({ role: m.role, content: m.content }))),
     startAuthoring: () => { void runPrenoteAuthor(cboId); },

@@ -18,6 +18,7 @@ import { listDocumentsForScope, getOrgIdForCboState } from './documentPersistenc
 import { authorConceptNote } from './conceptNoteAuthor';
 import { cityMapFor } from './siteContext';
 import { censusForSite } from './censusContext';
+import { cityContextFor } from './cityClimateContext';
 import { healSite } from './siteHealing';
 import { isFakeModelEnabled } from './fakeCboModel';
 import { getSolution } from '@shared/nbs-catalog';
@@ -51,7 +52,9 @@ export async function prenoteInputFor(
   const cityMap = cityMapFor(base.site);
   // Who lives around it (2022 Census) — Território's census lines, documents only.
   const census = censusForSite(base.site);
-  return { ...base, photos, cohort, cityMap, census };
+  // The city's climate context, only the lines that bear on this site (shared/city-climate-context.ts).
+  const cityContext = cityContextFor(base.site, census, lang);
+  return { ...base, photos, cohort, cityMap, census, cityContext };
 }
 
 /**

@@ -1,0 +1,849 @@
+{
+ "computedAt": "2026-11-16",
+ "script": "scripts/city-exposure-stats.py",
+ "sources": {
+  "census": "IBGE, Censo Demográfico 2022, por setor censitário (via GeoReDUS/CEM-USP)",
+  "cota2024": "SMAMUS, Cotas de inundação do Guaíba (cota de 5.35 m, pico de maio de 2024)",
+  "planet": "Planet SkySat, extensão observada da inundação em 6/5/2024 (zenodo.org/records/14662897)",
+  "sgb": "SGB/CPRM, Setorização de Risco Geológico",
+  "arroios2050": "PLAC/ARVC 2023, ameaça de inundação fluvial (arroios), cenário 2050, classes alta e muito alta"
+ },
+ "city": {
+  "people": 1332845,
+  "shareOfCity": 1.0,
+  "blackOrBrownShare": 0.26,
+  "incomeMedian": 3705
+ },
+ "layers": {
+  "cota2024": {
+   "people": 164279,
+   "shareOfCity": 0.123,
+   "blackOrBrownShare": 0.223,
+   "incomeMedian": 3524
+  },
+  "planet": {
+   "people": 121190,
+   "shareOfCity": 0.091,
+   "blackOrBrownShare": 0.242,
+   "incomeMedian": 3065
+  },
+  "sgb": {
+   "people": 30467,
+   "shareOfCity": 0.023,
+   "blackOrBrownShare": 0.427,
+   "incomeMedian": 1731
+  },
+  "arroios2050": {
+   "people": 17534,
+   "shareOfCity": 0.013,
+   "blackOrBrownShare": 0.333,
+   "incomeMedian": 2061
+  }
+ },
+ "incomeQuintiles": [
+  {
+   "quintile": 1,
+   "incomeFrom": 500,
+   "incomeTo": 1877,
+   "cota2024Share": 0.1321,
+   "planetShare": 0.1179,
+   "sgbShare": 0.0704,
+   "arroios2050Share": 0.0248,
+   "blackOrBrownShare": 0.467
+  },
+  {
+   "quintile": 2,
+   "incomeFrom": 1881,
+   "incomeTo": 2781,
+   "cota2024Share": 0.1168,
+   "planetShare": 0.0933,
+   "sgbShare": 0.034,
+   "arroios2050Share": 0.0286,
+   "blackOrBrownShare": 0.369
+  },
+  {
+   "quintile": 3,
+   "incomeFrom": 2784,
+   "incomeTo": 4688,
+   "cota2024Share": 0.1336,
+   "planetShare": 0.1074,
+   "sgbShare": 0.0074,
+   "arroios2050Share": 0.0098,
+   "blackOrBrownShare": 0.241
+  },
+  {
+   "quintile": 4,
+   "incomeFrom": 4689,
+   "incomeTo": 7659,
+   "cota2024Share": 0.1464,
+   "planetShare": 0.0878,
+   "sgbShare": 0.0021,
+   "arroios2050Share": 0.0016,
+   "blackOrBrownShare": 0.146
+  },
+  {
+   "quintile": 5,
+   "incomeFrom": 7662,
+   "incomeTo": 49760,
+   "cota2024Share": 0.0881,
+   "planetShare": 0.049,
+   "sgbShare": 0.0005,
+   "arroios2050Share": 0.0011,
+   "blackOrBrownShare": 0.075
+  }
+ ],
+ "bairros": [
+  {
+   "bairro": "Sarandi",
+   "people": 51539,
+   "cota2024": 26470,
+   "planet": 26989,
+   "sgb": 1296,
+   "arroios2050": 2977
+  },
+  {
+   "bairro": "Menino-Deus",
+   "people": 27961,
+   "cota2024": 18791,
+   "planet": 11343,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Farrapos",
+   "people": 17591,
+   "cota2024": 17591,
+   "planet": 17591,
+   "sgb": 6,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Humaitá",
+   "people": 12744,
+   "cota2024": 12680,
+   "planet": 12716,
+   "sgb": 0,
+   "arroios2050": 461
+  },
+  {
+   "bairro": "Cidade Baixa",
+   "people": 13014,
+   "cota2024": 9716,
+   "planet": 4994,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Floresta",
+   "people": 8798,
+   "cota2024": 7663,
+   "planet": 6575,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Centro Histórico",
+   "people": 30569,
+   "cota2024": 7292,
+   "planet": 3888,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Ponta Grossa",
+   "people": 8939,
+   "cota2024": 6794,
+   "planet": 1118,
+   "sgb": 144,
+   "arroios2050": 1329
+  },
+  {
+   "bairro": "São Geraldo",
+   "people": 6948,
+   "cota2024": 6631,
+   "planet": 6373,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Arquipélago",
+   "people": 6411,
+   "cota2024": 6400,
+   "planet": 6411,
+   "sgb": 3659,
+   "arroios2050": 1286
+  },
+  {
+   "bairro": "Lami",
+   "people": 6677,
+   "cota2024": 4524,
+   "planet": 2198,
+   "sgb": 403,
+   "arroios2050": 748
+  },
+  {
+   "bairro": "Santana",
+   "people": 17794,
+   "cota2024": 4122,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Belém Novo",
+   "people": 9851,
+   "cota2024": 3369,
+   "planet": 950,
+   "sgb": 0,
+   "arroios2050": 84
+  },
+  {
+   "bairro": "Navegantes",
+   "people": 3315,
+   "cota2024": 3292,
+   "planet": 3315,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Azenha",
+   "people": 12064,
+   "cota2024": 3011,
+   "planet": 1153,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Cristal",
+   "people": 24851,
+   "cota2024": 3001,
+   "planet": 747,
+   "sgb": 1702,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "São João",
+   "people": 10621,
+   "cota2024": 2638,
+   "planet": 2067,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Santa Rosa de Lima",
+   "people": 34627,
+   "cota2024": 2614,
+   "planet": 3100,
+   "sgb": 580,
+   "arroios2050": 283
+  },
+  {
+   "bairro": "Ipanema",
+   "people": 13403,
+   "cota2024": 2524,
+   "planet": 1102,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Santa Maria Goretti",
+   "people": 3035,
+   "cota2024": 2476,
+   "planet": 1633,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Serraria",
+   "people": 4385,
+   "cota2024": 2113,
+   "planet": 1374,
+   "sgb": 943,
+   "arroios2050": 145
+  },
+  {
+   "bairro": "Hípica",
+   "people": 28643,
+   "cota2024": 1740,
+   "planet": 302,
+   "sgb": 608,
+   "arroios2050": 3858
+  },
+  {
+   "bairro": "Praia de Belas",
+   "people": 1522,
+   "cota2024": 1516,
+   "planet": 1432,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Tristeza",
+   "people": 17201,
+   "cota2024": 1296,
+   "planet": 547,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Guarujá",
+   "people": 6145,
+   "cota2024": 1287,
+   "planet": 1139,
+   "sgb": 176,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Aberta dos Morros",
+   "people": 9854,
+   "cota2024": 1111,
+   "planet": 421,
+   "sgb": 436,
+   "arroios2050": 230
+  },
+  {
+   "bairro": "Santa Tereza",
+   "people": 31358,
+   "cota2024": 804,
+   "planet": 163,
+   "sgb": 863,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Anchieta",
+   "people": 791,
+   "cota2024": 758,
+   "planet": 790,
+   "sgb": 90,
+   "arroios2050": 555
+  },
+  {
+   "bairro": "Vila Assunção",
+   "people": 3974,
+   "cota2024": 525,
+   "planet": 250,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Espírito Santo",
+   "people": 4953,
+   "cota2024": 267,
+   "planet": 171,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Boa Vista do Sul",
+   "people": 2703,
+   "cota2024": 242,
+   "planet": 118,
+   "sgb": 0,
+   "arroios2050": 4
+  },
+  {
+   "bairro": "Pedra Redonda",
+   "people": 570,
+   "cota2024": 148,
+   "planet": 81,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Cavalhada",
+   "people": 25209,
+   "cota2024": 133,
+   "planet": 0,
+   "sgb": 97,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Floresta",
+   "people": 2228,
+   "cota2024": 116,
+   "planet": 90,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim São Pedro",
+   "people": 3320,
+   "cota2024": 105,
+   "planet": 30,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Santa Cecília",
+   "people": 4640,
+   "cota2024": 97,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Rubem Berta",
+   "people": 27930,
+   "cota2024": 96,
+   "planet": 0,
+   "sgb": 462,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Partenon",
+   "people": 43587,
+   "cota2024": 92,
+   "planet": 0,
+   "sgb": 242,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Petrópolis",
+   "people": 37613,
+   "cota2024": 71,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Chapéu do Sol",
+   "people": 5547,
+   "cota2024": 57,
+   "planet": 1,
+   "sgb": 0,
+   "arroios2050": 1487
+  },
+  {
+   "bairro": "Vila Conceição",
+   "people": 969,
+   "cota2024": 43,
+   "planet": 20,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Lageado",
+   "people": 5676,
+   "cota2024": 18,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 4
+  },
+  {
+   "bairro": "Moinhos de Vento",
+   "people": 9995,
+   "cota2024": 18,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Passo da Areia",
+   "people": 22530,
+   "cota2024": 13,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Independência",
+   "people": 6885,
+   "cota2024": 9,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Isabel",
+   "people": 2592,
+   "cota2024": 5,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Vila Ipiranga",
+   "people": 18041,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Camaquã",
+   "people": 17935,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "São Sebastião",
+   "people": 7514,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Leopoldina",
+   "people": 16151,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Morro Santana",
+   "people": 21640,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 502,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Cristo Redentor",
+   "people": 15144,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Lindóia",
+   "people": 7587,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Santo Antônio",
+   "people": 13105,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Nonoai",
+   "people": 20776,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 1315,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Bom Fim",
+   "people": 10160,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Mont’Serrat",
+   "people": 10357,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Auxiliadora",
+   "people": 8909,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Sabará",
+   "people": 11270,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Passo das Pedras",
+   "people": 14435,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 1450,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Lomba do Pinheiro",
+   "people": 59200,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 1754,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Restinga",
+   "people": 62448,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 525,
+   "arroios2050": 4075
+  },
+  {
+   "bairro": "Farroupilha",
+   "people": 774,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Bela Vista",
+   "people": 11819,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Botânico",
+   "people": 11349,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Bom Jesus",
+   "people": 24589,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 720,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim do Salso",
+   "people": 6576,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Carvalho",
+   "people": 23405,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 1309,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Mário Quintana",
+   "people": 44068,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 813,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Vila São José",
+   "people": 24011,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 2359,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Glória",
+   "people": 15248,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 1579,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Vila João Pessoa",
+   "people": 10431,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 1087,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Coronel Aparício Borges",
+   "people": 18966,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 3184,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Teresópolis",
+   "people": 13072,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 6,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Agronomia",
+   "people": 2677,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 314,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Medianeira",
+   "people": 8749,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 7,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Cascata",
+   "people": 9234,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 642,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Vila Nova",
+   "people": 32217,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 183,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Belém Velho",
+   "people": 10893,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Campo Novo",
+   "people": 8743,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 142,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Pitinga",
+   "people": 7012,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 25,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Extrema",
+   "people": 2360,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 589,
+   "arroios2050": 7
+  },
+  {
+   "bairro": "Rio Branco",
+   "people": 15710,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 24,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Higienópolis",
+   "people": 10284,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Boa Vista",
+   "people": 9254,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Três Figueiras",
+   "people": 4016,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Chácara das Pedras",
+   "people": 5639,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Vila Jardim",
+   "people": 11411,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Europa",
+   "people": 4372,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Jardim Itu",
+   "people": 17565,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Costa e Silva",
+   "people": 13585,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 230,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Parque Santa Fé",
+   "people": 6673,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "Sétimo Céu",
+   "people": 1166,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  },
+  {
+   "bairro": "São Caetano",
+   "people": 733,
+   "cota2024": 0,
+   "planet": 0,
+   "sgb": 0,
+   "arroios2050": 0
+  }
+ ]
+}

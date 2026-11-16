@@ -1,6 +1,7 @@
 import { isPhotoCaption } from '@shared/photo-caption';
 import { createHash } from 'node:crypto';
 import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
+import { cityContextFor } from '../services/cityClimateContext';
 import { censusForSite, tractStatsAround, tractStatsAroundMany } from '../services/censusContext';
 import { jointPrenoteFor, jointClosed } from '../services/projectProposal';
 import { censusLines } from '@shared/census';
@@ -736,7 +737,8 @@ export function registerCohortRoutes(app: Express): void {
       const rawBase = prenoteInputFromSections(sections);
       const base = { ...rawBase, site: healSite(rawBase.site) };
       // The map lines too, as every other path that builds a pre-note.
-      const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site), census: censusForSite(base.site) }, lang);
+      const census = censusForSite(base.site);
+      const prenote = buildPrenote({ ...base, cohort: cohortByState.get(m.cboStateId!) ?? [], cityMap: cityMapFor(base.site), census, cityContext: cityContextFor(base.site, census, lang) }, lang);
       data.prenotes.set(m.id, prenote);
       const org = portfolioOrg(m.id, orgName, sections, lang);
       const places = siteGroupsFor(base.site);

@@ -79,6 +79,14 @@ export interface PrenoteInput {
    * valid and keeps winning.
    */
   census?: CensusAround | null;
+  /**
+   * The city's climate context where it bears on this site — how many people
+   * live below the 2024 flood level, who lives in the SGB risk sectors, the
+   * income here against the city's (server/services/cityClimateContext.ts,
+   * shared/city-climate-context.ts). Printed after the map facts in Território
+   * and handed to the summary with them. Like the census, NOT in the edit basis.
+   */
+  cityContext?: Array<{ text: string; source: string }>;
 }
 
 /** What Encontro 4 stores about the solution it confirmed. */
@@ -579,7 +587,7 @@ export function buildPrenote(input: PrenoteInput, lang: Lang = 'pt'): Prenote {
   // recognised as already said and not repeated there.
   // Two sections (round 3, P1-A): the city's maps, then who lives nearby —
   // pretos e pardos stay in the coordination's views (D3), this page is the organisation's.
-  const cityMap = (input.cityMap ?? []).map(x => W(x.text, x.source));
+  const cityMap = [...(input.cityMap ?? []), ...(input.cityContext ?? [])].map(x => W(x.text, x.source));
   if (cityMap.length) sections.splice(sections.findIndex(x => x.id === 'problema') + 1, 0, { id: 'territorio', title: L.territorio, lines: cityMap, missing: null });
   const rel = relevanceFor(sol?.id);
   const people = censusPeopleLine(input.census, { lang });
@@ -662,7 +670,7 @@ export function conceptInputFor(input: PrenoteInput, sol: NonNullable<Prenote['s
     ...(sol.areaM2 ? { areaM2: sol.areaM2 } : {}),
     w3: { ...input.type, ...(input.ops ?? {}), solution_tests_json: JSON.stringify(tests), chosen_solutions: sol.id, ...(sol.units ? { intervention_units: String(sol.units) } : {}) },
     cohort: input.cohort ?? [],
-    cityMap: input.cityMap ?? [],
+    cityMap: [...(input.cityMap ?? []), ...(input.cityContext ?? [])],
   };
 }
 
