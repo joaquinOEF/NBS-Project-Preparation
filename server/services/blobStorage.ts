@@ -6,14 +6,31 @@
 // dev box without Object Storage), every call no-ops with a logged warning and
 // returns null — uploads still work, they just don't get a durable original.
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 // Bucket created for the COUGAR pilot. Overridable via env for other deploys.
 const BUCKET_ID = process.env.BLOB_BUCKET_ID || 'replit-objstore-44719f3e-1340-49bf-979c-cc34ba8316c4';
 
 let clientPromise: Promise<any | null> | null = null;
 
+/** The three calls this module makes, on a local folder. */
+function localDiskClient(dir: string) {
+  const file = (key: string) => path.join(dir, key.replace(/\.\.+/g, '_'));
+  return {
+    async uploadFromBytes(key: string, bytes: Buffer) { fs.mkdirSync(path.dirname(file(key)), { recursive: true }); fs.writeFileSync(file(key), bytes); return { ok: true }; },
+    async downloadAsBytes(key: string) { return fs.existsSync(file(key)) ? { ok: true, value: fs.readFileSync(file(key)) } : { ok: false, error: 'not found' }; },
+    async delete(key: string) { if (fs.existsSync(file(key))) fs.unlinkSync(file(key)); return { ok: true }; },
+  };
+}
+
 async function getClient(): Promise<any | null> {
   if (clientPromise) return clientPromise;
   clientPromise = (async () => {
+    // A folder on disk instead, when asked — the e2e server sets it so a spec
+    // can store and read back a blob (e2e/publication-package.spec.ts). Never in prod.
+    const dir = process.env.BLOB_LOCAL_DIR;
+    if (dir) return localDiskClient(dir);
     try {
       const mod: any = await import('@replit/object-storage');
       const Client = mod.Client;

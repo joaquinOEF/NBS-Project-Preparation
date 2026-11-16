@@ -209,6 +209,15 @@
       "tooltip": "Create a test organisation from a snapshot of a real one",
       "button": "Import org"
     },
+    "publication": {
+      "button": "Publication data (ZIP)",
+      "hint": "Tables, city context, the 27 solutions and the maps — built now from every organisation's current pin",
+      "noMaps": "No maps uploaded yet — the ZIP has the tables and texts only",
+      "noMapsShort": "no maps yet",
+      "stale": "Maps drawn on {{date}} are out of date: {{list}}",
+      "staleShort": "maps out of date",
+      "fresh": "Maps drawn on {{date}} with every current pin"
+    },
     "profiles": {
       "all": "All profiles (PDF)",
       "allHint": "One print-ready page per organisation, with everything each has shared so far"

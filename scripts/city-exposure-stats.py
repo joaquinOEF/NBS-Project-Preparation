@@ -112,12 +112,14 @@ out['incomeQuintiles'] = [{
     **{f'{k}Share': round(sum(r['p'] * r[k] for r in g) / sum(r['p'] for r in g), 4) for k in share},
     'blackOrBrownShare': round(sum(r['pp'] or 0 for r in g) / sum(r['p'] for r in g), 3),
 } for i, g in enumerate(q)]
-by = collections.defaultdict(lambda: collections.Counter())
-for r in rows:
-    by[r['b']]['people'] += r['p']
-    for k in share: by[r['b']][k] += r['p'] * r[k]
-out['bairros'] = sorted([{'bairro': b, 'people': c['people'], **{k: round(c[k]) for k in share}} for b, c in by.items() if c['people']],
-                        key=lambda x: -x['cota2024'])
+by = collections.defaultdict(list)
+for r in rows: by[r['b']].append(r)
+def bairro_row(b, g):
+    ppl = sum(r['p'] for r in g); known = [r for r in g if r['pp'] is not None]; kp = sum(r['p'] for r in known)
+    return {'bairro': b, 'people': ppl, **{k: round(sum(r['p'] * r[k] for r in g)) for k in share},
+            'blackOrBrownShare': round(sum(r['pp'] for r in known) / kp, 3) if kp else None,
+            'incomeMedian': wmedian([(r['r'], r['p']) for r in g])}
+out['bairros'] = sorted([bairro_row(b, g) for b, g in by.items() if sum(r['p'] for r in g)], key=lambda x: -x['cota2024'])
 dest = f'{K}/exposure.json'
 json.dump(out, open(dest, 'w'), ensure_ascii=False, indent=1)
 print('wrote', dest, '·', {k: out['layers'][k]['people'] for k in share})

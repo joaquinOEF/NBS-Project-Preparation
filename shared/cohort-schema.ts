@@ -36,6 +36,12 @@ export type CohortSettings = {
    */
   leftNetwork?: Record<string, { at: string; by?: string; wasExcluded: boolean }>;
   /**
+   * The publication maps' last upload (scripts/publication-maps.ts →
+   * POST …/publication/maps): when they were drawn and from which pins, so the
+   * package can say when a pin has moved since. The ZIP itself is in blob storage.
+   */
+  publicationMaps?: { renderedAt: string; blobKey: string; pins: Array<{ memberId: string; org: string; bairro: string; lat: number | null; lng: number | null; approx: boolean }> };
+  /**
    * The pre-portfolio board's working draft (shared/preportfolio.ts): the
    * coordination's preferences and the arrangement as last saved. A draft, not
    * a decision — "confirmar" turns groups into projects. Kept in settings so

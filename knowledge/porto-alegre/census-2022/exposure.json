@@ -99,7 +99,9 @@
    "cota2024": 26470,
    "planet": 26989,
    "sgb": 1296,
-   "arroios2050": 2977
+   "arroios2050": 2977,
+   "blackOrBrownShare": 0.219,
+   "incomeMedian": 2866
   },
   {
    "bairro": "Menino-Deus",
@@ -107,7 +109,9 @@
    "cota2024": 18791,
    "planet": 11343,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.116,
+   "incomeMedian": 8292
   },
   {
    "bairro": "Farrapos",
@@ -115,7 +119,9 @@
    "cota2024": 17591,
    "planet": 17591,
    "sgb": 6,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.406,
+   "incomeMedian": 1745
   },
   {
    "bairro": "Humaitá",
@@ -123,7 +129,9 @@
    "cota2024": 12680,
    "planet": 12716,
    "sgb": 0,
-   "arroios2050": 461
+   "arroios2050": 461,
+   "blackOrBrownShare": 0.251,
+   "incomeMedian": 3800
   },
   {
    "bairro": "Cidade Baixa",
@@ -131,7 +139,9 @@
    "cota2024": 9716,
    "planet": 4994,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.145,
+   "incomeMedian": 5822
   },
   {
    "bairro": "Floresta",
@@ -139,7 +149,9 @@
    "cota2024": 7663,
    "planet": 6575,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.17,
+   "incomeMedian": 5544
   },
   {
    "bairro": "Centro Histórico",
@@ -147,7 +159,9 @@
    "cota2024": 7292,
    "planet": 3888,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.159,
+   "incomeMedian": 5676
   },
   {
    "bairro": "Ponta Grossa",
@@ -155,7 +169,9 @@
    "cota2024": 6794,
    "planet": 1118,
    "sgb": 144,
-   "arroios2050": 1329
+   "arroios2050": 1329,
+   "blackOrBrownShare": 0.236,
+   "incomeMedian": 2283
   },
   {
    "bairro": "São Geraldo",
@@ -163,7 +179,9 @@
    "cota2024": 6631,
    "planet": 6373,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.111,
+   "incomeMedian": 4096
   },
   {
    "bairro": "Arquipélago",
@@ -171,7 +189,9 @@
    "cota2024": 6400,
    "planet": 6411,
    "sgb": 3659,
-   "arroios2050": 1286
+   "arroios2050": 1286,
+   "blackOrBrownShare": 0.256,
+   "incomeMedian": 1818
   },
   {
    "bairro": "Lami",
@@ -179,7 +199,9 @@
    "cota2024": 4524,
    "planet": 2198,
    "sgb": 403,
-   "arroios2050": 748
+   "arroios2050": 748,
+   "blackOrBrownShare": 0.259,
+   "incomeMedian": 1736
   },
   {
    "bairro": "Santana",
@@ -187,7 +209,9 @@
    "cota2024": 4122,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.138,
+   "incomeMedian": 6499
   },
   {
    "bairro": "Belém Novo",
@@ -195,7 +219,9 @@
    "cota2024": 3369,
    "planet": 950,
    "sgb": 0,
-   "arroios2050": 84
+   "arroios2050": 84,
+   "blackOrBrownShare": 0.218,
+   "incomeMedian": 2830
   },
   {
    "bairro": "Navegantes",
@@ -203,7 +229,9 @@
    "cota2024": 3292,
    "planet": 3315,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.179,
+   "incomeMedian": 3524
   },
   {
    "bairro": "Azenha",
@@ -211,7 +239,9 @@
    "cota2024": 3011,
    "planet": 1153,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.185,
+   "incomeMedian": 5432
   },
   {
    "bairro": "Cristal",
@@ -219,7 +249,9 @@
    "cota2024": 3001,
    "planet": 747,
    "sgb": 1702,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.297,
+   "incomeMedian": 4393
   },
   {
    "bairro": "São João",
@@ -227,7 +259,9 @@
    "cota2024": 2638,
    "planet": 2067,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.087,
+   "incomeMedian": 6586
   },
   {
    "bairro": "Santa Rosa de Lima",
@@ -235,7 +269,9 @@
    "cota2024": 2614,
    "planet": 3100,
    "sgb": 580,
-   "arroios2050": 283
+   "arroios2050": 283,
+   "blackOrBrownShare": 0.365,
+   "incomeMedian": 1997
   },
   {
    "bairro": "Ipanema",
@@ -243,7 +279,9 @@
    "cota2024": 2524,
    "planet": 1102,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.14,
+   "incomeMedian": 8004
   },
   {
    "bairro": "Santa Maria Goretti",
@@ -251,7 +289,9 @@
    "cota2024": 2476,
    "planet": 1633,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.115,
+   "incomeMedian": 4230
   },
   {
    "bairro": "Serraria",
@@ -259,7 +299,9 @@
    "cota2024": 2113,
    "planet": 1374,
    "sgb": 943,
-   "arroios2050": 145
+   "arroios2050": 145,
+   "blackOrBrownShare": 0.339,
+   "incomeMedian": 1570
   },
   {
    "bairro": "Hípica",
@@ -267,7 +309,9 @@
    "cota2024": 1740,
    "planet": 302,
    "sgb": 608,
-   "arroios2050": 3858
+   "arroios2050": 3858,
+   "blackOrBrownShare": 0.253,
+   "incomeMedian": 3941
   },
   {
    "bairro": "Praia de Belas",
@@ -275,7 +319,9 @@
    "cota2024": 1516,
    "planet": 1432,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.144,
+   "incomeMedian": 5885
   },
   {
    "bairro": "Tristeza",
@@ -283,7 +329,9 @@
    "cota2024": 1296,
    "planet": 547,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.097,
+   "incomeMedian": 9596
   },
   {
    "bairro": "Guarujá",
@@ -291,7 +339,9 @@
    "cota2024": 1287,
    "planet": 1139,
    "sgb": 176,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.19,
+   "incomeMedian": 4941
   },
   {
    "bairro": "Aberta dos Morros",
@@ -299,7 +349,9 @@
    "cota2024": 1111,
    "planet": 421,
    "sgb": 436,
-   "arroios2050": 230
+   "arroios2050": 230,
+   "blackOrBrownShare": 0.229,
+   "incomeMedian": 3721
   },
   {
    "bairro": "Santa Tereza",
@@ -307,7 +359,9 @@
    "cota2024": 804,
    "planet": 163,
    "sgb": 863,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.395,
+   "incomeMedian": 1972
   },
   {
    "bairro": "Anchieta",
@@ -315,7 +369,9 @@
    "cota2024": 758,
    "planet": 790,
    "sgb": 90,
-   "arroios2050": 555
+   "arroios2050": 555,
+   "blackOrBrownShare": 0.326,
+   "incomeMedian": 1327
   },
   {
    "bairro": "Vila Assunção",
@@ -323,7 +379,9 @@
    "cota2024": 525,
    "planet": 250,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.098,
+   "incomeMedian": 11126
   },
   {
    "bairro": "Espírito Santo",
@@ -331,7 +389,9 @@
    "cota2024": 267,
    "planet": 171,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.135,
+   "incomeMedian": 4649
   },
   {
    "bairro": "Boa Vista do Sul",
@@ -339,7 +399,9 @@
    "cota2024": 242,
    "planet": 118,
    "sgb": 0,
-   "arroios2050": 4
+   "arroios2050": 4,
+   "blackOrBrownShare": 0.206,
+   "incomeMedian": 2191
   },
   {
    "bairro": "Pedra Redonda",
@@ -347,7 +409,9 @@
    "cota2024": 148,
    "planet": 81,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.072,
+   "incomeMedian": 17747
   },
   {
    "bairro": "Cavalhada",
@@ -355,7 +419,9 @@
    "cota2024": 133,
    "planet": 0,
    "sgb": 97,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.301,
+   "incomeMedian": 3362
   },
   {
    "bairro": "Jardim Floresta",
@@ -363,7 +429,9 @@
    "cota2024": 116,
    "planet": 90,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.195,
+   "incomeMedian": 3619
   },
   {
    "bairro": "Jardim São Pedro",
@@ -371,7 +439,9 @@
    "cota2024": 105,
    "planet": 30,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.083,
+   "incomeMedian": 5216
   },
   {
    "bairro": "Santa Cecília",
@@ -379,7 +449,9 @@
    "cota2024": 97,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.097,
+   "incomeMedian": 6027
   },
   {
    "bairro": "Rubem Berta",
@@ -387,7 +459,9 @@
    "cota2024": 96,
    "planet": 0,
    "sgb": 462,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.398,
+   "incomeMedian": 2147
   },
   {
    "bairro": "Partenon",
@@ -395,7 +469,9 @@
    "cota2024": 92,
    "planet": 0,
    "sgb": 242,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.312,
+   "incomeMedian": 3799
   },
   {
    "bairro": "Petrópolis",
@@ -403,7 +479,9 @@
    "cota2024": 71,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.069,
+   "incomeMedian": 10330
   },
   {
    "bairro": "Chapéu do Sol",
@@ -411,7 +489,9 @@
    "cota2024": 57,
    "planet": 1,
    "sgb": 0,
-   "arroios2050": 1487
+   "arroios2050": 1487,
+   "blackOrBrownShare": 0.343,
+   "incomeMedian": 1620
   },
   {
    "bairro": "Vila Conceição",
@@ -419,7 +499,9 @@
    "cota2024": 43,
    "planet": 20,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.335,
+   "incomeMedian": 11477
   },
   {
    "bairro": "Lageado",
@@ -427,7 +509,9 @@
    "cota2024": 18,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 4
+   "arroios2050": 4,
+   "blackOrBrownShare": 0.279,
+   "incomeMedian": 2419
   },
   {
    "bairro": "Moinhos de Vento",
@@ -435,7 +519,9 @@
    "cota2024": 18,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.045,
+   "incomeMedian": 14316
   },
   {
    "bairro": "Passo da Areia",
@@ -443,7 +529,9 @@
    "cota2024": 13,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.112,
+   "incomeMedian": 6276
   },
   {
    "bairro": "Independência",
@@ -451,7 +539,9 @@
    "cota2024": 9,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.074,
+   "incomeMedian": 8106
   },
   {
    "bairro": "Jardim Isabel",
@@ -459,7 +549,9 @@
    "cota2024": 5,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.08,
+   "incomeMedian": 10997
   },
   {
    "bairro": "Vila Ipiranga",
@@ -467,7 +559,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.122,
+   "incomeMedian": 5327
   },
   {
    "bairro": "Camaquã",
@@ -475,7 +569,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.238,
+   "incomeMedian": 4107
   },
   {
    "bairro": "São Sebastião",
@@ -483,7 +579,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.099,
+   "incomeMedian": 5633
   },
   {
    "bairro": "Jardim Leopoldina",
@@ -491,7 +589,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.313,
+   "incomeMedian": 2991
   },
   {
    "bairro": "Morro Santana",
@@ -499,7 +599,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 502,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.302,
+   "incomeMedian": 3387
   },
   {
    "bairro": "Cristo Redentor",
@@ -507,7 +609,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.105,
+   "incomeMedian": 5517
   },
   {
    "bairro": "Jardim Lindóia",
@@ -515,7 +619,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.072,
+   "incomeMedian": 9026
   },
   {
    "bairro": "Santo Antônio",
@@ -523,7 +629,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.185,
+   "incomeMedian": 5172
   },
   {
    "bairro": "Nonoai",
@@ -531,7 +639,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 1315,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.285,
+   "incomeMedian": 4232
   },
   {
    "bairro": "Bom Fim",
@@ -539,7 +649,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.078,
+   "incomeMedian": 8041
   },
   {
    "bairro": "Mont’Serrat",
@@ -547,7 +659,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.05,
+   "incomeMedian": 11328
   },
   {
    "bairro": "Auxiliadora",
@@ -555,7 +669,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.064,
+   "incomeMedian": 9956
   },
   {
    "bairro": "Jardim Sabará",
@@ -563,7 +679,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.185,
+   "incomeMedian": 4063
   },
   {
    "bairro": "Passo das Pedras",
@@ -571,7 +689,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 1450,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.379,
+   "incomeMedian": 2073
   },
   {
    "bairro": "Lomba do Pinheiro",
@@ -579,7 +699,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 1754,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.406,
+   "incomeMedian": 1999
   },
   {
    "bairro": "Restinga",
@@ -587,7 +709,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 525,
-   "arroios2050": 4075
+   "arroios2050": 4075,
+   "blackOrBrownShare": 0.471,
+   "incomeMedian": 1894
   },
   {
    "bairro": "Farroupilha",
@@ -595,7 +719,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.096,
+   "incomeMedian": 8428
   },
   {
    "bairro": "Bela Vista",
@@ -603,7 +729,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.032,
+   "incomeMedian": 17972
   },
   {
    "bairro": "Jardim Botânico",
@@ -611,7 +739,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.123,
+   "incomeMedian": 6796
   },
   {
    "bairro": "Bom Jesus",
@@ -619,7 +749,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 720,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.459,
+   "incomeMedian": 1797
   },
   {
    "bairro": "Jardim do Salso",
@@ -627,7 +759,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.126,
+   "incomeMedian": 7639
   },
   {
    "bairro": "Jardim Carvalho",
@@ -635,7 +769,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 1309,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.324,
+   "incomeMedian": 2855
   },
   {
    "bairro": "Mário Quintana",
@@ -643,7 +779,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 813,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.43,
+   "incomeMedian": 1693
   },
   {
    "bairro": "Vila São José",
@@ -651,7 +789,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 2359,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.45,
+   "incomeMedian": 2154
   },
   {
    "bairro": "Glória",
@@ -659,7 +799,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 1579,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.358,
+   "incomeMedian": 3082
   },
   {
    "bairro": "Vila João Pessoa",
@@ -667,7 +809,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 1087,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.388,
+   "incomeMedian": 3047
   },
   {
    "bairro": "Coronel Aparício Borges",
@@ -675,7 +819,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 3184,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.464,
+   "incomeMedian": 1979
   },
   {
    "bairro": "Teresópolis",
@@ -683,7 +829,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 6,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.213,
+   "incomeMedian": 6072
   },
   {
    "bairro": "Agronomia",
@@ -691,7 +839,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 314,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.4,
+   "incomeMedian": 2460
   },
   {
    "bairro": "Medianeira",
@@ -699,7 +849,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 7,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.229,
+   "incomeMedian": 4294
   },
   {
    "bairro": "Cascata",
@@ -707,7 +859,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 642,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.375,
+   "incomeMedian": 1994
   },
   {
    "bairro": "Vila Nova",
@@ -715,7 +869,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 183,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.271,
+   "incomeMedian": 3385
   },
   {
    "bairro": "Belém Velho",
@@ -723,7 +879,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.305,
+   "incomeMedian": 2036
   },
   {
    "bairro": "Campo Novo",
@@ -731,7 +889,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 142,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.284,
+   "incomeMedian": 2585
   },
   {
    "bairro": "Pitinga",
@@ -739,7 +899,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 25,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.444,
+   "incomeMedian": 1531
   },
   {
    "bairro": "Extrema",
@@ -747,7 +909,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 589,
-   "arroios2050": 7
+   "arroios2050": 7,
+   "blackOrBrownShare": 0.218,
+   "incomeMedian": 1766
   },
   {
    "bairro": "Rio Branco",
@@ -755,7 +919,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 24,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.059,
+   "incomeMedian": 10375
   },
   {
    "bairro": "Higienópolis",
@@ -763,7 +929,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.049,
+   "incomeMedian": 9407
   },
   {
    "bairro": "Boa Vista",
@@ -771,7 +939,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.065,
+   "incomeMedian": 10889
   },
   {
    "bairro": "Três Figueiras",
@@ -779,7 +949,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.06,
+   "incomeMedian": 19239
   },
   {
    "bairro": "Chácara das Pedras",
@@ -787,7 +959,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.057,
+   "incomeMedian": 11745
   },
   {
    "bairro": "Vila Jardim",
@@ -795,7 +969,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.31,
+   "incomeMedian": 3131
   },
   {
    "bairro": "Jardim Europa",
@@ -803,7 +979,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.09,
+   "incomeMedian": 17920
   },
   {
    "bairro": "Jardim Itu",
@@ -811,7 +989,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.127,
+   "incomeMedian": 6662
   },
   {
    "bairro": "Costa e Silva",
@@ -819,7 +999,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 230,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.368,
+   "incomeMedian": 2346
   },
   {
    "bairro": "Parque Santa Fé",
@@ -827,7 +1009,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.222,
+   "incomeMedian": 3966
   },
   {
    "bairro": "Sétimo Céu",
@@ -835,7 +1019,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.05,
+   "incomeMedian": 14676
   },
   {
    "bairro": "São Caetano",
@@ -843,7 +1029,9 @@
    "cota2024": 0,
    "planet": 0,
    "sgb": 0,
-   "arroios2050": 0
+   "arroios2050": 0,
+   "blackOrBrownShare": 0.198,
+   "incomeMedian": 3552
   }
  ]
 }

@@ -28,6 +28,9 @@ export interface CityExposure {
   city: ExposureProfile;
   layers: { cota2024: ExposureProfile; sgb: ExposureProfile; [k: string]: ExposureProfile };
   incomeQuintiles: Array<{ quintile: number; sgbShare: number; cota2024Share: number; [k: string]: number }>;
+  computedAt?: string;
+  /** Per bairro (IBGE tract bairro names): residents, residents in each layer, race share, typical income. */
+  bairros?: Array<{ bairro: string; people: number; cota2024: number; sgb: number; planet?: number; arroios2050?: number; blackOrBrownShare: number | null; incomeMedian: number | null }>;
 }
 
 export interface SiteClimateTriggers {

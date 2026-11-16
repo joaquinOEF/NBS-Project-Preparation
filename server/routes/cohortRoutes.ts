@@ -91,7 +91,9 @@ import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor, cohortLinesForMany } from '../services/cboAgent';
 import JSZip from 'jszip';
-import { getObject } from '../services/blobStorage';
+import { getObject, putObject } from '../services/blobStorage';
+import { buildPublicationZip, publicationPins, staleMapReasons, type PublicationOrg, type MapsManifest } from '../services/publicationPackage';
+import express from 'express';
 import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
 import { deleteCboState, loadCboMessages } from '../services/cboPersistence';
 import { readableFilename } from '@shared/readable-filename';
@@ -1897,6 +1899,69 @@ export function registerCohortRoutes(app: Express): void {
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderOrgProfilesHtml(profiles, opts.length ? opts : [{ cohortName: cohort?.name ?? null, photoUrl: () => '' }], lang));
+  }));
+
+  // ═══ PUBLICATION DATA — the Rede's package, built live (server/services/publicationPackage.ts) ═══
+  // Everything but the maps is computed at the click from the records as they
+  // stand; the maps are the last upload (scripts/publication-maps.ts), with the
+  // pins they were drawn from, so a pin moved since is said out loud.
+  const publicationOrgs = async (cohortId: string): Promise<PublicationOrg[]> => {
+    const members = (await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)))
+      .filter(m => !m.excludeFromPortfolio && m.cboStateId);
+    const ids = members.map(m => m.cboStateId!);
+    const rows = ids.length ? await db.select({ id: cboStates.id, sections: cboStates.sections }).from(cboStates).where(inArray(cboStates.id, ids)) : [];
+    const stored = new Map(rows.map(r => [r.id, r.sections]));
+    return members.map(m => {
+      const sections: any = getCboState(m.cboStateId!)?.sections ?? stored.get(m.cboStateId!) ?? {};
+      const site = Object.fromEntries(Object.entries(sections?.intervention_site?.fields ?? {}).map(([k, v]: [string, any]) => [k, v?.value]));
+      return { memberId: m.id, orgName: m.orgName, neighborhood: m.neighborhood ?? null, site, memberSite: (m.site as any) ?? null };
+    });
+  };
+  const mapsManifestOf = (cohort: any): MapsManifest | null => ((cohort.settings ?? {}) as CohortSettings).publicationMaps ?? null;
+
+  app.get('/api/cohort/:coordinatorSlug/publication/status', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const orgs = await publicationOrgs(cohort.id);
+    const manifest = mapsManifestOf(cohort);
+    res.json({ orgs: orgs.length, maps: manifest ? { renderedAt: manifest.renderedAt, stale: staleMapReasons(manifest, publicationPins(orgs)) } : null });
+  }));
+
+  // The pins the map renderer draws (scripts/publication-maps.ts).
+  app.get('/api/cohort/:coordinatorSlug/publication/pins', wrap(async (req, res) => {
+    res.json({ pins: publicationPins(await publicationOrgs((req as any).cohort.id)) });
+  }));
+
+  // The rendered maps: a ZIP whose manifest.json holds { renderedAt, pins }.
+  app.post('/api/cohort/:coordinatorSlug/publication/maps', express.raw({ type: ['application/zip', 'application/octet-stream'], limit: '80mb' }), wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const body = req.body as Buffer;
+    if (!Buffer.isBuffer(body) || !body.length) { res.status(400).json({ error: 'send the maps as a ZIP body' }); return; }
+    const inner = await JSZip.loadAsync(body).catch(() => null);
+    const manifestRaw = inner ? await inner.file('manifest.json')?.async('string') : null;
+    let m: any = null;
+    try { m = manifestRaw ? JSON.parse(manifestRaw) : null; } catch { m = null; }
+    if (!m?.renderedAt || !Array.isArray(m?.pins)) { res.status(400).json({ error: 'manifest.json with renderedAt and pins is required' }); return; }
+    const blobKey = `publication/${cohort.id}/maps.zip`;
+    const stored = await putObject(blobKey, body);
+    if (!stored) { res.status(503).json({ error: 'storage unavailable' }); return; }
+    const [fresh] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    const cur = (fresh?.settings ?? cohort.settings ?? {}) as CohortSettings;
+    const manifest: MapsManifest = { renderedAt: String(m.renderedAt), pins: m.pins, blobKey };
+    await db.update(cohorts).set({ settings: { ...cur, publicationMaps: manifest } }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, renderedAt: manifest.renderedAt, files: Object.keys(inner!.files).filter(n => !inner!.files[n].dir).length });
+  }));
+
+  app.get('/api/cohort/:coordinatorSlug/publication.zip', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const orgs = await publicationOrgs(cohort.id);
+    const manifest = mapsManifestOf(cohort);
+    const mapsZip = manifest ? await getObject(manifest.blobKey).catch(() => null) : null;
+    const buf = await buildPublicationZip(orgs, { cohortName: cohort.name ?? null, maps: manifest && mapsZip ? { manifest, zip: mapsZip } : null });
+    const day = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="dados-da-publicacao-${day}.zip"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buf);
   }));
 
   // A document's original bytes, for the coordinator — the profile's photographs.
