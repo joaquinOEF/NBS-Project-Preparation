@@ -415,6 +415,15 @@
       "tooltip": "Criar uma organização de teste a partir do snapshot de uma real",
       "button": "Importar org"
     },
+    "publication": {
+      "button": "Dados da publicação (ZIP)",
+      "hint": "Tabelas, contexto da cidade, as 27 soluções e os mapas — montados agora a partir do ponto atual de cada organização",
+      "noMaps": "Ainda não há mapas enviados — o ZIP leva só as tabelas e os textos",
+      "noMapsShort": "sem mapas ainda",
+      "stale": "Os mapas desenhados em {{date}} estão desatualizados: {{list}}",
+      "staleShort": "mapas desatualizados",
+      "fresh": "Mapas desenhados em {{date}} com os pontos atuais"
+    },
     "profiles": {
       "all": "Todos os perfis (PDF)",
       "allHint": "Uma página pronta para imprimir por organização, com tudo o que cada uma compartilhou até agora"

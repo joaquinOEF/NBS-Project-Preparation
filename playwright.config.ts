@@ -120,6 +120,8 @@ export default defineConfig({
           // script 17-second waits and sit through them: 35s, 7% of the whole
           // suite, spent sleeping on purpose.
           CBO_SSE_PING_MS: '400',
+          // Blobs on disk, so a spec can store and read one back (server/services/blobStorage.ts).
+          BLOB_LOCAL_DIR: process.env.BLOB_LOCAL_DIR || `${process.cwd()}/test-results/.blob`,
           // Same reasoning for the turn queue (CBO-TURN-QUEUE): the behaviour
           // under test is "a queued answer runs, and giving up never freezes the
           // UI", which is scale-free. At the production 20s the give-up spec

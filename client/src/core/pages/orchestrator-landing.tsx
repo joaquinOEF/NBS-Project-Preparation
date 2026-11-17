@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
+import { PublicationDownloadButton } from '@/core/components/PublicationDownloadButton';
 import {
   Tabs,
   TabsList,
@@ -2154,6 +2155,9 @@ export default function OrchestratorLandingPage() {
                   {t('orchestrator.profiles.all', { defaultValue: 'All profiles (PDF)' })}
                 </a>
               </Button>
+            )}
+            {view === 'orgs' && members.length > 0 && cohort?.coordinatorSlug && (
+              <PublicationDownloadButton coordinatorSlug={cohort.coordinatorSlug} />
             )}
           </>}
         />
