@@ -290,6 +290,19 @@ every drop (pure arithmetic) · per project when the board settles (Opus
 narrative, cached by member set + facts). A drag never waits on a model. The
 board's draft lives in `cohort.settings.preportfolio`.
 
+### The synergy report has two inputs — `docs/synergy-outside-documents.md`
+What the platform knows, plus files the coordination adds about the network
+(under "Mapear sinergias"). Any file is context for the narrative; a
+spreadsheet of "organisation × has / wants" is PROPOSED as a table
+(`shared/network-solutions.ts`, string rules, no model), a coordinator confirms
+how its names were read, and only then is it counted into new report sections
+(by family, who has × who wants, file × platform, wishes × the site's official
+hazard). ⚠️ The file's hazard-reduction ratings are the file's, never the
+catalogue's, until a technical review. ⚠️ This repo is public: no real
+spreadsheet or organisation data in it. No `db:push` (documents rows under
+`rede:<cohortId>` + `cohort.settings.networkFiles`). Read that doc before
+touching it: it lists what was decided and what is not built yet.
+
 ### The organisation's profile — `docs/org-profile.md`
 "Perfil (PDF)" in the org drawer and "Todos os perfis (PDF)" above the roster:
 everything an organisation has shared, stage-aware, print-first, pt/en from the

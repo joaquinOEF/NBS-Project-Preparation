@@ -60,9 +60,12 @@ import {
   type VerdictState,
 } from '@shared/w3-dossier';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
-import { synergyFactsFrom, synergyExtrasFrom, type SynergyFacts } from '@shared/w3-synergies';
+import { synergyFactsFrom, synergyExtrasFrom, interestOf, type SynergyFacts } from '@shared/w3-synergies';
+import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, type SolutionsTable, type PlatformSide, type Hazard3 } from '@shared/network-solutions';
+import { networkScope, gridsOf } from '../services/networkFiles';
+import { arvcHazardAtPin } from '../services/arvcPointHazard';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
-import { buildSynergyReport } from '../services/synergyReport';
+import { buildSynergyReport, type SynergyInputs } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
@@ -73,7 +76,7 @@ import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { parseVisit, visitFromInput, visitSummary, type VisitChoice } from '@shared/e4-visit';
 import { addTheirWords, buildPrenote, prenoteInputFromSections, prenoteSolution, editBasis, PRENOTE_SECTIONS, type PrenoteSectionId } from '@shared/e4-prenote';
 import { BUILD, MAINTAIN, COORD_KEYS, COORD_ANSWERS_FIELD, parseCoordAnswers, answeredByCoordination, type CoordKey } from '@shared/e4-options';
-import { getSolution, NBS_SOLUTIONS, orderSolutionsByMechanism } from '@shared/nbs-catalog';
+import { getSolution, NBS_SOLUTIONS, NBS_FAMILIAS, orderSolutionsByMechanism } from '@shared/nbs-catalog';
 import { SOLUTION_COSTS } from '@shared/w3-sizing';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { PENDING_FIELD } from '@shared/pending-question';
@@ -1313,6 +1316,50 @@ export function registerCohortRoutes(app: Express): void {
     // A row first, so the coordinator can close the tab. The pass takes tens of
     // seconds over ten organisations' full records, and a button that holds a
     // request open for a minute is a button that fails on the venue wifi.
+    // ── The second input: what the coordination added about the network ────
+    // (docs/synergy-outside-documents.md). Every file is in unless the request
+    // names which. A confirmed table is COUNTED here, before any model runs;
+    // the rest is text the narrative may read. Wrapped: a file that will not
+    // load costs the report its new sections, never the report.
+    let extras: Parameters<typeof buildSynergyReport>[1] = {};
+    try {
+      const [cohortRow] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, req.params.cohortId)).limit(1);
+      const entries = ((cohortRow?.settings ?? {}) as CohortSettings).networkFiles ?? {};
+      const wanted: string[] | null = Array.isArray(req.body?.fileIds) ? req.body.fileIds.map(String) : null;
+      const netDocs = (await listDocumentsForScope({ orgId: networkScope(req.params.cohortId) })).filter(d => !wanted || wanted.includes(d.id));
+      if (netDocs.length) {
+        // Newest confirmed table wins; one cross per report.
+        const tableDoc = netDocs.find(d => entries[d.id]?.table?.confirmedAt) ?? null;
+        const included = (enriched as any[]).filter(m => !m.excludeFromPortfolio);
+        const sides: PlatformSide[] = included.map(m => {
+          const s = m.synergy ?? {};
+          const i = interestOf({ solutions: s.solutions ?? [], tested: s.tested ?? [] });
+          const at = m.site && m.site.kind !== 'zone' && Array.isArray(m.site.coordinates) ? m.site.coordinates : null;
+          const hazard: PlatformSide['hazard'] = {};
+          if (at) for (const h of arvcHazardAtPin(Number(at[0]), Number(at[1]))) hazard[h.hazard as Hazard3] = { level: h.level, pt: h.pt };
+          const cota = ((s.cityMapPt ?? []) as string[]).map(l => /cota de ([\d,.]+) m do Gua[ií]ba/.exec(l)?.[1]).find(Boolean);
+          return {
+            memberId: m.id, orgName: m.orgName, bairro: m.w2?.bairro ?? m.neighborhood ?? null,
+            kept: i.kept, considering: i.considering, discarded: i.discarded,
+            visit: m.w3?.visit?.solutionId ?? null,
+            hazard, guaibaCotaM: cota ? Number(cota.replace(',', '.')) : null,
+            started: (m.derivedSectionsComplete ?? 0) > 0,
+          };
+        });
+        const day = (d: any) => (d.createdAt ? new Date(d.createdAt).toISOString().slice(0, 10) : null);
+        const inputs: SynergyInputs = {
+          files: netDocs.map(d => ({ name: d.filename, date: day(d), use: d.id === tableDoc?.id ? 'table' as const : entries[d.id]?.table ? 'unconfirmed' as const : 'context' as const })),
+        };
+        extras = {
+          outside: tableDoc ? crossAnalysis(entries[tableDoc.id].table!, sides, { name: tableDoc.filename, date: day(tableDoc) }) : null,
+          contextDocs: netDocs.filter(d => d.id !== tableDoc?.id && d.fullText).map(d => ({ filename: d.filename, text: d.fullText! })),
+          inputs,
+        };
+      }
+    } catch (err: any) {
+      console.error(`[synergy] ${req.params.cohortId}: the coordination's files could not be read — report runs without them:`, err?.message || err);
+    }
+
     const [row] = await db
       .insert(synergyReports)
       .values({ cohortId: req.params.cohortId, status: 'running', requestedBy: (req as any).coordinator?.id ?? null })
@@ -1323,7 +1370,7 @@ export function registerCohortRoutes(app: Express): void {
     // recorded rather than thrown into a closed socket.
     void (async () => {
       try {
-        const report = await buildSynergyReport(members);
+        const report = await buildSynergyReport(members, extras);
         await db.update(synergyReports)
           .set({ status: 'done', payload: report as any, finishedAt: new Date() })
           .where(eq(synergyReports.id, row.id));
@@ -1336,6 +1383,112 @@ export function registerCohortRoutes(app: Express): void {
           .catch(() => {});
       }
     })();
+  }));
+
+  // ═══ THE COORDINATION'S FILES ABOUT THE NETWORK ═══════════════════════════
+  // The synergy report's second input (docs/synergy-outside-documents.md):
+  // any file is context for the narrative; a spreadsheet of "organisation ×
+  // what it has / wants" is also PROPOSED as a table, and counted only after a
+  // coordinator confirms how its names were read.
+  const networkSettings = async (cohortId: string): Promise<CohortSettings> => {
+    const [r] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohortId)).limit(1);
+    return (r?.settings ?? { workshops: [] }) as CohortSettings;
+  };
+  const saveNetworkEntry = async (cohortId: string, docId: string, entry: { table: SolutionsTable | null } | undefined) => {
+    const cur = await networkSettings(cohortId);
+    const next = { ...(cur.networkFiles ?? {}) };
+    if (entry) next[docId] = entry; else delete next[docId];
+    await db.update(cohorts).set({ settings: { ...cur, networkFiles: next } }).where(eq(cohorts.id, cohortId));
+  };
+  /** The organisations a row of the file can be: on the roster, in the analysis. */
+  const networkMembers = async (cohort: any) => {
+    const all = await db.select({ id: cohortMembers.id, orgName: cohortMembers.orgName, neighborhood: cohortMembers.neighborhood, excludeFromPortfolio: cohortMembers.excludeFromPortfolio })
+      .from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    return splitLeftNetwork(cohort, all).members.filter(m => !m.excludeFromPortfolio).map(m => ({ id: m.id, orgName: m.orgName ?? '' }));
+  };
+  const networkFileView = (d: any, table: SolutionsTable | null | undefined) => ({
+    ...toDocumentMeta(d),
+    table: table ? {
+      orgs: table.orgs.filter(o => o.has.length || o.wants.length).length,
+      hasRatings: table.ratings.length > 0,
+      doubts: doubtsIn(table),
+      confirmedAt: table.confirmedAt ?? null,
+    } : null,
+  });
+
+  app.get('/api/cohort/:coordinatorSlug/network-files', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const entries = (await networkSettings(cohort.id)).networkFiles ?? {};
+    const docs = await listDocumentsForScope({ orgId: networkScope(cohort.id) });
+    res.json({ files: docs.map(d => networkFileView(d, entries[d.id]?.table)) });
+  }));
+
+  app.post('/api/cohort/:coordinatorSlug/network-files', upload.single('file'), wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const file = (req as any).file as { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined;
+    if (!file) { res.status(400).json({ error: 'No file uploaded' }); return; }
+    const scope = networkScope(cohort.id);
+    const parsed = await saveAndParseUpload(file.buffer, file.originalname, path.join(UPLOAD_RUNS_DIR, `rede-${cohort.id}`), file.mimetype, 'pt');
+    const doc = await storeDocument(file, parsed, { orgId: scope, cboStateId: null, purpose: 'rede', droppedInPhase: null, source: 'coordinator' });
+
+    let table: SolutionsTable | null = null;
+    try {
+      const grids = await gridsOf(file.buffer, file.originalname, file.mimetype);
+      if (grids.length) table = proposeSolutionsTable(grids, await networkMembers(cohort));
+    } catch (err: any) {
+      // A sheet that will not open as a grid is still a file the narrative can read.
+      console.warn(`[network-files] ${cohort.id}: no grid from ${doc.filename}:`, err?.message || err);
+    }
+
+    // A newer version of the same file replaces the old one, and inherits what
+    // a coordinator already decided about its names — to be confirmed again,
+    // because the rows may have changed.
+    const entries = (await networkSettings(cohort.id)).networkFiles ?? {};
+    const older = (await listDocumentsForScope({ orgId: scope })).filter(d => d.id !== doc.id && d.filename === doc.filename);
+    for (const old of older) {
+      const prev = entries[old.id]?.table;
+      if (table && prev) table = applyReview(table, { orgs: prev.orgs, names: prev.names }, new Set((await networkMembers(cohort)).map(m => m.id)));
+      await deleteDocument(old.id);
+      await saveNetworkEntry(cohort.id, old.id, undefined);
+    }
+    await saveNetworkEntry(cohort.id, doc.id, { table });
+    res.json({ file: networkFileView(doc, table), replaced: older.length, parsed: !parsed.parseError, parseError: parsed.parseError ?? null });
+  }), uploadErrorHandler);
+
+  /** The proposed (or confirmed) table of one file, with what each name can be matched to. */
+  app.get('/api/cohort/:coordinatorSlug/network-files/:docId/table', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const doc = await getDocumentForScope(req.params.docId, { orgId: networkScope(cohort.id) });
+    const table = doc ? (await networkSettings(cohort.id)).networkFiles?.[doc.id]?.table ?? null : null;
+    if (!doc || !table) { res.status(404).json({ error: 'this file has no table to review' }); return; }
+    res.json({
+      file: toDocumentMeta(doc),
+      table,
+      members: await networkMembers(cohort),
+      solutions: NBS_SOLUTIONS.map(s => ({ id: s.id, label: s.pt.label, familiaId: s.familiaId })),
+      familias: NBS_FAMILIAS.map(f => ({ id: f.id, label: f.pt.label })),
+    });
+  }));
+
+  /** Confirm how the file's names were read. Only after this is the table counted. */
+  app.put('/api/cohort/:coordinatorSlug/network-files/:docId/table', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const doc = await getDocumentForScope(req.params.docId, { orgId: networkScope(cohort.id) });
+    const table = doc ? (await networkSettings(cohort.id)).networkFiles?.[doc.id]?.table ?? null : null;
+    if (!doc || !table) { res.status(404).json({ error: 'this file has no table to review' }); return; }
+    const reviewed = applyReview(table, { orgs: req.body?.orgs, names: req.body?.names }, new Set((await networkMembers(cohort)).map(m => m.id)));
+    const confirmed: SolutionsTable = { ...reviewed, confirmedAt: new Date().toISOString(), confirmedBy: reqCoordinator(req)?.id ?? null };
+    await saveNetworkEntry(cohort.id, doc.id, { table: confirmed });
+    res.json({ file: networkFileView(doc, confirmed) });
+  }));
+
+  app.delete('/api/cohort/:coordinatorSlug/network-files/:docId', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const doc = await getDocumentForScope(req.params.docId, { orgId: networkScope(cohort.id) });
+    if (!doc) { res.status(404).json({ error: 'not a file of this network' }); return; }
+    await deleteDocument(doc.id);
+    await saveNetworkEntry(cohort.id, doc.id, undefined);
+    res.json({ ok: true });
   }));
 
   app.get('/api/cohort/mine', wrap(async (req, res) => {

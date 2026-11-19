@@ -76,6 +76,7 @@ import { CboFilesDrawer, type FilesDrawerMember, type CboDrawerTab } from '@/cor
 import { SimulationStrip, useSimulations } from '@/core/components/orchestrator/SimulationStrip';
 import { JourneyCard, nextStepOf, type Actor, type JourneyCardData } from '@/core/components/orchestrator/JourneyCard';
 import { usePersistedFlag } from '@/core/hooks/usePersistedFlag';
+import { NetworkFiles } from '@/core/components/orchestrator/NetworkFiles';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -365,11 +366,14 @@ function CohortDoctorPanel({ coordinatorSlug, stats, variant = 'line' }: {
   );
 }
 
-function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; excluded?: number }) {
+function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { cohortId: string | null; coordinatorSlug?: string | null; excluded?: number }) {
   const { t, i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
   const [state, setState] = useState<{ status: string; report: any; finishedAt?: string; stale?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Which of the coordination's files the next report uses (NetworkFiles ticks).
+  // null until that list has loaded: the server then uses every file.
+  const [fileIds, setFileIds] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     if (!cohortId) return;
@@ -392,7 +396,10 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
     if (!cohortId || busy) return;
     setBusy(true);
     try {
-      await fetch(`/api/cohort/${cohortId}/synergies`, { method: 'POST', credentials: 'include' });
+      await fetch(`/api/cohort/${cohortId}/synergies`, {
+        method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(fileIds ? { fileIds } : {}),
+      });
       setState({ status: 'running', report: null });
     } finally {
       setBusy(false);
@@ -477,6 +484,8 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
                 {isPt ? 'A análise falhou. Dá pra rodar de novo.' : 'The analysis failed. You can run it again.'}
               </p>
             )}
+
+            {coordinatorSlug && <NetworkFiles slug={coordinatorSlug} isPt={!!isPt} onSelection={setFileIds} />}
           </div>
         </div>
 
@@ -2212,7 +2221,7 @@ export default function OrchestratorLandingPage() {
               with the projects, not above the whole page. */}
           {view === 'projects' && (
             <div className="mt-6">
-              <SynergyPanel cohortId={cohort?.id ?? null} excluded={projects.filter(p => p.excludeFromPortfolio).length} />
+              <SynergyPanel cohortId={cohort?.id ?? null} coordinatorSlug={cohort?.coordinatorSlug ?? null} excluded={projects.filter(p => p.excludeFromPortfolio).length} />
             </div>
           )}
 

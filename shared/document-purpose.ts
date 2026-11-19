@@ -11,6 +11,7 @@
 export function documentPurposeLabel(purpose: string | null | undefined, lang: 'pt' | 'en' = 'pt'): string | null {
   if (purpose === 'teia_sprint') return lang === 'pt' ? 'candidatura ao Teia Sprint' : 'Teia Sprint application';
   if (purpose === 'visita_tecnica') return lang === 'pt' ? 'anexo da visita técnica da coordenação' : "attached to the coordination's technical visit";
+  if (purpose === 'rede') return lang === 'pt' ? 'arquivo da coordenação sobre a rede' : "the coordination's file about the network";
   return null;
 }
 
@@ -18,5 +19,6 @@ export function documentPurposeLabel(purpose: string | null | undefined, lang: '
 export function documentPurposeTag(purpose: string | null | undefined, lang: 'pt' | 'en' = 'pt'): string | null {
   if (purpose === 'teia_sprint') return 'Teia Sprint';
   if (purpose === 'visita_tecnica') return lang === 'pt' ? 'Visita técnica' : 'Technical visit';
+  if (purpose === 'rede') return lang === 'pt' ? 'Rede' : 'Network';
   return null;
 }
