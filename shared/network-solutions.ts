@@ -607,11 +607,23 @@ export function unsupportedClaim(
     }
   }
   marks.sort((a, b) => a.at - b.at);
-  const keyed = items.map(i => ({ ...i, key: nameKey(i.name) })).filter(i => i.key);
+  // Longest name first, and a name once read is taken out of the text: "cozinha
+  // comunitária com biodigestor" is that one solution, not also "cozinha
+  // comunitária" and "biodigestor", which may be other organisations' items.
+  const keyed = items.map(i => ({ ...i, key: nameKey(i.name) })).filter(i => i.key).sort((a, b) => b.key.length - a.key.length);
+  // "A, B e C já têm hortas e compostagem" says it of all three: organisations
+  // joined by nothing but a comma or an "e" share the statement that follows
+  // the last of them. (Seen live: the third had both, the first only one.)
+  const joined = (from: number, to: number) => /^[\s,;]*(?:e|ou)?[\s,]*(?:a|o|as|os|à|ao|às|aos)?\s*$/i.test(sentence.slice(from, to));
   for (let i = 0; i < marks.length; i++) {
-    const stretch = ` ${tokens(sentence.slice(marks[i].end, marks[i + 1]?.at ?? sentence.length)).join(' ')} `;
+    const group = [marks[i]];
+    while (i + 1 < marks.length && joined(marks[i].end, marks[i + 1].at)) group.push(marks[++i]);
+    let stretch = ` ${tokens(sentence.slice(marks[i].end, marks[i + 1]?.at ?? sentence.length)).join(' ')} `;
     for (const it of keyed) {
-      if (stretch.includes(` ${it.key} `) && !marks[i].org.linked.includes(it.id)) return { org: marks[i].org.name, item: it.name };
+      if (!stretch.includes(` ${it.key} `)) continue;
+      const without = group.find(m => !m.org.linked.includes(it.id));
+      if (without) return { org: without.org.name, item: it.name };
+      stretch = stretch.split(` ${it.key} `).join(' · ');
     }
   }
   return null;

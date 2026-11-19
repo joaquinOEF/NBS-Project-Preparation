@@ -254,6 +254,18 @@ Do not re-open these without a reason:
    above.
 
 The narrative's time, measured live on 2026-11-19 over six demo organisations
-(`shared/model-pass-budgets.ts`, `synergyReport`, cap 270 s): between 57 and
-81 s over six runs, with and without files, focused or not. The second input
-did not move the number. Measure again on a network of ten or more.
+(`shared/model-pass-budgets.ts`, `synergyReport`, cap 360 s): between 57 and
+81 s over six runs, with and without files, focused or not; the second input
+did not move the number. On the real ten-organisation network, with the
+coordination's real table and documents by name only: 101, 102 and 118 s. The production
+prompt carries the documents' text too, so measure the first run there.
+
+What those real runs' narratives got wrong, for whoever reads the next one. The
+first attributed to the planilha two things an organisation had said on the
+platform (the prompt now says not to) and made two mistakes about platform
+facts that have nothing to do with the second input (a polder, and a solution
+an organisation had rejected described as kept). The second said of three
+organisations what was true of two ("A, B e C já têm hortas e compostagem");
+the check now reads a list of organisations as sharing the statement. In the
+third, all seven sentences citing the planilha were right. The counted tables matched a
+hand-made analysis of the same sheet exactly.
