@@ -52,11 +52,10 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
       setOrgs(Object.fromEntries(d.table.orgs.map(o => [o.sheetName, o.memberId ?? ''])));
       // One value per name: a catalogue solution id, `fam:<id>` / `fam:` for an
       // item kept outside the catalogue, or `ignore`.
-      // ⚠️ A name that only RESEMBLES a catalogue solution ("Cozinha comunitária"
-      // against "Cozinha comunitária com biodigestor") starts with no answer:
-      // confirming without looking would count it as that solution, silently.
-      // Once a person has confirmed the table, what they chose stands.
-      setNames(Object.fromEntries(d.table.names.map(n => [n.key, n.ignore ? 'ignore' : n.how === 'similar' && !d.table.confirmedAt ? '' : n.solutionId ?? `fam:${n.familiaId ?? ''}`])));
+      // A name that only RESEMBLES a catalogue solution ("Cozinha comunitária"
+      // against "Cozinha comunitária com biodigestor") comes with that solution
+      // already chosen and a note beside the name saying to check it.
+      setNames(Object.fromEntries(d.table.names.map(n => [n.key, n.ignore ? 'ignore' : n.solutionId ?? `fam:${n.familiaId ?? ''}`])));
       setSuggested(Object.fromEntries(d.table.names.filter(n => n.how === 'similar' && n.solutionId).map(n => [n.key, n.solutionId!])));
     })();
     return () => { live = false; };
@@ -65,7 +64,6 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
   const used = useMemo(() => new Set(data ? data.table.orgs.flatMap(o => [...o.has, ...o.wants]) : []), [data]);
   const rows = useMemo(() => (data?.table.names ?? []).filter(n => used.has(n.key)), [data, used]);
   const doubtful = (how: string) => how === 'similar' || how === 'outside';
-  const unanswered = rows.filter(n => (names[n.key] ?? '') === '').length;
 
   const confirm = async () => {
     if (!data || !fileId) return;
@@ -127,14 +125,20 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
               <div className="space-y-1.5">
                 {rows.map(n => (
                   <div key={n.key} className={`grid grid-cols-[1fr_1fr] items-center gap-2 rounded-md px-2 py-1 ${doubtful(n.how) ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`} data-testid="review-name" data-how={n.how}>
-                    <span className="text-[12.5px]">{n.typed}</span>
-                    <select className={selectCls} value={names[n.key] ?? ''} onChange={e => setNames(p => ({ ...p, [n.key]: e.target.value }))} aria-label={n.typed}>
-                      {(names[n.key] ?? '') === '' && (
-                        <option value="">
-                          {isPt ? 'Escolher…' : 'Choose…'}
-                          {suggested[n.key] ? ` (${isPt ? 'parece' : 'looks like'}: ${data.solutions.find(s => s.id === suggested[n.key])?.label ?? ''})` : ''}
-                        </option>
+                    <div className="min-w-0">
+                      <div className="text-[12.5px]">{n.typed}</div>
+                      {n.how === 'similar' && names[n.key] === suggested[n.key] && (
+                        <div className="text-[11px] leading-snug text-amber-800 dark:text-amber-300" data-testid="review-hint">
+                          {isPt ? 'Nome parecido: confira se é esta solução' : 'Similar name: check it is this solution'}
+                        </div>
                       )}
+                      {n.how === 'outside' && (
+                        <div className="text-[11px] leading-snug text-amber-800 dark:text-amber-300" data-testid="review-hint">
+                          {isPt ? 'Não está no catálogo: escolha a família' : 'Not in the catalogue: choose its family'}
+                        </div>
+                      )}
+                    </div>
+                    <select className={selectCls} value={names[n.key] ?? ''} onChange={e => setNames(p => ({ ...p, [n.key]: e.target.value }))} aria-label={n.typed}>
                       <optgroup label={isPt ? 'Solução da plataforma' : 'Platform solution'}>
                         {data.solutions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                       </optgroup>
@@ -161,12 +165,7 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{isPt ? 'Fechar' : 'Close'}</Button>
-          {unanswered > 0 && (
-            <span className="mr-auto text-[12px] text-amber-700 dark:text-amber-300" data-testid="review-unanswered">
-              {isPt ? `${unanswered} ${unanswered === 1 ? 'nome parecido espera' : 'nomes parecidos esperam'} uma escolha` : `${unanswered} look-alike ${unanswered === 1 ? 'name needs' : 'names need'} a choice`}
-            </span>
-          )}
-          <Button onClick={confirm} disabled={!data || saving || unanswered > 0} data-testid="review-confirm">
+          <Button onClick={confirm} disabled={!data || saving} data-testid="review-confirm">
             {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
             {isPt ? 'Confirmar' : 'Confirm'}
           </Button>

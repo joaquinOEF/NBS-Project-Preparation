@@ -153,11 +153,13 @@ its tables before it goes into a meeting.
   the mark; a site with no official reading and a mark at or below 5.35 m (the
   level of May 2024, `GUAIBA_2024_M`) is treated as exposed. An official reading
   always wins over the mark.
-- **A look-alike name is never matched silently.** A name that only resembles a
+- **A look-alike name is flagged, not hidden.** A name that only resembles a
   catalogue solution ("Cozinha comunitária" against "Cozinha comunitária com
-  biodigestor") opens the review with no answer chosen, and the table cannot be
-  confirmed on the screen until someone picks. Over the API an untouched
-  look-alike keeps the proposal, so a script must send its corrections.
+  biodigestor") comes with that solution preselected, on an amber row, with
+  "Nome parecido: confira se é esta solução" beside the name. A name outside the
+  catalogue says "escolha a família". (A first version left look-alikes
+  unanswered and blocked confirming; the product owner preferred the
+  preselection, 19 Nov 2026.)
 - **A newer version never destroys a confirmed table.** If no table can be found
   in a re-uploaded file, the older one is kept and the answer says
   `keptOlder: true`.
