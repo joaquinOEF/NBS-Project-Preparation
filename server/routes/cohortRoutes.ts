@@ -193,6 +193,21 @@ function reqCoordinator(req: Request) {
 // Tenancy check: admins may act on any cohort; a scoped coordinator only on
 // their own. Used by the literal /default routes (the :coordinatorSlug routes
 // are covered by the app.param guard instead).
+/**
+ * What the coordination's newest CONFIRMED table says about each organisation
+ * (docs/synergy-outside-documents.md), as a lookup by member id. Read at the
+ * moment of use, never stored on an organisation. Null when there is no such
+ * table.
+ */
+async function coordinationNotes(cohortId: string, settings: CohortSettings | null | undefined): Promise<((memberId: string) => CoordinationNote | null) | null> {
+  const entries = settings?.networkFiles ?? {};
+  if (!Object.values(entries).some(e => e?.table?.confirmedAt)) return null;
+  const doc = (await listDocumentsForScope({ orgId: networkScope(cohortId) })).find(d => entries[d.id]?.table?.confirmedAt);
+  if (!doc) return null;
+  const file = { name: doc.filename, date: doc.createdAt ? new Date(doc.createdAt).toISOString().slice(0, 10) : null };
+  return memberId => coordinationNoteFor(entries[doc.id].table!, memberId, file);
+}
+
 function mayAccessCohort(req: Request, cohortId: string): boolean {
   const c = reqCoordinator(req);
   return !c?.cohortId || c.cohortId === cohortId;
@@ -833,9 +848,13 @@ export function registerCohortRoutes(app: Express): void {
     const sorted = [...ids].sort();
     if (!writable(sorted, d.prenotes)) return null;
     const card = projectCard(sorted, d.orgs, 'pt');
-    const members = sorted.map(id => ({ orgName: d.orgs.find(o => o.memberId === id)!.orgName, prenote: d.prenotes.get(id)! }));
-    const key = narrativeKey(sorted, narrativeFacts(members, card));
     const [row] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohortId)).limit(1);
+    // The coordination's own table, when it has confirmed one: what each
+    // organisation has and wants beyond its proposal. In the facts, so in the
+    // key — a newer file rewrites the narrative.
+    const notes = await coordinationNotes(cohortId, row?.settings as CohortSettings | null).catch(() => null);
+    const members = sorted.map(id => ({ orgName: d.orgs.find(o => o.memberId === id)!.orgName, prenote: d.prenotes.get(id)!, coordination: notes?.(id) ?? null }));
+    const key = narrativeKey(sorted, narrativeFacts(members, card));
     const cached = (row?.settings as CohortSettings | null)?.preportfolioNarratives?.[key];
     if (cached) return cached;
     if (!narrativeInFlight.has(key)) {
@@ -1730,11 +1749,7 @@ export function registerCohortRoutes(app: Express): void {
     let coordination: CoordinationNote | null = null;
     try {
       const cohort = (req as any).cohort;
-      const entries = ((cohort?.settings ?? {}) as CohortSettings).networkFiles ?? {};
-      if (Object.values(entries).some(e => e?.table?.confirmedAt)) {
-        const doc = (await listDocumentsForScope({ orgId: networkScope(cohort.id) })).find(d => entries[d.id]?.table?.confirmedAt);
-        if (doc) coordination = coordinationNoteFor(entries[doc.id].table!, member.id, { name: doc.filename, date: doc.createdAt ? new Date(doc.createdAt).toISOString().slice(0, 10) : null });
-      }
+      coordination = (await coordinationNotes(cohort.id, cohort?.settings as CohortSettings | null))?.(member.id) ?? null;
     } catch (err: any) {
       console.warn(`[network-files] coordination note for ${member.id} unavailable:`, err?.message || err);
     }

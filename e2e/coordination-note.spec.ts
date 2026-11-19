@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { TestApi } from './helpers/testApi';
 import { proposeSolutionsTable, coordinationNoteFor } from '../shared/network-solutions';
+import { narrativeFacts } from '../server/services/projectNarrative';
 
 // THE COORDINATION'S NOTE ON ONE ORGANISATION — read off its confirmed table
 // every time it is shown, never written into the organisation's record.
@@ -33,6 +34,25 @@ test.describe('the note', () => {
     const c = { ...t, confirmedAt: 'x' };
     expect(coordinationNoteFor(c, 'b', file)).toBeNull();
     expect(coordinationNoteFor(c, 'nobody', file)).toBeNull();
+  });
+});
+
+test.describe('in the pre-portfolio narrative', () => {
+  const card: any = { reason: 'mesmo bairro', riskLabels: [], budget: null, censusLine: null, horizonLabel: 'em breve', slowest: null };
+  const prenote: any = { place: 'Praça Central', sections: [{ id: 'solucao', title: 'Solução', lines: [{ text: 'Jardins de chuva' }] }], indicators: [] };
+  const note = { fileName: 'planilha.xlsx', fileDate: '2026-11-19', has: ['Compostagem'], wants: ['Teto verde'] };
+
+  test('the note reaches the facts under its organisation, attributed to the coordination', () => {
+    const facts = narrativeFacts([{ orgName: 'Associação Aurora', prenote, coordination: note }, { orgName: 'Coletivo Beira-Rio', prenote }], card);
+    const aurora = facts.slice(facts.indexOf('## Associação Aurora'), facts.indexOf('## Coletivo Beira-Rio'));
+    expect(aurora).toContain('- Segundo a planilha da coordenação (informado pela coordenação, não pela organização na plataforma): já tem Compostagem; quer Teto verde.');
+    expect(facts.slice(facts.indexOf('## Coletivo Beira-Rio'))).not.toContain('planilha da coordenação');
+  });
+
+  test('no table, no line — and the facts are what they were', () => {
+    const without = narrativeFacts([{ orgName: 'Associação Aurora', prenote }], card);
+    expect(without).not.toContain('coordenação');
+    expect(narrativeFacts([{ orgName: 'Associação Aurora', prenote, coordination: null }], card)).toBe(without);
   });
 });
 

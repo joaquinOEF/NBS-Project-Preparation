@@ -294,6 +294,9 @@ export const MODEL_PASSES: ModelPass[] = [
     id: 'projectNarrative',
     purpose: "the pre-portfolio's page for one collective project: a name, why these organisations go together, what they do better together, what to watch",
     file: 'server/services/projectNarrative.ts',
+    // Also reads, per organisation, the coordination's note from its confirmed
+    // table (docs/synergy-outside-documents.md) — the coordination's, not one of
+    // the organisation's twelve sources, and attributed as such in the facts.
     sources: {
       // The pre-notes ARE the record, already digested: problem with their
       // story quoted, solution and size, impact, indicators, the budget rows,
