@@ -529,6 +529,28 @@ export function crossAnalysis(table: SolutionsTable, platform: PlatformSide[], f
   };
 }
 
+/** What the coordination's confirmed table says about ONE organisation. */
+export interface CoordinationNote { fileName: string; fileDate: string | null; has: string[]; wants: string[] }
+
+/**
+ * The coordination's note on one organisation, read off its confirmed table.
+ *
+ * DERIVED every time it is shown, never copied into the organisation's record:
+ * the organisation did not say this on the platform, a newer version of the
+ * file must replace it without anything to keep in sync, and removing the file
+ * must remove the note. Null when the table has nothing for this organisation.
+ */
+export function coordinationNoteFor(table: SolutionsTable, memberId: string, file: { name: string; date?: string | null }): CoordinationNote | null {
+  if (!table.confirmedAt) return null;
+  const row = table.orgs.find(o => o.memberId === memberId);
+  if (!row) return null;
+  const byKey = new Map(table.names.map(n => [n.key, n]));
+  const labels = (keys: string[]) => Array.from(new Set(keys.map(k => byKey.get(k)).filter((n): n is NameMatch => !!n && !n.ignore)
+    .map(n => (n.solutionId ? getSolution(n.solutionId)?.pt.label : null) ?? n.typed)));
+  const has = labels(row.has), wants = labels(row.wants);
+  return has.length || wants.length ? { fileName: file.name, fileDate: file.date ?? null, has, wants } : null;
+}
+
 /** The cross as the lines the narrative pass reads — facts already counted, each carrying its source. */
 export function crossForModel(c: OutsideCross, nameOfMember: (id: string) => string): string[] {
   const item = new Map(c.items.map(i => [i.id, i]));

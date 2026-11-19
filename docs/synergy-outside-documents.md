@@ -28,6 +28,7 @@ on.
 | The narrative is handed the counted result | `server/services/synergyReport.ts` (`SynergyExtras`, `analysisForModel`) |
 | New sections of the printed report | `server/services/synergyPrint.ts` (`outsideHtml`, `inputsHtml`) |
 | The list under "Mapear sinergias" and the review dialog | `client/src/core/components/orchestrator/NetworkFiles.tsx` |
+| The coordination's note in the organisation drawer | `coordinationNoteFor` in `shared/network-solutions.ts`, `CboProfileSummary.tsx` |
 | The same flow from a terminal | `scripts/network-file-report.ts` |
 | Tests (invented organisations) | `e2e/network-solutions.spec.ts` |
 
@@ -81,6 +82,27 @@ confirmed table went into the run:
 The existing parts (programme lines, calculated groupings, shared studies,
 approval routes, obstacles, gaps) are untouched, and the narrative schema is the
 same, so the pre-portfolio board still gets its programme lines.
+
+### The coordination's note on one organisation
+
+In the organisation drawer, tab *Perfil*, a block "Segundo a planilha da
+coordenação" lists what the newest confirmed table says that organisation
+already has and wants (`coordinationNoteFor`, returned by
+`GET …/member/:memberId/profile` as `coordination`).
+
+It is **derived each time it is shown and never written to the organisation's
+record**: the organisation did not say it on the platform, a newer file must
+replace it with nothing to keep in sync, and removing the file removes the
+note. It is not in `chosen_solutions`, the profile PDF, or any document the
+organisation receives.
+
+One model pass reads it: the **pre-portfolio's project narrative**
+(`narrativeFacts` in `server/services/projectNarrative.ts`), as a line under
+each organisation that says it came from the coordination. That page is the
+coordination's own board. The joint Encontro 4 does **not** read it, by
+decision: that session speaks to the organisations, who never said this on
+the platform. Because the line is part of the facts, it is part of the
+narrative's cache key: a newer file rewrites the narrative.
 
 ## Rules that are not obvious
 
@@ -185,10 +207,7 @@ Do not re-open these without a reason:
 2. **A list of past reports.** Every run is already stored in `synergy_reports`;
    only the latest is shown. List them with date, focus and files used.
 3. **The cross as a spreadsheet download** next to the printable page.
-4. **A coordination note on each organisation** ("coordenação, 19/11: também
-   quer teto verde, biodigestor"), visible to coordinators and to later passes.
-   Never written into the organisation's chosen solutions.
-5. **Adopting the ratings into the catalogue**, only after the technical review
+4. **Adopting the ratings into the catalogue**, only after the technical review
    above.
 
 Also open: the narrative's time budget (`shared/model-pass-budgets.ts`,

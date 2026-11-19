@@ -61,7 +61,7 @@ import {
 } from '@shared/w3-dossier';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { synergyFactsFrom, synergyExtrasFrom, interestOf, type SynergyFacts } from '@shared/w3-synergies';
-import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, type SolutionsTable, type PlatformSide, type Hazard3 } from '@shared/network-solutions';
+import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, coordinationNoteFor, type SolutionsTable, type PlatformSide, type Hazard3, type CoordinationNote } from '@shared/network-solutions';
 import { networkScope, gridsOf } from '../services/networkFiles';
 import { arvcHazardAtPin } from '../services/arvcPointHazard';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
@@ -195,6 +195,21 @@ function reqCoordinator(req: Request) {
 // are covered by the app.param guard instead).
 /** How many past synergy reports the coordinator can reopen. */
 const SYNERGY_HISTORY = 12;
+
+/**
+ * What the coordination's newest CONFIRMED table says about each organisation
+ * (docs/synergy-outside-documents.md), as a lookup by member id. Read at the
+ * moment of use, never stored on an organisation. Null when there is no such
+ * table.
+ */
+async function coordinationNotes(cohortId: string, settings: CohortSettings | null | undefined): Promise<((memberId: string) => CoordinationNote | null) | null> {
+  const entries = settings?.networkFiles ?? {};
+  if (!Object.values(entries).some(e => e?.table?.confirmedAt)) return null;
+  const doc = (await listDocumentsForScope({ orgId: networkScope(cohortId) })).find(d => entries[d.id]?.table?.confirmedAt);
+  if (!doc) return null;
+  const file = { name: doc.filename, date: doc.createdAt ? new Date(doc.createdAt).toISOString().slice(0, 10) : null };
+  return memberId => coordinationNoteFor(entries[doc.id].table!, memberId, file);
+}
 
 function mayAccessCohort(req: Request, cohortId: string): boolean {
   const c = reqCoordinator(req);
@@ -848,9 +863,13 @@ export function registerCohortRoutes(app: Express): void {
     const sorted = [...ids].sort();
     if (!writable(sorted, d.prenotes)) return null;
     const card = projectCard(sorted, d.orgs, 'pt');
-    const members = sorted.map(id => ({ orgName: d.orgs.find(o => o.memberId === id)!.orgName, prenote: d.prenotes.get(id)! }));
-    const key = narrativeKey(sorted, narrativeFacts(members, card));
     const [row] = await db.select({ settings: cohorts.settings }).from(cohorts).where(eq(cohorts.id, cohortId)).limit(1);
+    // The coordination's own table, when it has confirmed one: what each
+    // organisation has and wants beyond its proposal. In the facts, so in the
+    // key — a newer file rewrites the narrative.
+    const notes = await coordinationNotes(cohortId, row?.settings as CohortSettings | null).catch(() => null);
+    const members = sorted.map(id => ({ orgName: d.orgs.find(o => o.memberId === id)!.orgName, prenote: d.prenotes.get(id)!, coordination: notes?.(id) ?? null }));
+    const key = narrativeKey(sorted, narrativeFacts(members, card));
     const cached = (row?.settings as CohortSettings | null)?.preportfolioNarratives?.[key];
     if (cached) return cached;
     if (!narrativeInFlight.has(key)) {
@@ -1778,11 +1797,22 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/profile', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
-    if (!member.cboStateId) { res.json({ profile: null }); return; }
+    // What the coordination's own table says about this organisation — read
+    // off the newest confirmed file each time, never stored on the record
+    // (docs/synergy-outside-documents.md). Coordinator-only, like this route.
+    let coordination: CoordinationNote | null = null;
+    try {
+      const cohort = (req as any).cohort;
+      coordination = (await coordinationNotes(cohort.id, cohort?.settings as CohortSettings | null))?.(member.id) ?? null;
+    } catch (err: any) {
+      console.warn(`[network-files] coordination note for ${member.id} unavailable:`, err?.message || err);
+    }
+    if (!member.cboStateId) { res.json({ profile: null, coordination }); return; }
     let state = getCboState(member.cboStateId);
     if (!state) state = (await loadCboFromDb(member.cboStateId))?.state;
-    if (!state) { res.json({ profile: null }); return; }
+    if (!state) { res.json({ profile: null, coordination }); return; }
     res.json({
+      coordination,
       profile: {
         phase: state.phase,
         sections: state.sections,

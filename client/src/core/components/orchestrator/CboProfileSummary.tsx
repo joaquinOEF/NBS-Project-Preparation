@@ -3,6 +3,7 @@
  * sections (field: value) + the maturity scorecard (coordinator-only). Compact;
  * snapshot-on-open (re-fetches on `reloadKey`).
  */
+import type { CoordinationNote } from '@shared/network-solutions';
 import { readableFilename } from '@shared/readable-filename';
 import { HEALTH_LABEL, type HealthEntry, type HealthKind } from '@shared/session-health';
 import { useEffect, useRef, useState } from 'react';
@@ -467,6 +468,8 @@ export function CboProfileSummary({
   const { t, i18n } = useTranslation();
   const isPt = !!i18n.language?.startsWith('pt');
   const [profile, setProfile] = useState<Profile | null>(null);
+  // What the coordination's own spreadsheet says about this organisation.
+  const [coordination, setCoordination] = useState<CoordinationNote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -476,7 +479,7 @@ export function CboProfileSummary({
     setError(null);
     fetch(`/api/cohort/${cohortSlug}/member/${memberId}/profile`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(data => { if (!cancelled) setProfile(data.profile ?? null); })
+      .then(data => { if (!cancelled) { setProfile(data.profile ?? null); setCoordination(data.coordination ?? null); } })
       .catch(() => { if (!cancelled) setError(t('cboView.loadError', { defaultValue: 'Could not load.' })); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -484,11 +487,30 @@ export function CboProfileSummary({
 
   if (loading) return <div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin" /></div>;
   if (error) return <div className="py-12 text-center text-sm text-destructive">{error}</div>;
+  // Said by the coordination, not by the organisation — and labelled so. It
+  // shows even for an organisation that has answered nothing yet.
+  const coordinationNote = coordination && (
+    <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-[12.5px] dark:border-amber-900/50 dark:bg-amber-950/20" data-testid="cbo-coordination-note">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {isPt ? 'Segundo a planilha da coordenação' : "According to the coordination's spreadsheet"}
+        <span className="font-normal normal-case tracking-normal"> · {coordination.fileName}{coordination.fileDate ? `, ${new Date(`${coordination.fileDate}T12:00:00Z`).toLocaleDateString(isPt ? 'pt-BR' : 'en-GB')}` : ''}</span>
+      </div>
+      {coordination.has.length > 0 && <p><span className="font-medium">{isPt ? 'Já tem: ' : 'Already has: '}</span>{coordination.has.join(', ')}</p>}
+      {coordination.wants.length > 0 && <p><span className="font-medium">{isPt ? 'Quer: ' : 'Wants: '}</span>{coordination.wants.join(', ')}</p>}
+      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+        {isPt ? 'Informado pela coordenação, não pela organização na plataforma. Não entra nas soluções escolhidas nem nos documentos dela.' : "Reported by the coordination, not by the organisation on the platform. It is not part of its chosen solutions or its documents."}
+      </p>
+    </div>
+  );
+
   if (!profile) {
     return (
+      <div className="space-y-4 py-1 text-sm">
+        {coordinationNote}
       <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
         <FileText className="w-7 h-7 mb-2 opacity-40" />
         <p className="text-sm">{t('cboView.noProfile', { defaultValue: 'Nothing captured yet.' })}</p>
+      </div>
       </div>
     );
   }
@@ -500,6 +522,7 @@ export function CboProfileSummary({
 
   return (
     <div className="space-y-4 py-1 text-sm">
+      {coordinationNote}
       {/* Maturity total */}
       <div className="rounded-lg border border-foreground/10 bg-foreground/[0.02] px-3 py-2 flex items-center justify-between">
         <span className="text-muted-foreground">{t('cboView.maturity', { defaultValue: 'Maturity' })}</span>
