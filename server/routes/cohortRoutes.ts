@@ -10,7 +10,7 @@ import { siteOfRecord } from '@shared/site-of-record';
 import { suggestionsFor } from '../services/e4Suggestions';
 import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
-import { eq, and, inArray, desc } from 'drizzle-orm';
+import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import path from 'path';
 import { db } from '../db';
@@ -193,6 +193,9 @@ function reqCoordinator(req: Request) {
 // Tenancy check: admins may act on any cohort; a scoped coordinator only on
 // their own. Used by the literal /default routes (the :coordinatorSlug routes
 // are covered by the app.param guard instead).
+/** How many past synergy reports the coordinator can reopen. */
+const SYNERGY_HISTORY = 12;
+
 function mayAccessCohort(req: Request, cohortId: string): boolean {
   const c = reqCoordinator(req);
   return !c?.cohortId || c.cohortId === cohortId;
@@ -537,8 +540,8 @@ async function attachOrgTiers<T extends { orgId: string | null }>(
 
 /**
  * A synergy pass that outlives the process that started it is a stuck button.
- * Ten minutes is far longer than the pass can legitimately take (the model call
- * itself is capped at 45s) and short enough that a coordinator who republished
+ * Ten minutes is longer than the pass can legitimately take (the model call
+ * itself is capped at four, shared/model-pass-budgets.ts) and short enough that a coordinator who republished
  * mid-meeting can just press the button again.
  */
 const STALE_RUN_MS = 10 * 60 * 1000;
@@ -552,14 +555,26 @@ async function reapStaleRun(cohortId: string) {
     .orderBy(desc(synergyReports.startedAt))
     .limit(1);
   if (!row) return null;
-  const startedAt = row.startedAt ? new Date(row.startedAt).getTime() : 0;
-  if (row.status !== 'running' || Date.now() - startedAt < STALE_RUN_MS) return row;
+  if (row.status !== 'running') return row;
+  // ⚠️ The age is measured BY THE DATABASE, never as `Date.now() - startedAt`.
+  // `started_at` is a timestamp without time zone filled by the database's
+  // `now()`; read back here it is parsed in this process's zone, so wherever
+  // the two zones differ every run looked hours old the moment it started and
+  // was marked failed while still running ("abandoned after 10800s" on a
+  // database three hours from UTC). The database subtracting its own clock
+  // from its own column has no zone to disagree about.
+  const [age] = await db
+    .select({ seconds: sql<number>`extract(epoch from (now()::timestamp - ${synergyReports.startedAt}))` })
+    .from(synergyReports)
+    .where(eq(synergyReports.id, row.id));
+  const ageMs = Number(age?.seconds ?? 0) * 1000;
+  if (ageMs < STALE_RUN_MS) return row;
   const error = 'a análise foi interrompida antes de terminar — pode rodar de novo';
   await db.update(synergyReports)
     .set({ status: 'failed', error, finishedAt: new Date() })
     .where(eq(synergyReports.id, row.id))
     .catch(() => {});
-  console.warn(`[synergy] ${cohortId}: run ${row.id} abandoned after ${Math.round((Date.now() - startedAt) / 1000)}s — marked failed`);
+  console.warn(`[synergy] ${cohortId}: run ${row.id} abandoned after ${Math.round(ageMs / 1000)}s — marked failed`);
   return { ...row, status: 'failed' as const, error };
 }
 
@@ -1182,7 +1197,44 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ ok: true });
   }));
 
-  app.get('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
+  // ⚠️ These routes are keyed by the cohort's id, not its slug, so the
+  // :coordinatorSlug guard never ran for them: any signed-in coordinator who
+  // held another network's id could read its report or start a run. Same check,
+  // applied here.
+  const ownCohort: RequestHandler = (req, res, next) => {
+    if (!mayAccessCohort(req, req.params.cohortId)) { res.status(403).json({ error: 'forbidden' }); return; }
+    next();
+  };
+
+  /**
+   * The reports already generated, newest first. Every run was always kept in
+   * `synergy_reports`; only the last one could be opened, so running the report
+   * again after a meeting lost the page the meeting had been planned from.
+   */
+  app.get('/api/cohort/:cohortId/synergies/history', ownCohort, wrap(async (req, res) => {
+    const rows = await db
+      .select()
+      .from(synergyReports)
+      .where(and(eq(synergyReports.cohortId, req.params.cohortId), eq(synergyReports.status, 'done')))
+      .orderBy(desc(synergyReports.startedAt))
+      .limit(SYNERGY_HISTORY);
+    res.json({
+      reports: rows.filter(r => r.payload).map(r => {
+        const p = r.payload as any;
+        return {
+          id: r.id,
+          finishedAt: r.finishedAt ?? r.startedAt,
+          organisations: p.analysis?.members?.length ?? 0,
+          groups: p.analysis?.groups?.length ?? 0,
+          lines: p.narrative?.lines?.length ?? 0,
+          // What the coordination added to that run, when it added anything.
+          files: (p.inputs?.files ?? []).map((f: any) => ({ name: String(f.name ?? ''), use: String(f.use ?? '') })),
+        };
+      }),
+    });
+  }));
+
+  app.get('/api/cohort/:cohortId/synergies', ownCohort, wrap(async (req, res) => {
     const latest = await reapStaleRun(req.params.cohortId);
     if (!latest) return res.json({ report: null });
     const done = latest.status === 'done'
@@ -1206,11 +1258,13 @@ export function registerCohortRoutes(app: Express): void {
   }));
 
   /** The same report as a printable document, for the in-person meeting. */
-  app.get('/api/cohort/:cohortId/synergies/print', wrap(async (req, res) => {
+  app.get('/api/cohort/:cohortId/synergies/print', ownCohort, wrap(async (req, res) => {
+    // `?id=` opens an earlier run — always one of THIS cohort's.
+    const wanted = typeof req.query.id === 'string' && req.query.id ? req.query.id : null;
     const [row] = await db
       .select()
       .from(synergyReports)
-      .where(and(eq(synergyReports.cohortId, req.params.cohortId), eq(synergyReports.status, 'done')))
+      .where(and(eq(synergyReports.cohortId, req.params.cohortId), eq(synergyReports.status, 'done'), ...(wanted ? [eq(synergyReports.id, wanted)] : [])))
       .orderBy(desc(synergyReports.startedAt))
       .limit(1);
     if (!row?.payload) return res.status(404).send('Nenhum relatório gerado ainda.');
@@ -1219,7 +1273,7 @@ export function registerCohortRoutes(app: Express): void {
     res.send(renderSynergyHtml(row.payload as any, cohort?.name ?? 'a Rede'));
   }));
 
-  app.post('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
+  app.post('/api/cohort/:cohortId/synergies', ownCohort, wrap(async (req, res) => {
     // One pass at a time. A double-tap on a slow connection used to start two
     // model calls over the same records and leave the loser `running` forever.
     const inFlight = await reapStaleRun(req.params.cohortId);
