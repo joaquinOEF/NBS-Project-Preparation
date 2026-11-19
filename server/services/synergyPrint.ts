@@ -274,7 +274,7 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
       <div class="why"><strong>Por que importa:</strong> ${esc(l.whyItMattersPt)}</div>
     </div>`).join('')}` : ''}` : `
   <h2>Leitura transversal</h2>
-  <p class="hyp">A narrativa não foi gerada${r.narrativeReason ? ` — ${esc(r.narrativeReason)}` : ''}. Os agrupamentos calculados abaixo seguem válidos.</p>`}
+  <p class="hyp">A narrativa não foi gerada${r.narrativeReason ? ` — ${esc(r.narrativeReason)}` : ''}.${show('rede') ? ' Os agrupamentos calculados abaixo seguem válidos.' : ''}</p>`}
 
   ${a.groups.length ? `<h2>Agrupamentos calculados</h2>
   <p class="hyp">Derivados das respostas, sem interpretação. Cada um diz por que essas organizações ficaram juntas.</p>

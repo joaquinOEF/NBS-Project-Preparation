@@ -34,6 +34,19 @@ export function synergyRequestFrom(body: unknown): SynergyRequest {
   return { focus: asked.length ? asked : ALL_FOCUS, note: note || null };
 }
 
+/**
+ * The request as it applies to THIS run. A focus that covers everything the
+ * run can print is no focus at all: without a counted table of the
+ * coordination, the four parts that need one cannot be asked for, and a run
+ * that asks for the remaining one has asked for the whole report. Without this
+ * every report of a network with no files announced itself as "focused".
+ */
+export function settleRequest(request: SynergyRequest, hasTable: boolean): SynergyRequest {
+  const available = SYNERGY_FOCUS.filter(f => hasTable || !f.needsTable).map(f => f.id);
+  const asked = request.focus.filter(id => available.includes(id));
+  return { ...request, focus: !asked.length || asked.length === available.length ? ALL_FOCUS : asked };
+}
+
 /** True when a report (old ones carry no request) prints this part. */
 export function printsFocus(request: SynergyRequest | null | undefined, id: SynergyFocusId): boolean {
   return !request || request.focus.includes(id);

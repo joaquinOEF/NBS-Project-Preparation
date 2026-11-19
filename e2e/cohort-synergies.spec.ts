@@ -394,3 +394,25 @@ test.describe('the synergy facts carry what the workshop got out of the room', (
     expect(block).toContain('2.900 m²');
   });
 });
+
+test.describe('a sentence the coordination’s table does not support is dropped, the rest stands', () => {
+  test('one bad sentence costs one sentence', async () => {
+    const { checkCrossClaims } = await import('../server/services/synergyReport');
+    const cross: any = {
+      items: [{ id: 'teto-verde', name: 'Teto verde' }, { id: 'compostagem', name: 'Compostagem' }],
+      orgs: [{ memberId: 'a', name: 'Associação Aurora', has: [], wants: ['teto-verde'], onPlatform: [] }, { memberId: 'b', name: 'Coletivo Beira-Rio', has: ['compostagem'], wants: [], onPlatform: [] }],
+      versus: [],
+    };
+    const analysis: any = { members: [{ id: 'a', solutions: [], tested: [] }, { id: 'b', solutions: [], tested: [] }] };
+    const out = checkCrossClaims({
+      portfolioThreadPt: 'A rede trabalha com água e calor. Segundo a planilha da coordenação, o Coletivo Beira-Rio quer teto verde.',
+      lines: [{ namePt: 'Calor', orgNames: ['Associação Aurora', 'Coletivo Beira-Rio'], rationalePt: 'Segundo a planilha da coordenação, a Associação Aurora quer teto verde. O Coletivo Beira-Rio já tem compostagem, segundo a planilha.', whyItMattersPt: 'Uma compra só.' }],
+      questionsForTheRoomPt: ['Segundo a planilha, a Associação Aurora já tem compostagem — pode mostrar?', 'Faz sentido para vocês?'],
+      tensionsPt: [], sequencingPt: [],
+    }, cross, analysis);
+    expect(out.portfolioThreadPt).toBe('A rede trabalha com água e calor.');
+    expect(out.lines[0].rationalePt).toBe('Segundo a planilha da coordenação, a Associação Aurora quer teto verde. O Coletivo Beira-Rio já tem compostagem, segundo a planilha.');
+    expect(out.lines[0].orgNames).toHaveLength(2);
+    expect(out.questionsForTheRoomPt).toEqual(['Faz sentido para vocês?']);
+  });
+});

@@ -40,7 +40,7 @@ import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { cboDisplayValue } from '@shared/cbo-field-catalog';
 import { getSolution, NBS_SOLUTIONS, NBS_FAMILIAS } from '@shared/nbs-catalog';
 import { REACTION } from '@shared/w3-tests';
-import { crossForModel, type OutsideCross } from '@shared/network-solutions';
+import { crossForModel, unsupportedClaim, linksFor, type OutsideCross } from '@shared/network-solutions';
 import { neutraliseInjected } from '@shared/untrusted-content';
 import { SYNERGY_FOCUS, ALL_FOCUS, type SynergyRequest } from '@shared/synergy-focus';
 
@@ -501,6 +501,39 @@ export function shapeNarrative(
   };
 }
 
+/**
+ * Drop the sentences that cite the coordination's table and give an
+ * organisation a solution the table does not link it to
+ * (`unsupportedClaim`). Only sentences that mention the planilha are checked:
+ * that is where the mix-up was seen, and a narrower net drops less that was
+ * right. A question or a tension left with nothing is removed; a programme
+ * line keeps its organisations even if its text thins.
+ */
+export function checkCrossClaims(n: SynergyNarrative, cross: OutsideCross, analysis: SynergyAnalysis): SynergyNarrative {
+  const onPlatform = (memberId: string) => {
+    const m = analysis.members.find(x => x.id === memberId);
+    return m ? [...m.solutions, ...(m.tested ?? []).map(t => t.id)] : [];
+  };
+  const orgs = linksFor(cross, onPlatform);
+  const dropped: string[] = [];
+  const clean = (text: string): string => text.split(/(?<=[.?!])\s+/).filter(sentence => {
+    if (!/planilha/i.test(sentence)) return true;
+    const bad = unsupportedClaim(sentence, orgs, cross.items);
+    if (bad) dropped.push(`${bad.org} × ${bad.item}: ${sentence}`);
+    return !bad;
+  }).join(' ');
+  const out: SynergyNarrative = {
+    ...n,
+    portfolioThreadPt: clean(n.portfolioThreadPt),
+    lines: n.lines.map(l => ({ ...l, rationalePt: clean(l.rationalePt), whyItMattersPt: clean(l.whyItMattersPt) })),
+    questionsForTheRoomPt: n.questionsForTheRoomPt.map(clean).filter(Boolean),
+    tensionsPt: (n.tensionsPt ?? []).map(clean).filter(Boolean),
+    sequencingPt: (n.sequencingPt ?? []).map(clean).filter(Boolean),
+  };
+  for (const d of dropped) console.warn(`[synergy] dropped a sentence the coordination's table does not support — ${d}`);
+  return out;
+}
+
 // ⚠️ The cap is NOT here any more. It lives with the measurement that justifies
 // it, in shared/model-pass-budgets.ts, because this file shipped with 45 s
 // against a ~49 s call and the pass had therefore never once run — the third
@@ -561,7 +594,7 @@ export async function buildSynergyReport(members: SynergyMember[], extras: Syner
         narrativeReason: 'a leitura automática não encontrou nenhuma linha que ligue duas organizações desta rede',
         generatedAt, ...carry };
     }
-    return { analysis, narrative: shaped, generatedAt, ...carry };
+    return { analysis, narrative: extras.outside ? checkCrossClaims(shaped, extras.outside, analysis) : shaped, generatedAt, ...carry };
   } catch (err: any) {
     // ⚠️ The reason is rendered on a page a coordinator opens, so it says what
     // they can do — never the provider's message. A 401 came through verbatim

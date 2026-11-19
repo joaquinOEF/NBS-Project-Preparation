@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { TestApi } from './helpers/testApi';
-import { synergyRequestFrom, printsFocus, ALL_FOCUS, MAX_FOCUS_NOTE } from '../shared/synergy-focus';
+import { synergyRequestFrom, settleRequest, printsFocus, ALL_FOCUS, MAX_FOCUS_NOTE } from '../shared/synergy-focus';
 import { analysisForModel } from '../server/services/synergyReport';
 import { analyseSynergies } from '../shared/w3-synergies';
 
@@ -21,6 +21,15 @@ test.describe('the request', () => {
     const r = synergyRequestFrom({ note: `  preparando\n o encontro  de dezembro ${'a'.repeat(400)}` });
     expect(r.note!.startsWith('preparando o encontro de dezembro')).toBe(true);
     expect(r.note!.length).toBe(MAX_FOCUS_NOTE);
+  });
+
+  test('asking for everything a run can print is asking for the whole report', () => {
+    // No table of the coordination: only "rede" can print, so "rede" is everything.
+    expect(settleRequest({ focus: ['rede'], note: null }, false).focus).toEqual(ALL_FOCUS);
+    expect(settleRequest({ focus: ['familia', 'risco'], note: 'x' }, false)).toEqual({ focus: ALL_FOCUS, note: 'x' });
+    // With one, the same request is a real focus.
+    expect(settleRequest({ focus: ['rede'], note: null }, true).focus).toEqual(['rede']);
+    expect(settleRequest({ focus: ['familia', 'risco'], note: null }, true).focus).toEqual(['familia', 'risco']);
   });
 
   test('a report from before focusing existed prints everything', () => {
@@ -60,6 +69,15 @@ test.describe('a focused report prints what was asked', () => {
     await page.getByTestId('view-projects').click();
     await expect(page.getByTestId('synergy-focus-familia')).toBeDisabled();
     await expect(page.getByTestId('synergy-focus-rede')).toBeEnabled();
+
+    // ⚠️ An untouched panel on a network with no files is the WHOLE report. It
+    // used to send the one button that was enabled, and every such report was
+    // printed as "Foco deste relatório: …".
+    await page.getByTestId('synergy-run').click();
+    await expect.poll(async () => (await (await page.request.get(`/api/cohort/${cohort.id}/synergies`)).json()).status, { timeout: 60_000 }).toBe('done');
+    const plain = await (await page.request.get(`/api/cohort/${cohort.id}/synergies/print`)).text();
+    expect(plain).not.toContain('Foco deste relatório');
+    expect((await (await page.request.get(`/api/cohort/${cohort.id}/synergies`)).json()).report.request.focus).toEqual(ALL_FOCUS);
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Organizações');

@@ -127,6 +127,19 @@ default.
 - The request is stored on the run (`payload.request`). A report from before
   this existed has none and prints everything.
 
+### What is checked after the model answers
+
+The tables are counted and right; the narrative beside them is written by a
+model, and live it gave an organisation another's solution in about one
+sentence in nine that cited the table. `checkCrossClaims`
+(`server/services/synergyReport.ts`, using `unsupportedClaim`) drops any
+sentence that mentions the planilha and names, after an organisation and
+before the next one, a solution of the table that organisation is not linked
+to (in the file or on the platform). It is a narrow net on purpose: it cannot
+catch every wrong sentence, and it logs each one it drops
+(`[synergy] dropped a sentence…`). Read the narrative of a new report against
+its tables before it goes into a meeting.
+
 ## Rules that are not obvious
 
 - **The hazard-reduction ratings belong to the file.** They are shown credited
@@ -140,6 +153,21 @@ default.
   the mark; a site with no official reading and a mark at or below 5.35 m (the
   level of May 2024, `GUAIBA_2024_M`) is treated as exposed. An official reading
   always wins over the mark.
+- **A look-alike name is never matched silently.** A name that only resembles a
+  catalogue solution ("Cozinha comunitária" against "Cozinha comunitária com
+  biodigestor") opens the review with no answer chosen, and the table cannot be
+  confirmed on the screen until someone picks. Over the API an untouched
+  look-alike keeps the proposal, so a script must send its corrections.
+- **A newer version never destroys a confirmed table.** If no table can be found
+  in a re-uploaded file, the older one is kept and the answer says
+  `keptOlder: true`.
+- **An untouched focus is the whole report.** The screen sends a focus only when
+  a button was switched off, and the server treats "everything this run can
+  print" as no focus (`settleRequest`).
+- **Settings are written one key at a time.** `cohort.settings` is one JSON blob
+  shared with the board and the publication maps; network-file entries are saved
+  with a single SQL statement that touches only their key. Other writers of that
+  blob still read-modify-write.
 - **One table per report.** With several confirmed tables, the newest is
   counted and the others are read as context.
 - **A table inside a PDF or a photo is never counted.** Only `.xlsx`, `.csv`
@@ -224,10 +252,8 @@ Do not re-open these without a reason:
 
 1. **Adopting the ratings into the catalogue**, only after the technical review
    above.
-2. **Show the focus in the list of past reports** (each stored run already
-   carries `request`).
 
-Also open: the narrative's time budget (`shared/model-pass-budgets.ts`,
-`synergyReport`: cap 240 s, measured 72 s on 2026-09-04) has not been
-re-measured with the larger prompt. The added block is small next to ten
-organisations' records, but measure it live before trusting that.
+The narrative's time, measured live on 2026-11-19 over six demo organisations
+(`shared/model-pass-budgets.ts`, `synergyReport`, cap 270 s): between 57 and
+81 s over six runs, with and without files, focused or not. The second input
+did not move the number. Measure again on a network of ten or more.

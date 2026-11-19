@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { TestApi } from './helpers/testApi';
 import {
-  proposeSolutionsTable, applyReview, crossAnalysis, crossForModel, matchSolutionName, matchOrgName, nameKey, splitItems, doubtsIn,
+  proposeSolutionsTable, applyReview, crossAnalysis, crossForModel, matchSolutionName, matchOrgName, nameKey, splitItems, doubtsIn, unsupportedClaim, linksFor,
   type Grid, type PlatformSide,
 } from '../shared/network-solutions';
 
@@ -77,12 +77,88 @@ test.describe('reading names', () => {
     expect(matchOrgName('Centro de Educação Ambiental do Bairro Morro Alto', MEMBERS)).toBe('c');
     expect(matchOrgName('Coletivo Beira Rio - Cultura e Território', MEMBERS)).toBe('b');
     expect(matchOrgName('Uma organização que não existe', MEMBERS)).toBeNull();
-    expect(matchOrgName('Aurora', [...MEMBERS, { id: 'z', orgName: 'Aurora' }])).toBeNull();
+    // Two that fit equally: no guess. The exact name of one of them: that one.
+    expect(matchOrgName('Aurora', [...MEMBERS, { id: 'z', orgName: 'Instituto Aurora' }])).toBeNull();
+    expect(matchOrgName('aurora', [...MEMBERS, { id: 'z', orgName: 'Aurora' }])).toBe('z');
   });
 
   test('a cell lists one thing per line, or separated by ; and ,', () => {
     expect(splitItems('Horta Urbana\n\u2060Composteira \nCaptação de água da chuva:')).toEqual(['Horta Urbana', 'Composteira', 'Captação de água da chuva']);
     expect(splitItems('Teto verde; Biovaleta, Horta')).toEqual(['Teto verde', 'Biovaleta', 'Horta']);
+  });
+});
+
+test.describe('sheets as people actually make them', () => {
+  const read = (rows: string[][], extra: Grid[] = []) => proposeSolutionsTable([{ name: 'Planilha', rows }, ...extra], MEMBERS);
+
+  test('a hazard word near the top of the organisations sheet does not make it a ratings sheet', () => {
+    const t = read([
+      ['Soluções para alagamento e calor na rede', '', ''],
+      ['Organização', 'Já tem', 'Quer implementar'],
+      ['Associação Aurora', 'Horta Urbana', 'Teto verde'],
+      ['Coletivo Beira-Rio', '', 'Jardim de chuva'],
+    ])!;
+    expect(t).not.toBeNull();
+    expect(t.orgs.map(o => o.memberId)).toEqual(['a', 'b']);
+    expect(t.ratings).toEqual([]);
+  });
+
+  test('a title above the header goes with it, and the header is not read as an organisation', () => {
+    const t = read([
+      ['Organizações da rede e suas técnicas', '', ''],
+      ['Organização', 'O que a organização já tem', 'O que a organização quer implementar'],
+      ['Associação Aurora', 'Horta Urbana', 'Teto verde'],
+      ['Coletivo Beira-Rio', 'Compostagem', 'Horta Urbana'],
+    ])!;
+    expect(t.orgs.map(o => o.sheetName)).toEqual(['Associação Aurora', 'Coletivo Beira-Rio']);
+    expect(t.orgs[0]).toMatchObject({ has: [nameKey('Horta Urbana')], wants: [nameKey('Teto verde')] });
+  });
+
+  test('with no header, or one it does not know, the first organisation is still an organisation', () => {
+    const noHeader = read([['Coletivo Beira-Rio', 'Horta Urbana'], ['Associação Aurora', 'Teto verde'], ['Instituto Quatro Ventos', 'Compostagem']])!;
+    expect(noHeader.orgs.map(o => o.memberId)).toEqual(['b', 'a', 'd']);
+    const unknown = read([['Nome', 'Soluções'], ['Coletivo Beira-Rio', 'Horta Urbana'], ['Associação Aurora', 'Teto verde']])!;
+    expect(unknown.orgs.map(o => o.sheetName)).toEqual(['Coletivo Beira-Rio', 'Associação Aurora']);
+  });
+
+  test('the organisations column is the one with organisations in it, not the one whose header says "organização"', () => {
+    const t = read([['Nome', 'O que a organização já tem', 'O que a organização quer'], ['Associação Aurora', 'Horta Urbana', 'Teto verde'], ['Coletivo Beira-Rio', '', 'Compostagem']])!;
+    expect(t.orgs.map(o => o.memberId)).toEqual(['a', 'b']);
+    expect(t.orgs[0].has).toEqual([nameKey('Horta Urbana')]);
+  });
+
+  test('an organisation written over several rows is one organisation', () => {
+    const t = read([
+      ['Organização', 'Já tem', 'Quer'],
+      ['Associação Aurora', 'Horta Urbana', 'Teto verde'],
+      ['Associação Aurora', '', 'Jardim de chuva'],
+      ['Associação Aurora', 'Compostagem', 'Teto verde'],
+      ['Coletivo Beira-Rio', '', 'Horta Urbana'],
+    ])!;
+    expect(t.orgs).toHaveLength(2);
+    expect(t.orgs[0]).toMatchObject({ memberId: 'a', has: [nameKey('Horta Urbana'), nameKey('Compostagem')], wants: [nameKey('Teto verde'), nameKey('Jardim de chuva')] });
+  });
+
+  test('"nenhuma" in a cell is nothing, not a solution', () => {
+    const t = read([['Organização', 'Já tem', 'Quer'], ['Associação Aurora', 'Nenhuma', 'Teto verde'], ['Coletivo Beira-Rio', 'Não tem', 'N/A']])!;
+    expect(t.orgs.map(o => [o.has.length, o.wants.length])).toEqual([[0, 1], [0, 0]]);
+    expect(t.names.map(n => n.typed)).toEqual(['Teto verde']);
+  });
+
+  test('a name made only of generic words is matched whole', () => {
+    const letters = [{ id: '1', orgName: 'Organização A' }, { id: '2', orgName: 'Organização E' }, { id: '3', orgName: 'Organização B' }];
+    expect(matchOrgName('Organização A', letters)).toBe('1');
+    expect(matchOrgName('organizacao e', letters)).toBe('2');
+    expect(matchOrgName('Organização', letters)).toBeNull();
+  });
+
+  test('a rating cell that is not a rating leaves that cell unrated, not the whole row', () => {
+    const t = read(ORGS.rows, [{ name: 'Técnicas', rows: [
+      ['Técnica', 'Alagamento', 'Calor', 'Deslizamento'],
+      ['Teto Verde', 'Média/Forte', 'Forte', '—'],
+      ['Hortas Urbanas', 'Fraca', 'Fraca', '—'],
+    ] }])!;
+    expect(t.ratings.find(r => r.key === nameKey('Teto Verde'))).toEqual({ key: nameKey('Teto Verde'), flood: null, heat: 3, landslide: 0 });
   });
 });
 
@@ -290,6 +366,7 @@ test.describe("the coordination's file reaches the report only once confirmed", 
     await expect(page.getByTestId('network-file').filter({ hasText: 'orgs-e-tecnicas.xlsx' })).toHaveAttribute('data-state', 'confirmed');
     await page.getByTestId('network-file-review-open').click();
     await expect(page.getByTestId('review-name').filter({ hasText: 'Fossa ecológica' })).toHaveAttribute('data-how', 'outside');
+    await page.keyboard.press('Escape');
 
     // A newer version of the same file replaces it and must be confirmed again.
     const again = await (await page.request.post(`/api/cohort/${slug}/network-files`, {
@@ -302,6 +379,19 @@ test.describe("the coordination's file reaches the report only once confirmed", 
     expect(kept.table.names.find((n: any) => n.typed === 'Biodigestor').familiaId).toBe('agricultura-urbana');
     const list = await (await page.request.get(`/api/cohort/${slug}/network-files`)).json();
     expect(list.files.filter((f: any) => f.filename === 'orgs-e-tecnicas.xlsx')).toHaveLength(1);
+
+    // …but a version in which no table can be found never deletes one that was confirmed.
+    await page.request.put(`/api/cohort/${slug}/network-files/${again.file.id}/table`, { data: {} });
+    const empty = new ExcelJS.Workbook(); empty.addWorksheet('Notas').addRow(['Rascunho, ainda sem a tabela']);
+    const broken = await (await page.request.post(`/api/cohort/${slug}/network-files`, {
+      multipart: { file: { name: 'orgs-e-tecnicas.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(await empty.xlsx.writeBuffer()) } },
+    })).json();
+    expect(broken).toMatchObject({ replaced: 0, keptOlder: true });
+    expect(broken.file.table).toBeNull();
+    const after = await (await page.request.get(`/api/cohort/${slug}/network-files`)).json();
+    expect(after.files.filter((f: any) => f.table?.confirmedAt)).toHaveLength(1);
+    // The setting next to it was not disturbed by any of these writes.
+    expect((await (await page.request.get(`/api/cohort/${slug}`)).json()).cohort.settings.workshops).toBeDefined();
   });
 
   test("another network's coordinator cannot reach the files", async ({ page, browser }) => {
@@ -314,5 +404,92 @@ test.describe("the coordination's file reaches the report only once confirmed", 
     const anon = await browser.newContext();
     expect((await anon.request.get(`/api/cohort/${mine.coordinatorSlug}/network-files`)).status()).toBe(401);
     await anon.close();
+  });
+});
+
+test.describe('a look-alike name waits for a person', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('the table cannot be confirmed on the screen until it is answered', async ({ page }) => {
+    const api = new TestApi(page.request);
+    const cohort = (await api.createCohort(`Parecido ${randomUUID().slice(0, 6)}`)).cohort;
+    await api.createCoordinator({ email: `par-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    for (const m of MEMBERS) await api.inviteMember(cohort.id, { orgName: m.orgName, neighborhood: 'Centro', withSession: true });
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Organizações');
+    [['Organização', 'Já tem', 'Quer'], ['Associação Aurora', 'Cozinha comunitária', 'Teto verde'], ['Coletivo Beira-Rio', 'Horta Urbana', 'Solo grampeado']].forEach(r => ws.addRow(r));
+
+    await page.goto('/orchestrator');
+    await page.getByTestId('view-projects').click();
+    await page.getByTestId('network-file-input').setInputFiles({ name: 'planilha.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(await wb.xlsx.writeBuffer()) });
+
+    // The review opens by itself, with both look-alikes unanswered.
+    // By the name as typed (the row's own text includes every option of its select).
+    const row = (typed: string) => page.getByTestId('review-name').filter({ has: page.locator('span', { hasText: new RegExp(`^${typed}$`) }) });
+    const kitchen = row('Cozinha comunitária');
+    await expect(kitchen).toHaveAttribute('data-how', 'similar');
+    await expect(kitchen.locator('select')).toHaveValue('');
+    await expect(kitchen.locator('option').first()).toContainText('parece: Cozinha comunitária com biodigestor');
+    await expect(page.getByTestId('review-unanswered')).toContainText('2 nomes parecidos');
+    await expect(page.getByTestId('review-confirm')).toBeDisabled();
+
+    // One kept as its own item, the other accepted as the catalogue solution.
+    await kitchen.locator('select').selectOption('fam:agricultura-urbana');
+    await row('Solo grampeado').locator('select').selectOption('solo-grampeado-verde');
+    await expect(page.getByTestId('review-confirm')).toBeEnabled();
+    await page.getByTestId('review-confirm').click();
+    await expect(page.getByTestId('network-file')).toHaveAttribute('data-state', 'confirmed');
+
+    const files = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/network-files`)).json();
+    const table = (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/network-files/${files.files[0].id}/table`)).json()).table;
+    expect(table.names.find((n: any) => n.typed === 'Cozinha comunitária')).toMatchObject({ solutionId: null, familiaId: 'agricultura-urbana' });
+    expect(table.names.find((n: any) => n.typed === 'Solo grampeado').solutionId).toBe('solo-grampeado-verde');
+  });
+});
+
+// ⚠️ ONE SENTENCE IN NINE GAVE AN ORGANISATION ANOTHER'S SOLUTION. Seen live,
+// with the real model, over six organisations: the counted tables were right
+// and a sentence beside them was not.
+test.describe('what the narrative says about the table is checked against it', () => {
+  const orgs = [
+    { name: 'Organização D', linked: ['jardins-de-chuva', 'biovaletas', 'pavimentos-permeaveis'] },
+    { name: 'Organização E', linked: ['solo-grampeado-verde', 'reflorestamento'] },
+    { name: 'Organização B', linked: ['compostagem', 'hortas-urbanas', 'jardins-de-chuva'] },
+  ];
+  const items = [
+    { id: 'jardins-de-chuva', name: 'Jardins de chuva' }, { id: 'biovaletas', name: 'Biovaletas' }, { id: 'pavimentos-permeaveis', name: 'Pavimentos permeáveis' },
+    { id: 'solo-grampeado-verde', name: 'Solo grampeado verde' }, { id: 'reflorestamento', name: 'Reflorestamento' }, { id: 'hortas-urbanas', name: 'Hortas urbanas' }, { id: 'compostagem', name: 'Compostagem' },
+  ];
+  const check = (s: string) => unsupportedClaim(s, orgs, items);
+
+  test('the sentence as the model wrote it is caught', () => {
+    expect(check('Segundo a planilha da coordenação, a Organização D quer biovaletas e solo grampeado verde e a Organização E quer solo grampeado verde e reflorestamento — há sobreposição real de interesse.'))
+      .toEqual({ org: 'Organização D', item: 'Solo grampeado verde' });
+  });
+
+  test('true sentences pass, in the shapes the model writes them', () => {
+    for (const s of [
+      'Segundo a planilha da coordenação, a Organização B quer jardins de chuva e a Organização D já tem jardins de chuva.',
+      'Segundo a planilha, a Organização D já tem jardim de chuva e quer biovaleta e pavimento permeável, enquanto a Organização E quer reflorestamento.',
+      'A visita de troca à horta da Organização B já foi combinada, segundo a planilha.',
+      'Segundo a planilha da coordenação, nenhuma das organizações tem teto verde.',
+      'A Organização D quer biovaletas — o que a coloca como parceira possível da Organização B nessa solução.',
+      'Segundo a planilha, a Organização B e a Organização D têm interesse em jardins de chuva.',
+    ]) expect(check(s), s).toBeNull();
+  });
+
+  test('a longer name is not read as the shorter one inside it', () => {
+    const two = [{ name: 'Rede Aurora', linked: [] as string[] }, { name: 'Rede Aurora Norte', linked: ['compostagem'] }];
+    expect(unsupportedClaim('A Rede Aurora Norte já tem compostagem.', two, items)).toBeNull();
+    expect(unsupportedClaim('A Rede Aurora já tem compostagem.', two, items)).toEqual({ org: 'Rede Aurora', item: 'Compostagem' });
+  });
+
+  test('what an organisation did on the platform counts as linked', () => {
+    const t = proposeSolutionsTable([ORGS, RATINGS], MEMBERS)!;
+    const c = crossAnalysis(t, PLATFORM, { name: 'x.xlsx' });
+    const links = linksFor(c, id => (id === 'a' ? ['biovaletas'] : []));
+    const aurora = links.find(l => l.name === 'Associação Aurora')!;
+    // kept on the platform, absent from the file · rejected in a test · in the file
+    for (const id of ['compostagem', 'biovaletas', 'hortas-urbanas']) expect(aurora.linked, id).toContain(id);
+    expect(aurora.linked).not.toContain('teto-verde');
   });
 });
