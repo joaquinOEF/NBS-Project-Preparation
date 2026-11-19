@@ -96,6 +96,14 @@ replace it with nothing to keep in sync, and removing the file removes the
 note. It is not in `chosen_solutions`, the profile PDF, or any document the
 organisation receives.
 
+One model pass reads it: the **pre-portfolio's project narrative**
+(`narrativeFacts` in `server/services/projectNarrative.ts`), as a line under
+each organisation that says it came from the coordination. That page is the
+coordination's own board. The joint Encontro 4 does **not** read it, by
+decision: that session speaks to the organisations, who never said this on
+the platform. Because the line is part of the facts, it is part of the
+narrative's cache key: a newer file rewrites the narrative.
+
 ## Rules that are not obvious
 
 - **The hazard-reduction ratings belong to the file.** They are shown credited
@@ -199,12 +207,7 @@ Do not re-open these without a reason:
 2. **A list of past reports.** Every run is already stored in `synergy_reports`;
    only the latest is shown. List them with date, focus and files used.
 3. **The cross as a spreadsheet download** next to the printable page.
-4. **The coordination note in what models read.** The note itself exists (see
-   "The coordination's note on one organisation" above) and is shown to
-   coordinators only. Whether the pre-portfolio and the joint Encontro 4 should
-   read it is undecided: those passes write text an organisation sees, and the
-   organisation never said this on the platform.
-5. **Adopting the ratings into the catalogue**, only after the technical review
+4. **Adopting the ratings into the catalogue**, only after the technical review
    above.
 
 Also open: the narrative's time budget (`shared/model-pass-budgets.ts`,

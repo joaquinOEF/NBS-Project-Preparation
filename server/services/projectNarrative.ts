@@ -18,6 +18,7 @@
 //   · It never decides the grouping. The coordination does; this explains it.
 // ============================================================================
 
+import type { CoordinationNote } from '@shared/network-solutions';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { createStructured, structuredProvider } from './structuredModel';
@@ -48,7 +49,7 @@ const Schema = z.object({
 });
 
 /** Everything the pass may assert, as text. Also what its numbers are checked against. */
-export function narrativeFacts(members: Array<{ orgName: string; prenote: Prenote }>, card: ProjectCard): string {
+export function narrativeFacts(members: Array<{ orgName: string; prenote: Prenote; coordination?: CoordinationNote | null }>, card: ProjectCard): string {
   const L: string[] = [];
   L.push(`PROJETO: ${members.length} organizações. Por que o arranjo as juntou: ${card.reason}.`);
   if (card.riskLabels.length) L.push(`Riscos que o projeto responde: ${card.riskLabels.join(', ')}.`);
@@ -69,6 +70,13 @@ export function narrativeFacts(members: Array<{ orgName: string; prenote: Prenot
       if (text) L.push(`- ${s.title}: ${text}`);
       if (s.missing) L.push(`  (${s.missing})`);
     }
+    // What the coordination's own table says this organisation has and wants
+    // beyond its proposal (docs/synergy-outside-documents.md). Attributed in
+    // the line itself: the organisation did not say it on the platform.
+    const c = m.coordination;
+    if (c && (c.has.length || c.wants.length)) {
+      L.push(`- Segundo a planilha da coordenação (informado pela coordenação, não pela organização na plataforma): ${[c.has.length ? `já tem ${c.has.join(', ')}` : '', c.wants.length ? `quer ${c.wants.join(', ')}` : ''].filter(Boolean).join('; ')}.`);
+    }
   }
   return L.join('\n');
 }
@@ -83,6 +91,7 @@ Regras:
 - synergies: até 3 coisas concretas que juntas elas fazem melhor do que sozinhas (ex.: um mesmo estudo contratado uma vez, a mesma autorização pedida junto, o mesmo fornecedor de mudas, um mutirão compartilhado). Só se os fatos sustentarem.
 - cautions: até 2 pontos de atenção honestos (ex.: uma organização sem visita técnica, um orçamento ainda em aberto, prazos diferentes). Se o projeto mistura problemas diferentes, diga.
 - Não confunda "com quem a organização já conversou" (contatos, apoio) com "precisa dizer sim" (quem autoriza). Uma autorização só vale para o órgão listado em "precisa dizer sim".
+- Uma linha "Segundo a planilha da coordenação" é informação da coordenação da rede sobre o que a organização já tem e o que quer, além da proposta. Pode sustentar uma sinergia (quem já tem uma solução pode mostrar a quem a quer), sempre atribuída à coordenação. Nunca a apresente como escolha, compromisso ou parte da proposta da organização.
 - Português do Brasil.`;
 
 type Narr = { title: string; why: string; synergies: string[]; cautions: string[] };
@@ -121,7 +130,7 @@ export function guardNarrative(raw: Narr, facts: string): { kept: Narr; dropped:
  * pass fails — the board and the page then show the arithmetic reason alone.
  */
 export async function buildProjectNarrative(
-  members: Array<{ orgName: string; prenote: Prenote }>,
+  members: Array<{ orgName: string; prenote: Prenote; coordination?: CoordinationNote | null }>,
   card: ProjectCard,
 ): Promise<ProjectNarrative | null> {
   if (members.length === 0) return null;
