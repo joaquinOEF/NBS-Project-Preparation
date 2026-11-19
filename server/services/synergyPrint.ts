@@ -10,6 +10,7 @@ import { interestOf } from '@shared/w3-synergies';
 import { worryWords, solutionWords, familiaWords } from './synergyReport';
 import type { SynergyReport } from './synergyReport';
 import { HAZARDS3, STRENGTH_PT, type OutsideCross, type MatchHow } from '@shared/network-solutions';
+import { SYNERGY_FOCUS, ALL_FOCUS, printsFocus, type SynergyFocusId } from '@shared/synergy-focus';
 
 const esc = (s: unknown): string =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -49,7 +50,7 @@ function inputsHtml(r: SynergyReport, nOrgs: number): string {
   </div>`;
 }
 
-function outsideHtml(c: OutsideCross): string {
+function outsideHtml(c: OutsideCross, show: (id: SynergyFocusId) => boolean): string {
   const item = new Map(c.items.map(i => [i.id, i]));
   const org = new Map(c.orgs.map(o => [o.memberId, o]));
   const nm = (id: string) => `${esc(item.get(id)?.name ?? solutionWords(id))}${item.get(id)?.outside ? '*' : ''}`;
@@ -120,25 +121,40 @@ function outsideHtml(c: OutsideCross): string {
   ${kinds.map(k => `<h4>${HOW_PT[k]}</h4><ul class="mt">${c.matching.filter(m => m.how === k).map(m => `<li>${esc(m.typed)}${k === 'outside' ? ` <span class="muted">em ${esc(m.familyPt ?? '')}</span>` : ` → <strong>${esc(m.readAs)}</strong>`}</li>`).join('')}</ul>`).join('')}
   ${c.unmatchedRows.length ? `<h4>Linhas do arquivo sem organização correspondente na plataforma (fora da contagem)</h4><ul class="mt">${c.unmatchedRows.map(u => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}` : '';
 
+  // The reading compares wishes with risk: it goes with "tem × quer" when that
+  // prints, and under the risk table when only "por risco" was asked.
+  const readingAlone = reading && show('risco') && !show('tem-quer') ? reading : '';
+  const any = show('familia') || show('tem-quer') || show('arquivo-plataforma') || show('risco');
   return `
+  ${show('familia') ? `
   <h2 class="pb">Organizações por família de solução</h2>
   <p class="key"><b class="ct">Tem</b> e <b class="cq">Quer</b> vêm do arquivo da coordenação (${esc(c.fileName)}); <b class="cq">Quer mais</b> indica uma solução que a organização já tem e quer ampliar. ${PLATFORM_ICON} indica que a solução também aparece na plataforma: a organização a testou no Encontro 3 ou a visita técnica a recomendou.${anyOutside ? ' * indica um item que não está entre as soluções da plataforma.' : ''}</p>
-  ${matrix}
+  ${matrix}` : ''}
 
+  ${show('tem-quer') ? `
   <h2 class="pb">Solução por solução</h2>
   <p class="hyp">Em ordem de quantas organizações querem. Quem já tem pode mostrar às outras.${c.hasRatings ? ' As colunas da direita trazem a avaliação do próprio arquivo sobre quanto cada solução reduz aquele risco.' : ''}</p>
   ${bySolution}
-  ${reading}
+  ${show('risco') ? reading : ''}` : ''}
 
+  ${show('arquivo-plataforma') ? `
   <h2 class="pb">Arquivo da coordenação e plataforma, lado a lado</h2>
   <p class="hyp">“Na plataforma” quer dizer que a organização manteve a solução ou ainda a avalia no Encontro 3, ou que a visita técnica a recomendou.</p>
-  ${versus}
-  ${risk}
-  ${matching}`;
+  ${versus}` : ''}
+  ${show('risco') ? `${risk}${readingAlone}` : ''}
+  ${any ? matching : ''}`;
 }
 
 export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): string {
-  const a = r.analysis;
+  const show = (id: SynergyFocusId) => printsFocus(r.request, id);
+  // "rede" is everything this report computed before it had a second input.
+  // Left out of a focused report by emptying what those sections print from —
+  // each of them already prints only when it has something.
+  const a = show('rede') ? r.analysis : {
+    ...r.analysis, groups: [], pooledStudies: [], solutionInterest: [], sharedObstacles: [], partnerNeeds: [], studiesHeld: [],
+    pooledInstruments: [], sharedFundingBarriers: [], pooledBodies: [], transversal: [], commonPt: [],
+  };
+  const focused = !!r.request && r.request.focus.length < ALL_FOCUS.length;
   const name = (id: string) => a.members.find(m => m.id === id)?.orgName ?? id;
   const when = new Date(r.generatedAt).toLocaleDateString('pt-BR');
 
@@ -175,6 +191,7 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   .hyp { font-size: 12.5px; font-style: italic; color: #5c665f; margin: 0 0 14px; }
   .gaps { border: 1px solid #e8d5a6; background: #fdf9f0; border-radius: 6px; padding: 12px 14px; }
   .gaps li { font-size: 13.5px; }
+  .ask { font-size: 13.5px; margin: 0 0 8px; }
   /* What the coordination added (outsideHtml) */
   .stamp { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d9e0da; border-radius: 7px; margin: 0 0 6px; }
   .stamp > div { padding: 10px 13px; font-size: 13px; } .stamp > div + div { border-left: 1px solid #d9e0da; }
@@ -218,6 +235,8 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   <h1>Sinergias e agrupamentos possíveis</h1>
   <p class="sub">${esc(cohortName)} · ${a.members.length} organizações com dados · gerado em ${esc(when)}</p>
 
+  ${r.request?.note ? `<p class="ask"><strong>Pedido da coordenação:</strong> ${esc(r.request.note)}</p>` : ''}
+  ${focused ? `<p class="ask"><strong>Foco deste relatório:</strong> ${esc(SYNERGY_FOCUS.filter(f => show(f.id)).map(f => f.pt).join(' · '))}. <span class="muted">As demais seções ficam em um relatório sem foco.</span></p>` : ''}
   ${inputsHtml(r, a.members.length)}
 
   <h2>A Rede num relance</h2>
@@ -303,7 +322,7 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   ${r.narrative?.questionsForTheRoomPt.length ? `<h2>Perguntas para o encontro</h2>
   <ul>${r.narrative.questionsForTheRoomPt.map(q => `<li>${esc(q)}</li>`).join('')}</ul>` : ''}
 
-  ${r.outside ? outsideHtml(r.outside) : ''}
+  ${r.outside ? outsideHtml(r.outside, show) : ''}
 
   <h2>Lacunas e cuidados com os dados</h2>
   <div class="gaps"><ul>${a.gapsPt.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>

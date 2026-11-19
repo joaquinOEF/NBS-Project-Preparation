@@ -15,7 +15,7 @@ landslide.
 
 The product decision that followed: the synergy report is a **multi-input
 process**. Everything the platform knows, plus what the coordination adds from
-outside, plus (not built yet) a few buttons that say what a report should focus
+outside, plus a few buttons and one sentence that say what a report should focus
 on.
 
 ## What is built
@@ -29,7 +29,8 @@ on.
 | New sections of the printed report | `server/services/synergyPrint.ts` (`outsideHtml`, `inputsHtml`) |
 | The list under "Mapear sinergias" and the review dialog | `client/src/core/components/orchestrator/NetworkFiles.tsx` |
 | The same flow from a terminal | `scripts/network-file-report.ts` |
-| Tests (invented organisations) | `e2e/network-solutions.spec.ts` |
+| What a run is asked to focus on | `shared/synergy-focus.ts` |
+| Tests (invented organisations) | `e2e/network-solutions.spec.ts`, `e2e/synergy-focus.spec.ts` |
 
 ### The three steps
 
@@ -82,6 +83,27 @@ The existing parts (programme lines, calculated groupings, shared studies,
 approval routes, obstacles, gaps) are untouched, and the narrative schema is the
 same, so the pre-portfolio board still gets its programme lines.
 
+### Focus: what a report is asked for
+
+Under the files there are five buttons and one optional sentence
+(`shared/synergy-focus.ts`): *por família de solução*, *quem tem × quem quer*,
+*arquivo × plataforma*, *por risco* (these four need a confirmed table and are
+disabled without one) and *território, necessidades e aprovações em comum*
+(everything the report computed before it had a second input). All are on by
+default.
+
+- The buttons decide **what prints**, so a report for one question is a few
+  pages. They never decide what is read: the platform's whole record always
+  goes in.
+- The narrative **always** writes its programme lines, whatever the focus,
+  because the pre-portfolio board starts from them. The focus and the sentence
+  reach the model as "PEDIDO DA COORDENAÇÃO", which steers emphasis and adds no
+  fact.
+- The sentence (280 characters) is printed at the top of the report, so a
+  reader knows what was asked.
+- The request is stored on the run (`payload.request`). A report from before
+  this existed has none and prints everything.
+
 ## Rules that are not obvious
 
 - **The hazard-reduction ratings belong to the file.** They are shown credited
@@ -133,7 +155,7 @@ network.
 | `GET …/network-files/:docId/table` | the table plus `members`, `solutions`, `familias` to choose from |
 | `PUT …/network-files/:docId/table` | `{ orgs?: [{sheetName, memberId}], names?: [{key, solutionId?, familiaId?, ignore?}] }` → confirmed |
 | `DELETE …/network-files/:docId` | removes the file and its table |
-| `POST /api/cohort/:cohortId/synergies` | body `{ fileIds?: string[] }`. Omitted = every file; `[]` = none |
+| `POST /api/cohort/:cohortId/synergies` | body `{ fileIds?: string[], focus?: string[], note?: string }`. `fileIds` omitted = every file, `[]` = none; `focus` omitted or empty = everything |
 
 ## Using it
 
@@ -176,20 +198,14 @@ Do not re-open these without a reason:
 
 ## Not built yet (next PRs, in this order)
 
-1. **The start panel.** One panel when starting a report: the sources, focus
-   buttons (*por família*, *quem tem × quem quer*, *arquivo × plataforma*, *por
-   risco*), and one optional sentence that is passed to the narrative and
-   printed on the report. The buttons decide which sections print, so a focused
-   report is not twenty pages. A report run without the general sections must
-   not replace the programme lines the pre-portfolio board reads.
-2. **A list of past reports.** Every run is already stored in `synergy_reports`;
-   only the latest is shown. List them with date, focus and files used.
-3. **The cross as a spreadsheet download** next to the printable page.
-4. **A coordination note on each organisation** ("coordenação, 19/11: também
+1. **The cross as a spreadsheet download** next to the printable page.
+2. **A coordination note on each organisation** ("coordenação, 19/11: também
    quer teto verde, biodigestor"), visible to coordinators and to later passes.
    Never written into the organisation's chosen solutions.
-5. **Adopting the ratings into the catalogue**, only after the technical review
+3. **Adopting the ratings into the catalogue**, only after the technical review
    above.
+4. **Show the focus in the list of past reports** (the list itself is a
+   separate PR; each stored run already carries `request`).
 
 Also open: the narrative's time budget (`shared/model-pass-budgets.ts`,
 `synergyReport`: cap 240 s, measured 72 s on 2026-09-04) has not been
