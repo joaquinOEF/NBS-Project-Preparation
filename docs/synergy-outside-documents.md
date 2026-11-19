@@ -28,6 +28,7 @@ on.
 | The narrative is handed the counted result | `server/services/synergyReport.ts` (`SynergyExtras`, `analysisForModel`) |
 | New sections of the printed report | `server/services/synergyPrint.ts` (`outsideHtml`, `inputsHtml`) |
 | The list under "Mapear sinergias" and the review dialog | `client/src/core/components/orchestrator/NetworkFiles.tsx` |
+| The cross as a spreadsheet ("Cruzamento (planilha)" beside "Abrir relatório") | `server/services/synergyCrossXlsx.ts` |
 | The same flow from a terminal | `scripts/network-file-report.ts` |
 | Tests (invented organisations) | `e2e/network-solutions.spec.ts` |
 
@@ -133,6 +134,7 @@ network.
 | `GET …/network-files/:docId/table` | the table plus `members`, `solutions`, `familias` to choose from |
 | `PUT …/network-files/:docId/table` | `{ orgs?: [{sheetName, memberId}], names?: [{key, solutionId?, familiaId?, ignore?}] }` → confirmed |
 | `DELETE …/network-files/:docId` | removes the file and its table |
+| `GET /api/cohort/:cohortId/synergies/cross.xlsx[?id=]` | the cross of the latest report (or of one run) as a workbook; 404 when that report counted no table |
 | `POST /api/cohort/:cohortId/synergies` | body `{ fileIds?: string[] }`. Omitted = every file; `[]` = none |
 
 ## Using it
@@ -184,11 +186,10 @@ Do not re-open these without a reason:
    not replace the programme lines the pre-portfolio board reads.
 2. **A list of past reports.** Every run is already stored in `synergy_reports`;
    only the latest is shown. List them with date, focus and files used.
-3. **The cross as a spreadsheet download** next to the printable page.
-4. **A coordination note on each organisation** ("coordenação, 19/11: também
+3. **A coordination note on each organisation** ("coordenação, 19/11: também
    quer teto verde, biodigestor"), visible to coordinators and to later passes.
    Never written into the organisation's chosen solutions.
-5. **Adopting the ratings into the catalogue**, only after the technical review
+4. **Adopting the ratings into the catalogue**, only after the technical review
    above.
 
 Also open: the narrative's time budget (`shared/model-pass-budgets.ts`,

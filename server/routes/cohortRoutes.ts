@@ -63,6 +63,7 @@ import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { synergyFactsFrom, synergyExtrasFrom, interestOf, type SynergyFacts } from '@shared/w3-synergies';
 import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, type SolutionsTable, type PlatformSide, type Hazard3 } from '@shared/network-solutions';
 import { networkScope, gridsOf } from '../services/networkFiles';
+import { buildCrossWorkbook } from '../services/synergyCrossXlsx';
 import { arvcHazardAtPin } from '../services/arvcPointHazard';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport, type SynergyInputs } from '../services/synergyReport';
@@ -1217,6 +1218,28 @@ export function registerCohortRoutes(app: Express): void {
     const [cohort] = await db.select().from(cohorts).where(eq(cohorts.id, req.params.cohortId)).limit(1);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderSynergyHtml(row.payload as any, cohort?.name ?? 'a Rede'));
+  }));
+
+  /**
+   * The cross of the latest report (or of `?id=`) as a spreadsheet — the same
+   * counted data as the printed sections, for the coordination to keep working
+   * on. 404 when that report had no confirmed table in it.
+   */
+  app.get('/api/cohort/:cohortId/synergies/cross.xlsx', wrap(async (req, res) => {
+    if (!mayAccessCohort(req, req.params.cohortId)) { res.status(403).json({ error: 'forbidden' }); return; }
+    const wanted = typeof req.query.id === 'string' && req.query.id ? req.query.id : null;
+    const [row] = await db
+      .select()
+      .from(synergyReports)
+      .where(and(eq(synergyReports.cohortId, req.params.cohortId), eq(synergyReports.status, 'done'), ...(wanted ? [eq(synergyReports.id, wanted)] : [])))
+      .orderBy(desc(synergyReports.startedAt))
+      .limit(1);
+    const outside = (row?.payload as any)?.outside ?? null;
+    if (!outside) { res.status(404).json({ error: 'this report has no table of the coordination in it' }); return; }
+    const day = new Date((row!.finishedAt ?? row!.startedAt ?? new Date()) as any).toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="cruzamento-de-solucoes-${day}.xlsx"`);
+    res.send(await buildCrossWorkbook(outside));
   }));
 
   app.post('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
