@@ -407,42 +407,38 @@ test.describe("the coordination's file reaches the report only once confirmed", 
   });
 });
 
-test.describe('a look-alike name waits for a person', () => {
+test.describe('a look-alike name is flagged on the review screen', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('the table cannot be confirmed on the screen until it is answered', async ({ page }) => {
+  test('preselected, with the note beside the name, and changeable', async ({ page }) => {
     const api = new TestApi(page.request);
     const cohort = (await api.createCohort(`Parecido ${randomUUID().slice(0, 6)}`)).cohort;
     await api.createCoordinator({ email: `par-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
     for (const m of MEMBERS) await api.inviteMember(cohort.id, { orgName: m.orgName, neighborhood: 'Centro', withSession: true });
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Organizações');
-    [['Organização', 'Já tem', 'Quer'], ['Associação Aurora', 'Cozinha comunitária', 'Teto verde'], ['Coletivo Beira-Rio', 'Horta Urbana', 'Solo grampeado']].forEach(r => ws.addRow(r));
+    [['Organização', 'Já tem', 'Quer'], ['Associação Aurora', 'Cozinha comunitária', 'Teto verde'], ['Coletivo Beira-Rio', 'Horta Urbana', 'Biodigestor']].forEach(r => ws.addRow(r));
 
     await page.goto('/orchestrator');
     await page.getByTestId('view-projects').click();
     await page.getByTestId('network-file-input').setInputFiles({ name: 'planilha.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(await wb.xlsx.writeBuffer()) });
 
-    // The review opens by itself, with both look-alikes unanswered.
-    // By the name as typed (the row's own text includes every option of its select).
-    const row = (typed: string) => page.getByTestId('review-name').filter({ has: page.locator('span', { hasText: new RegExp(`^${typed}$`) }) });
+    const row = (typed: string) => page.getByTestId('review-name').filter({ has: page.locator('div', { hasText: new RegExp(`^${typed}$`) }) });
     const kitchen = row('Cozinha comunitária');
     await expect(kitchen).toHaveAttribute('data-how', 'similar');
-    await expect(kitchen.locator('select')).toHaveValue('');
-    await expect(kitchen.locator('option').first()).toContainText('parece: Cozinha comunitária com biodigestor');
-    await expect(page.getByTestId('review-unanswered')).toContainText('2 nomes parecidos');
-    await expect(page.getByTestId('review-confirm')).toBeDisabled();
+    // The resembling solution is chosen, and the note is beside the name, not in the list.
+    await expect(kitchen.locator('select')).toHaveValue('cozinha-comunitaria-biodigestor');
+    await expect(kitchen.getByTestId('review-hint')).toHaveText('Nome parecido: confira se é esta solução');
+    await expect(kitchen.locator('option', { hasText: /parece|Escolher/ })).toHaveCount(0);
+    await expect(row('Biodigestor').getByTestId('review-hint')).toHaveText('Não está no catálogo: escolha a família');
 
-    // One kept as its own item, the other accepted as the catalogue solution.
+    // Changing it removes the note and is what gets saved.
     await kitchen.locator('select').selectOption('fam:agricultura-urbana');
-    await row('Solo grampeado').locator('select').selectOption('solo-grampeado-verde');
-    await expect(page.getByTestId('review-confirm')).toBeEnabled();
+    await expect(kitchen.getByTestId('review-hint')).toHaveCount(0);
     await page.getByTestId('review-confirm').click();
     await expect(page.getByTestId('network-file')).toHaveAttribute('data-state', 'confirmed');
-
     const files = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/network-files`)).json();
     const table = (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/network-files/${files.files[0].id}/table`)).json()).table;
     expect(table.names.find((n: any) => n.typed === 'Cozinha comunitária')).toMatchObject({ solutionId: null, familiaId: 'agricultura-urbana' });
-    expect(table.names.find((n: any) => n.typed === 'Solo grampeado').solutionId).toBe('solo-grampeado-verde');
   });
 });
 
@@ -475,6 +471,26 @@ test.describe('what the narrative says about the table is checked against it', (
       'A Organização D quer biovaletas — o que a coloca como parceira possível da Organização B nessa solução.',
       'Segundo a planilha, a Organização B e a Organização D têm interesse em jardins de chuva.',
     ]) expect(check(s), s).toBeNull();
+  });
+
+  test('organisations listed together share the statement that follows them', () => {
+    // As the model wrote it over the real network: the last two had both, the first only the garden.
+    const three = [{ name: 'Coletivo Sul', linked: ['hortas-urbanas'] }, { name: 'Coletivo Norte', linked: ['hortas-urbanas', 'compostagem'] }, { name: 'Coletivo Leste', linked: ['hortas-urbanas', 'compostagem'] }, { name: 'Coletivo Oeste', linked: [] as string[] }];
+    expect(unsupportedClaim('Segundo a planilha da coordenação, Coletivo Sul, Coletivo Norte e Coletivo Leste já têm hortas e compostagem em operação, o que as torna referências possíveis para o Coletivo Oeste, que ainda quer implantar.', three, [...items, { id: 'x', name: 'Hortas' }]))
+      .toEqual({ org: 'Coletivo Sul', item: 'Compostagem' });
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Norte e o Coletivo Leste já têm hortas urbanas e compostagem e podem mostrar ao Coletivo Oeste.', three, items)).toBeNull();
+    // Two organisations with something between them are two statements.
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul já tem hortas urbanas, enquanto o Coletivo Norte já tem compostagem.', three, items)).toBeNull();
+  });
+
+  test('a longer solution name is not also read as the shorter ones inside it', () => {
+    const kitchen = [
+      { name: 'Coletivo Sul', linked: ['cozinha-comunitaria-biodigestor'] },
+      { name: 'Coletivo Norte', linked: ['x:biodigestor'] },
+    ];
+    const menu = [{ id: 'cozinha-comunitaria-biodigestor', name: 'Cozinha comunitária com biodigestor' }, { id: 'x:cozinha comunitaria', name: 'Cozinha comunitária' }, { id: 'x:biodigestor', name: 'Biodigestor' }];
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer cozinha comunitária com biodigestor e o Coletivo Norte quer biodigestor.', kitchen, menu)).toBeNull();
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer biodigestor.', kitchen, menu)).toEqual({ org: 'Coletivo Sul', item: 'Biodigestor' });
   });
 
   test('a longer name is not read as the shorter one inside it', () => {

@@ -153,11 +153,13 @@ its tables before it goes into a meeting.
   the mark; a site with no official reading and a mark at or below 5.35 m (the
   level of May 2024, `GUAIBA_2024_M`) is treated as exposed. An official reading
   always wins over the mark.
-- **A look-alike name is never matched silently.** A name that only resembles a
+- **A look-alike name is flagged, not hidden.** A name that only resembles a
   catalogue solution ("Cozinha comunitária" against "Cozinha comunitária com
-  biodigestor") opens the review with no answer chosen, and the table cannot be
-  confirmed on the screen until someone picks. Over the API an untouched
-  look-alike keeps the proposal, so a script must send its corrections.
+  biodigestor") comes with that solution preselected, on an amber row, with
+  "Nome parecido: confira se é esta solução" beside the name. A name outside the
+  catalogue says "escolha a família". (A first version left look-alikes
+  unanswered and blocked confirming; the product owner preferred the
+  preselection, 19 Nov 2026.)
 - **A newer version never destroys a confirmed table.** If no table can be found
   in a re-uploaded file, the older one is kept and the answer says
   `keptOlder: true`.
@@ -254,6 +256,18 @@ Do not re-open these without a reason:
    above.
 
 The narrative's time, measured live on 2026-11-19 over six demo organisations
-(`shared/model-pass-budgets.ts`, `synergyReport`, cap 270 s): between 57 and
-81 s over six runs, with and without files, focused or not. The second input
-did not move the number. Measure again on a network of ten or more.
+(`shared/model-pass-budgets.ts`, `synergyReport`, cap 360 s): between 57 and
+81 s over six runs, with and without files, focused or not; the second input
+did not move the number. On the real ten-organisation network, with the
+coordination's real table and documents by name only: 101, 102 and 118 s. The production
+prompt carries the documents' text too, so measure the first run there.
+
+What those real runs' narratives got wrong, for whoever reads the next one. The
+first attributed to the planilha two things an organisation had said on the
+platform (the prompt now says not to) and made two mistakes about platform
+facts that have nothing to do with the second input (a polder, and a solution
+an organisation had rejected described as kept). The second said of three
+organisations what was true of two ("A, B e C já têm hortas e compostagem");
+the check now reads a list of organisations as sharing the statement. In the
+third, all seven sentences citing the planilha were right. The counted tables matched a
+hand-made analysis of the same sheet exactly.
