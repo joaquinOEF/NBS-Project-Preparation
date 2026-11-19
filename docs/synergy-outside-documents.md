@@ -29,6 +29,7 @@ on.
 | New sections of the printed report | `server/services/synergyPrint.ts` (`outsideHtml`, `inputsHtml`) |
 | The list under "Mapear sinergias" and the review dialog | `client/src/core/components/orchestrator/NetworkFiles.tsx` |
 | The coordination's note in the organisation drawer | `coordinationNoteFor` in `shared/network-solutions.ts`, `CboProfileSummary.tsx` |
+| The cross as a spreadsheet ("Cruzamento (planilha)" beside "Abrir relatório") | `server/services/synergyCrossXlsx.ts` |
 | The same flow from a terminal | `scripts/network-file-report.ts` |
 | What a run is asked to focus on | `shared/synergy-focus.ts` |
 | Tests (invented organisations) | `e2e/network-solutions.spec.ts`, `e2e/synergy-focus.spec.ts` |
@@ -177,6 +178,7 @@ network.
 | `GET …/network-files/:docId/table` | the table plus `members`, `solutions`, `familias` to choose from |
 | `PUT …/network-files/:docId/table` | `{ orgs?: [{sheetName, memberId}], names?: [{key, solutionId?, familiaId?, ignore?}] }` → confirmed |
 | `DELETE …/network-files/:docId` | removes the file and its table |
+| `GET /api/cohort/:cohortId/synergies/cross.xlsx[?id=]` | the cross of the latest report (or of one run) as a workbook; 404 when that report counted no table |
 | `POST /api/cohort/:cohortId/synergies` | body `{ fileIds?: string[], focus?: string[], note?: string }`. `fileIds` omitted = every file, `[]` = none; `focus` omitted or empty = everything |
 
 ## Using it
@@ -220,10 +222,9 @@ Do not re-open these without a reason:
 
 ## Not built yet (next PRs, in this order)
 
-1. **The cross as a spreadsheet download** next to the printable page.
-2. **Adopting the ratings into the catalogue**, only after the technical review
+1. **Adopting the ratings into the catalogue**, only after the technical review
    above.
-3. **Show the focus in the list of past reports** (each stored run already
+2. **Show the focus in the list of past reports** (each stored run already
    carries `request`).
 
 Also open: the narrative's time budget (`shared/model-pass-budgets.ts`,

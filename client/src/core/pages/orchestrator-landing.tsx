@@ -568,6 +568,17 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {/* The cross as a spreadsheet — only when this report counted a table of the coordination. */}
+          {report?.outside && !state?.stale && (
+            <a
+              href={`/api/cohort/${cohortId}/synergies/cross.xlsx`}
+              data-testid="synergy-cross-xlsx"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-[13px] font-medium transition-colors hover:bg-muted"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {isPt ? 'Cruzamento (planilha)' : 'Cross (spreadsheet)'}
+            </a>
+          )}
           {report && (
             <a
               href={`/api/cohort/${cohortId}/synergies/print`}
