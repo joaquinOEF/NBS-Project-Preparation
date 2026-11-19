@@ -370,12 +370,16 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
   const isPt = i18n.language?.startsWith('pt');
   const [state, setState] = useState<{ status: string; report: any; finishedAt?: string; stale?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Earlier runs, so a report a meeting was planned from can still be opened.
+  const [history, setHistory] = useState<Array<{ id: string; finishedAt: string | null; organisations: number; lines: number; files: Array<{ name: string; use: string }> }>>([]);
 
   const load = useCallback(async () => {
     if (!cohortId) return;
     try {
       const r = await fetch(`/api/cohort/${cohortId}/synergies`, { credentials: 'include' });
       if (r.ok) setState(await r.json());
+      const h = await fetch(`/api/cohort/${cohortId}/synergies/history`, { credentials: 'include' });
+      if (h.ok) setHistory((await h.json()).reports ?? []);
     } catch { /* a missing report is a normal state, not an error to surface */ }
   }, [cohortId]);
 
@@ -476,6 +480,37 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
               <p className="mt-3 text-[12.5px] text-destructive" data-testid="synergy-failed">
                 {isPt ? 'A análise falhou. Dá pra rodar de novo.' : 'The analysis failed. You can run it again.'}
               </p>
+            )}
+
+            {/* The newest is the "Abrir relatório" button; this lists the ones before it. */}
+            {history.length > 1 && (
+              <details className="mt-3 text-[12.5px]" data-testid="synergy-history">
+                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                  {isPt ? `Relatórios anteriores (${history.length - 1})` : `Earlier reports (${history.length - 1})`}
+                </summary>
+                <ul className="mt-1.5 space-y-1">
+                  {history.slice(1).map(h => (
+                    <li key={h.id} className="flex flex-wrap items-baseline gap-x-2" data-testid="synergy-history-item">
+                      <a
+                        href={`/api/cohort/${cohortId}/synergies/print?id=${h.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium underline underline-offset-2"
+                      >
+                        {h.finishedAt
+                          ? new Date(h.finishedAt).toLocaleString(isPt ? 'pt-BR' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </a>
+                      <span className="text-muted-foreground">
+                        {isPt
+                          ? `${h.organisations} organizações · ${h.lines} ${h.lines === 1 ? 'linha de programa' : 'linhas de programa'}`
+                          : `${h.organisations} organisations · ${h.lines} programme ${h.lines === 1 ? 'line' : 'lines'}`}
+                        {h.files.length > 0 && ` · ${h.files.map(f => f.name).join(', ')}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
           </div>
         </div>
