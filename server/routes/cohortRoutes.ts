@@ -63,6 +63,7 @@ import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { synergyFactsFrom, synergyExtrasFrom, interestOf, type SynergyFacts } from '@shared/w3-synergies';
 import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, coordinationNoteFor, type SolutionsTable, type PlatformSide, type Hazard3, type CoordinationNote } from '@shared/network-solutions';
 import { networkScope, gridsOf } from '../services/networkFiles';
+import { synergyRequestFrom } from '@shared/synergy-focus';
 import { arvcHazardAtPin } from '../services/arvcPointHazard';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport, type SynergyInputs } from '../services/synergyReport';
@@ -1432,6 +1433,8 @@ export function registerCohortRoutes(app: Express): void {
     } catch (err: any) {
       console.error(`[synergy] ${req.params.cohortId}: the coordination's files could not be read — report runs without them:`, err?.message || err);
     }
+
+    extras = { ...extras, request: synergyRequestFrom(req.body) };
 
     const [row] = await db
       .insert(synergyReports)
