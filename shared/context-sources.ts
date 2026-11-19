@@ -246,6 +246,11 @@ export const MODEL_PASSES: ModelPass[] = [
     id: 'synergyReport',
     purpose: 'finds what a cohort has in common and where organisations should be introduced',
     file: 'server/services/synergyReport.ts',
+    // Since 2026-11 it also reads what the COORDINATION adds about the network
+    // (docs/synergy-outside-documents.md) — not one of the twelve sources below,
+    // which are all an organisation's. It arrives the way this registry asks a
+    // document to arrive: a confirmed table PRE-COUNTED by
+    // shared/network-solutions.ts, any other file as text marked as data.
     sources: {
       fields: uses,
       // ⚠️ "uses" IS PER SOURCE, NOT PER FIELD — and that is how this one went

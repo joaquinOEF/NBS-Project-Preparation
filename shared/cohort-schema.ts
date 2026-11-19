@@ -42,6 +42,14 @@ export type CohortSettings = {
    */
   publicationMaps?: { renderedAt: string; blobKey: string; pins: Array<{ memberId: string; org: string; bairro: string; lat: number | null; lng: number | null; approx: boolean }> };
   /**
+   * What the platform read out of each file the coordination added about the
+   * network (docs/synergy-outside-documents.md), keyed by document id: the
+   * proposed table, then — once `confirmedAt` is set — the confirmed one. `null`
+   * for a file with no such table, which is context for the narrative only.
+   * The files themselves are `documents` rows under the scope `rede:<cohortId>`.
+   */
+  networkFiles?: Record<string, { table: import('./network-solutions').SolutionsTable | null }>;
+  /**
    * The pre-portfolio board's working draft (shared/preportfolio.ts): the
    * coordination's preferences and the arrangement as last saved. A draft, not
    * a decision — "confirmar" turns groups into projects. Kept in settings so

@@ -27,7 +27,7 @@ export type DocumentKind = 'pdf' | 'pptx' | 'docx' | 'xlsx' | 'text' | 'image' |
  *
  * null = an ordinary upload, which is almost all of them.
  */
-export type DocumentPurpose = 'teia_sprint' | 'visita_tecnica';
+export type DocumentPurpose = 'teia_sprint' | 'visita_tecnica' | 'rede';
 
 // Its label for people and prompts lives in ./document-purpose.ts (no drizzle, so the client can import it).
 

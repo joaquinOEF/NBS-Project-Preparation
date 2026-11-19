@@ -17,6 +17,7 @@ scripts/output/
 # the JSON state/messages files are no longer the source of truth and must
 # never be committed (they contain PII from real CBO conversations).
 knowledge/runs/cbo-*/
+knowledge/runs/rede-*/
 
 # knowledge/osm/ is deliberately NOT ignored: the OSM reference-layer snapshots
 # are committed so they ship with the deploy (Replit autoscale disks are

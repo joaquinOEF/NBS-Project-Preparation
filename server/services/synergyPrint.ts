@@ -9,6 +9,7 @@
 import { interestOf } from '@shared/w3-synergies';
 import { worryWords, solutionWords, familiaWords } from './synergyReport';
 import type { SynergyReport } from './synergyReport';
+import { HAZARDS3, STRENGTH_PT, type OutsideCross, type MatchHow } from '@shared/network-solutions';
 
 const esc = (s: unknown): string =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -18,6 +19,123 @@ const AXIS_LABEL: Record<string, string> = {
   mechanism: 'mesmo tipo de risco, territórios diferentes',
   arrangement: 'mesmo arranjo de terreno',
 };
+
+// ── What the coordination added ──────────────────────────────────────────────
+// The sections a confirmed table of the coordination adds to the report
+// (docs/synergy-outside-documents.md). Every number here was counted by
+// shared/network-solutions.ts; this only lays it out. The design was settled
+// with the coordination on paper first: words in the cells ("Tem", "Quer mais",
+// "Quer") so there is no colour legend to decode, the family totals in the
+// column heads, and ▲ ◆ ● beside the colours so the page survives a
+// black-and-white printer.
+
+const PLATFORM_ICON = `<svg class="pi" viewBox="0 0 12 16" role="img" aria-label="também na plataforma"><rect x="1" y="1" width="10" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="12.2" r="1" fill="currentColor"/></svg>`;
+const HOW_PT: Partial<Record<MatchHow, string>> = {
+  spelling: 'Mesma solução, grafia diferente',
+  synonym: 'Tratadas como a mesma solução',
+  similar: 'Nome parecido, confirmado pela coordenação',
+  manual: 'Definidas pela coordenação',
+  outside: 'Fora das soluções da plataforma: mantidas como item próprio (*)',
+};
+const ptDate = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('pt-BR') : '';
+
+function inputsHtml(r: SynergyReport, nOrgs: number): string {
+  const files = r.inputs?.files ?? [];
+  if (!files.length) return '';
+  const use = { table: 'tabela conferida e contada', context: 'lido como contexto', unconfirmed: 'tabela ainda não conferida: lido só como contexto' } as const;
+  return `<div class="stamp">
+    <div><b class="k">Da plataforma</b>${nOrgs} organizações com registros: respostas dos encontros, testes do Encontro 3, visitas técnicas, lugares dos projetos e mapas oficiais.</div>
+    <div><b class="k">Acrescentado pela coordenação</b>${files.map(f => `${esc(f.name)}${f.date ? ` (${esc(ptDate(f.date))})` : ''} <span class="muted">· ${use[f.use]}</span>`).join('<br>')}</div>
+  </div>`;
+}
+
+function outsideHtml(c: OutsideCross): string {
+  const item = new Map(c.items.map(i => [i.id, i]));
+  const org = new Map(c.orgs.map(o => [o.memberId, o]));
+  const nm = (id: string) => `${esc(item.get(id)?.name ?? solutionWords(id))}${item.get(id)?.outside ? '*' : ''}`;
+  const on = (id: string) => org.get(id)?.name ?? id;
+  const anyOutside = c.items.some(i => i.outside);
+
+  // 1 · organisations × families
+  const cell = (o: OutsideCross['orgs'][number], fam: string | null) => {
+    const P = new Set(o.onPlatform);
+    const names = (ids: string[]) => ids.filter(x => item.get(x)?.familiaId === fam).map(x => {
+      const full = nm(x); const cut = full.lastIndexOf(' ');
+      const last = `<span class="nw">${cut < 0 ? full : full.slice(cut + 1)}${P.has(x) ? PLATFORM_ICON : ''}</span>`;
+      return `<span class="nm">${cut < 0 ? '' : `${full.slice(0, cut)} `}${last}</span>`;
+    }).join('');
+    const line = (cls: string, label: string, body: string) => body ? `<div><b class="${cls}">${label}</b><span>${body}</span></div>` : '';
+    return line('ct', 'Tem', names(o.has))
+      + line('cq', 'Quer mais', names(o.wants.filter(x => o.has.includes(x))))
+      + line('cq', 'Quer', names(o.wants.filter(x => !o.has.includes(x))));
+  };
+  const matrix = `<table class="mx"><thead><tr><th></th>${c.families.map(f =>
+    `<th>${esc(f.labelPt)}<small><b class="ct">${f.have}</b> ${f.have === 1 ? 'tem' : 'têm'} · <b class="cq">${f.want}</b> ${f.want === 1 ? 'quer' : 'querem'}</small></th>`).join('')}</tr></thead><tbody>
+    ${c.orgs.map(o => `<tr><th>${esc(o.name)}<small>${esc(o.bairro ?? '')}</small></th>${c.families.map(f => `<td>${cell(o, f.id)}</td>`).join('')}</tr>`).join('')}
+    ${c.absent.map(a => `<tr class="blank"><th>${esc(a.name)}<small>${esc(a.bairro ?? '')}</small></th><td colspan="${c.families.length}">${esc(a.notePt)}</td></tr>`).join('')}
+  </tbody></table>`;
+
+  // 2 · solution by solution
+  const pill = (v: number | null | undefined) => v == null ? '<span class="rp na">sem avaliação</span>' : `<span class="rp r${v}">${STRENGTH_PT[v as 0 | 1 | 2 | 3]}</span>`;
+  const bySolution = `<table><thead><tr><th>Solução</th><th>Já têm</th><th>Querem</th>${c.hasRatings ? HAZARDS3.map(h => `<th>${h.pt}</th>`).join('') : ''}</tr></thead><tbody>
+    ${c.bySolution.map(s => { const i = item.get(s.id)!; return `<tr>
+      <td><strong>${nm(s.id)}</strong><small>${esc(c.families.find(f => f.id === i.familiaId)?.labelPt ?? '')}</small></td>
+      <td><b class="n ct">${s.hasBy.length}</b> ${esc(s.hasBy.map(on).join(', ')) || '<i>ninguém ainda</i>'}</td>
+      <td><b class="n cq">${s.wantBy.length}</b> ${esc(s.wantBy.map(on).join(', ')) || '—'}</td>
+      ${c.hasRatings ? HAZARDS3.map(h => `<td>${pill(i.rating ? i.rating[h.key] : null)}</td>`).join('') : ''}</tr>`; }).join('')}
+  </tbody></table>`;
+  const reading = c.readingPt.length ? `<div class="read">
+    <h3>Leitura: o que as organizações querem e o que mais reduz o risco</h3>
+    <p>${c.readingPt.map(esc).join(' ')}</p>
+    ${c.suggestion ? `<h3>Uma sugestão, a validar com a coordenação técnica</h3>
+    <p>${esc(c.suggestion.introPt)} Onde isso parece mais útil:</p>
+    <ul>${c.suggestion.perOrgPt.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+    <small>A classificação de complexidade é a do catálogo da plataforma. As avaliações de redução são as do arquivo da coordenação e ainda não foram revisadas para a plataforma.</small>
+  </div>` : '';
+
+  // 3 · file × platform
+  const li = (ids: string[]) => ids.map(nm).join(', ') || '—';
+  const versus = `<table class="vs"><thead><tr><th>Organização</th><th>Nas duas fontes</th><th>Só no arquivo</th><th>Só na plataforma</th><th>Vale conferir</th></tr></thead><tbody>
+    ${c.versus.map(v => `<tr><th>${esc(on(v.memberId))}</th><td>${li(v.both)}</td><td>${li(v.fileOnly)}</td><td>${li(v.platformOnly)}</td><td><ul>${v.lookPt.map(l => `<li>${esc(l)}</li>`).join('')}</ul></td></tr>`).join('')}
+  </tbody></table>`;
+
+  // 4 · risk
+  const SIG = { gap: '▲ ', part: '◆ ', ok: '● ', na: '' } as const;
+  const noFlood = c.risk.filter(r => r.cells.find(x => x.hazard === 'flood')?.sitePt == null).length;
+  const risk = c.hasRatings && c.risk.length ? `
+  <h2 class="pb">O que as listas fazem pelos riscos de cada lugar</h2>
+  <p class="hyp">Em cada par, à esquerda: o nível no lugar do projeto segundo os mapas oficiais de ameaça da cidade (Plano de Ação Climática). À direita: a maior redução entre as soluções que a organização quer, e qual solução a oferece. ▲ ameaça alta ou muito alta e nenhuma solução acima de “fraca”; ◆ redução média, no máximo; ● ao menos uma solução com redução forte.</p>
+  <table class="rk"><thead><tr><th rowspan="2">Organização</th>${HAZARDS3.map(h => `<th colspan="2">${h.pt}</th>`).join('')}</tr><tr>${'<th>No lugar</th><th>Melhor da lista</th>'.repeat(3)}</tr></thead><tbody>
+    ${c.risk.map(r => `<tr><th>${esc(on(r.memberId))}</th>${r.cells.map(x => `
+      <td class="site${(x.level ?? 0) >= 3 ? ' hi' : x.sitePt == null ? ' none' : ''}">${esc(x.sitePt ?? 'sem leitura')}${x.notePt ? `<small>${esc(x.notePt)}</small>` : ''}</td>
+      <td class="st-${x.state}"><span class="sg">${SIG[x.state]}</span><span class="rp r${x.best}">${STRENGTH_PT[x.best]}</span><small>${x.by.map(nm).join(', ')}</small></td>`).join('')}</tr>`).join('')}
+  </tbody></table>
+  <p class="note">${noFlood ? `O mapa oficial de alagamento não tem leitura em ${noFlood} ${noFlood === 1 ? 'dos lugares' : 'dos lugares'} acima. ` : ''}Quando os mapas da cidade situam o lugar dentro de uma mancha de cota do Guaíba, a linha mostra a cota; um lugar sem leitura oficial e com cota igual ou inferior a 5,35 m (nível atingido em maio de 2024) é tratado como exposto. As avaliações de redução vêm do arquivo da coordenação e ainda não foram revisadas para a plataforma.</p>` : '';
+
+  // how the file was read
+  const kinds = (Object.keys(HOW_PT) as MatchHow[]).filter(k => c.matching.some(m => m.how === k));
+  const matching = kinds.length || c.unmatchedRows.length ? `
+  <h2>Como o arquivo foi lido</h2>
+  <p class="hyp">Os nomes do arquivo foram aproximados aos da plataforma da forma abaixo, e conferidos pela coordenação antes da contagem.</p>
+  ${kinds.map(k => `<h4>${HOW_PT[k]}</h4><ul class="mt">${c.matching.filter(m => m.how === k).map(m => `<li>${esc(m.typed)}${k === 'outside' ? ` <span class="muted">em ${esc(m.familyPt ?? '')}</span>` : ` → <strong>${esc(m.readAs)}</strong>`}</li>`).join('')}</ul>`).join('')}
+  ${c.unmatchedRows.length ? `<h4>Linhas do arquivo sem organização correspondente na plataforma (fora da contagem)</h4><ul class="mt">${c.unmatchedRows.map(u => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}` : '';
+
+  return `
+  <h2 class="pb">Organizações por família de solução</h2>
+  <p class="key"><b class="ct">Tem</b> e <b class="cq">Quer</b> vêm do arquivo da coordenação (${esc(c.fileName)}); <b class="cq">Quer mais</b> indica uma solução que a organização já tem e quer ampliar. ${PLATFORM_ICON} indica que a solução também aparece na plataforma: a organização a testou no Encontro 3 ou a visita técnica a recomendou.${anyOutside ? ' * indica um item que não está entre as soluções da plataforma.' : ''}</p>
+  ${matrix}
+
+  <h2 class="pb">Solução por solução</h2>
+  <p class="hyp">Em ordem de quantas organizações querem. Quem já tem pode mostrar às outras.${c.hasRatings ? ' As colunas da direita trazem a avaliação do próprio arquivo sobre quanto cada solução reduz aquele risco.' : ''}</p>
+  ${bySolution}
+  ${reading}
+
+  <h2 class="pb">Arquivo da coordenação e plataforma, lado a lado</h2>
+  <p class="hyp">“Na plataforma” quer dizer que a organização manteve a solução ou ainda a avalia no Encontro 3, ou que a visita técnica a recomendou.</p>
+  ${versus}
+  ${risk}
+  ${matching}`;
+}
 
 export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): string {
   const a = r.analysis;
@@ -57,10 +175,40 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   .hyp { font-size: 12.5px; font-style: italic; color: #5c665f; margin: 0 0 14px; }
   .gaps { border: 1px solid #e8d5a6; background: #fdf9f0; border-radius: 6px; padding: 12px 14px; }
   .gaps li { font-size: 13.5px; }
+  /* What the coordination added (outsideHtml) */
+  .stamp { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d9e0da; border-radius: 7px; margin: 0 0 6px; }
+  .stamp > div { padding: 10px 13px; font-size: 13px; } .stamp > div + div { border-left: 1px solid #d9e0da; }
+  .stamp .k { display: block; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: #6d776f; margin-bottom: 3px; }
+  small { display: block; color: #6d776f; font-size: 11px; font-weight: 400; line-height: 1.3; }
+  thead th small { text-transform: none; letter-spacing: 0; font-size: 11.5px; margin-top: 2px; }
+  tbody th { text-align: left; text-transform: none; letter-spacing: 0; font-size: 13px; color: #16201a; font-weight: 600; padding: 7px 8px 7px 0; border-bottom: 1px solid #ecefec; vertical-align: top; }
+  .mx { table-layout: fixed; } .mx th:first-child { width: 15%; }
+  .mx thead th { text-transform: none; letter-spacing: 0; font-size: 12px; color: #16201a; padding-right: 6px; }
+  .ct { color: #1f6f54; } .cq { color: #b0590f; }
+  .mx td div { display: flex; gap: 5px; margin: 0 0 4px; } .mx td div > span { flex: 1; } .mx td b { white-space: nowrap; font-size: 12px; }
+  .nm { display: block; } .nw { white-space: nowrap; } .pi { width: 9px; height: 12px; vertical-align: -2px; margin-left: 3px; }
+  .key { font-size: 12.5px; background: #f4f7f4; border-radius: 6px; padding: 8px 11px; margin: 0 0 10px; } .key .pi { margin: 0 2px 0 0; }
+  tr.blank > * { color: #6d776f; background: #f7f8f7; } tr.blank td { font-style: italic; }
+  .n { display: inline-block; min-width: 18px; }
+  .rp { display: inline-block; white-space: nowrap; border-radius: 4px; padding: 0 6px; font-size: 11px; border: 1px solid #d9e0da; color: #6d776f; }
+  .rp.r3 { background: #1f6f54; color: #fff; border-color: #1f6f54; } .rp.r2 { border-color: #1f6f54; color: #1f6f54; } .rp.na { border-style: dashed; }
+  .vs ul { margin: 0; padding-left: 15px; } .vs li { margin: 1px 0; font-size: 12.5px; }
+  .rk td.site { font-weight: 600; } .rk td.hi { color: #b3372e; } .rk td.none { color: #6d776f; font-weight: 400; } .sg { font-size: 10.5px; }
+  .rk td.st-gap { box-shadow: inset 3px 0 0 #b3372e; } .rk td.st-gap .sg { color: #b3372e; }
+  .rk td.st-part { box-shadow: inset 3px 0 0 #a87610; } .rk td.st-part .sg { color: #a87610; }
+  .rk td.st-ok { box-shadow: inset 3px 0 0 #1f6f54; } .rk td.st-ok .sg { color: #1f6f54; }
+  .rk td, .rk th { padding-left: 7px; }
+  .read { margin-top: 14px; border: 1px solid #d9e0da; border-radius: 7px; padding: 12px 15px; background: #f7f8f7; break-inside: avoid; }
+  .read h3 { font-size: 14px; margin: 0 0 4px; } .read p { margin: 0 0 10px; font-size: 13.5px; } .read ul { margin: 0 0 8px; padding-left: 17px; } .read li { font-size: 13px; margin-bottom: 2px; }
+  .note { font-size: 12px; color: #5c665f; border-left: 3px solid #e8d5a6; padding: 6px 11px; margin: 10px 0 0; }
+  h4 { font-size: 12.5px; color: #5c665f; margin: 12px 0 3px; } ul.mt { columns: 2; font-size: 12.5px; margin: 0; padding-left: 17px; }
   footer { margin-top: 32px; border-top: 1px solid #d9e0da; padding-top: 12px; font-size: 11.5px; color: #8a938c; }
   .noprint button { font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px;
                     border: 1px solid #2c6b4b; background: #2c6b4b; color: #fff; border-radius: 7px; cursor: pointer; }
   @media print { .noprint { display: none !important; } .sheet { padding: 0; max-width: none; }
+                 body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                 h2.pb { break-before: page; margin-top: 0; } h2 { break-after: avoid; } tr, li { break-inside: avoid; } thead { display: table-header-group; }
+                 .mx, .rk, .vs { font-size: 11px; } .mx td b { font-size: 10.5px; }
                  .draft, .gaps { background: transparent; border-color: #000; color: #000; } }
 </style></head>
 <body><div class="sheet">
@@ -69,6 +217,8 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   <div class="draft">HIPÓTESES PARA VALIDAR — NÃO SÃO DECISÕES</div>
   <h1>Sinergias e agrupamentos possíveis</h1>
   <p class="sub">${esc(cohortName)} · ${a.members.length} organizações com dados · gerado em ${esc(when)}</p>
+
+  ${inputsHtml(r, a.members.length)}
 
   <h2>A Rede num relance</h2>
   <table>
@@ -153,11 +303,13 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   ${r.narrative?.questionsForTheRoomPt.length ? `<h2>Perguntas para o encontro</h2>
   <ul>${r.narrative.questionsForTheRoomPt.map(q => `<li>${esc(q)}</li>`).join('')}</ul>` : ''}
 
+  ${r.outside ? outsideHtml(r.outside) : ''}
+
   <h2>Lacunas e cuidados com os dados</h2>
   <div class="gaps"><ul>${a.gapsPt.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>
 
   <footer>
-    <p>Gerado a partir das respostas das organizações na plataforma. Os agrupamentos são calculados; a leitura transversal é uma proposta a discutir. Rode de novo depois de cada encontro — a resposta muda conforme as organizações respondem.</p>
+    <p>Gerado a partir das respostas das organizações na plataforma${r.outside ? ' e de um arquivo acrescentado pela coordenação, lido como indicado acima' : ''}. Os agrupamentos são calculados; a leitura transversal é uma proposta a discutir. Rode de novo depois de cada encontro — a resposta muda conforme as organizações respondem.</p>
   </footer>
 </div></body></html>`;
 }
