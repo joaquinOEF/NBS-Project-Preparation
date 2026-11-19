@@ -477,6 +477,26 @@ test.describe('what the narrative says about the table is checked against it', (
     ]) expect(check(s), s).toBeNull();
   });
 
+  test('organisations listed together share the statement that follows them', () => {
+    // As the model wrote it over the real network: the last two had both, the first only the garden.
+    const three = [{ name: 'Coletivo Sul', linked: ['hortas-urbanas'] }, { name: 'Coletivo Norte', linked: ['hortas-urbanas', 'compostagem'] }, { name: 'Coletivo Leste', linked: ['hortas-urbanas', 'compostagem'] }, { name: 'Coletivo Oeste', linked: [] as string[] }];
+    expect(unsupportedClaim('Segundo a planilha da coordenação, Coletivo Sul, Coletivo Norte e Coletivo Leste já têm hortas e compostagem em operação, o que as torna referências possíveis para o Coletivo Oeste, que ainda quer implantar.', three, [...items, { id: 'x', name: 'Hortas' }]))
+      .toEqual({ org: 'Coletivo Sul', item: 'Compostagem' });
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Norte e o Coletivo Leste já têm hortas urbanas e compostagem e podem mostrar ao Coletivo Oeste.', three, items)).toBeNull();
+    // Two organisations with something between them are two statements.
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul já tem hortas urbanas, enquanto o Coletivo Norte já tem compostagem.', three, items)).toBeNull();
+  });
+
+  test('a longer solution name is not also read as the shorter ones inside it', () => {
+    const kitchen = [
+      { name: 'Coletivo Sul', linked: ['cozinha-comunitaria-biodigestor'] },
+      { name: 'Coletivo Norte', linked: ['x:biodigestor'] },
+    ];
+    const menu = [{ id: 'cozinha-comunitaria-biodigestor', name: 'Cozinha comunitária com biodigestor' }, { id: 'x:cozinha comunitaria', name: 'Cozinha comunitária' }, { id: 'x:biodigestor', name: 'Biodigestor' }];
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer cozinha comunitária com biodigestor e o Coletivo Norte quer biodigestor.', kitchen, menu)).toBeNull();
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer biodigestor.', kitchen, menu)).toEqual({ org: 'Coletivo Sul', item: 'Biodigestor' });
+  });
+
   test('a longer name is not read as the shorter one inside it', () => {
     const two = [{ name: 'Rede Aurora', linked: [] as string[] }, { name: 'Rede Aurora Norte', linked: ['compostagem'] }];
     expect(unsupportedClaim('A Rede Aurora Norte já tem compostagem.', two, items)).toBeNull();
