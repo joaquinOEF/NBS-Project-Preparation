@@ -136,6 +136,13 @@ export function matchSolutionName(typed: string): { solutionId: string | null; h
 
 /** Propose a member for an organisation name as typed. Null when none, or when two fit equally. */
 export function matchOrgName(typed: string, members: Array<{ id: string; orgName: string }>): string | null {
+  // The same name, whatever the case and accents, is that organisation — and
+  // the only way to match a name made of nothing but generic words
+  // ("Organização A", "Coletivo O").
+  const whole = plain(typed);
+  if (!whole) return null;
+  const same = members.filter(m => plain(m.orgName) === whole);
+  if (same.length) return same.length === 1 ? same[0].id : null;
   const t = new Set(tokens(typed, ORG_GENERIC));
   if (!t.size) return null;
   let best: { id: string; score: number } | null = null; let tie = false;
@@ -175,8 +182,11 @@ function strengthOf(cell: string): Strength | null | undefined {
 
 /** A cell that lists several things: one per line, or separated by ; , • */
 export function splitItems(cell: string): string[] {
-  return cell.split(/\r?\n|;|•|,(?![^(]*\))/).map(x => x.replace(/[⁠​]/g, '').replace(/^[\s\-–•*]+|[\s:.]+$/g, '')).filter(x => plain(x));
+  return cell.split(/\r?\n|;|•|,(?![^(]*\))/).map(x => x.replace(/[⁠​]/g, '').replace(/^[\s\-–•*]+|[\s:.]+$/g, '')).filter(x => plain(x) && !NOTHING.has(plain(x)));
 }
+
+/** How a cell says "nothing here" — never an item an organisation has or wants. */
+const NOTHING = new Set(['nenhuma', 'nenhum', 'nada', 'nao', 'nao tem', 'nao possui', 'n a', 'na', 'sem', 'none', 'x']);
 
 /**
  * Read the coordination's sheets into a proposal.
@@ -219,46 +229,78 @@ export function proposeSolutionsTable(grids: Grid[], members: Array<{ id: string
       }
       if (nameCol >= 0) {
         const groupCol = colOf(/\bgrupo|familia|family/);
-        for (const r of rows) {
-          const vals = hz.map(([k, i]) => [k, strengthOf(r[i] ?? '')] as const);
-          if (!plain(r[nameCol] ?? '') || vals.some(([, v]) => v === undefined) || vals.every(([, v]) => v === null)) continue;
-          const key = note(r[nameCol]); if (!key) continue;
-          const at = (k: Hazard3) => (vals.find(([kk]) => kk === k)?.[1] ?? null) as Strength | null;
-          ratings.push({ key, flood: at('flood'), heat: at('heat'), landslide: at('landslide') });
-          if (groupCol >= 0 && plain(r[groupCol] ?? '')) famByKey.set(key, r[groupCol]);
+        // A row rates a solution when at least one hazard cell is a rating. A
+        // cell that is something else ("Média/Forte") is left unrated rather
+        // than costing the row its other two.
+        const rated = rows.map(r => ({ r, vals: hz.map(([k, i]) => [k, strengthOf(r[i] ?? '')] as const) }))
+          .filter(({ r, vals }) => plain(r[nameCol] ?? '') && vals.some(([, v]) => typeof v === 'number'));
+        // ⚠️ Only a sheet that actually rates is a ratings sheet. A hazard word
+        // in the first rows of the ORGANISATIONS sheet (a "Risco" column, a
+        // title "Soluções para alagamento e calor") used to send it down this
+        // branch, find nothing, and skip it — the file silently became context.
+        if (rated.length >= 2) {
+          for (const { r, vals } of rated) {
+            const key = note(r[nameCol]); if (!key) continue;
+            const at = (k: Hazard3) => { const v = vals.find(([kk]) => kk === k)?.[1]; return (typeof v === 'number' ? v : null) as Strength | null; };
+            ratings.push({ key, flood: at('flood'), heat: at('heat'), landslide: at('landslide') });
+            if (groupCol >= 0 && plain(r[groupCol] ?? '')) famByKey.set(key, r[groupCol]);
+          }
+          continue;
         }
-        continue;
       }
     }
 
     // (b) the organisations sheet.
     if (orgs) continue;
     const width = Math.max(...rows.map(r => r.length));
-    let orgCol = colOf(ORG_HEAD);
-    if (orgCol < 0) {
-      let bestN = 1;
-      for (let c = 0; c < width; c++) {
-        const n = rows.filter(r => matchOrgName(r[c] ?? '', members)).length;
-        if (n > bestN) { bestN = n; orgCol = c; }
-      }
-    }
-    if (orgCol < 0) continue;
     let hasCol = colOf(HAS_HEAD), wantsCol = colOf(WANTS_HEAD);
     if (hasCol === wantsCol) hasCol = -1; // "o que … já tem e quer": one column, read as wants
+    // The organisations column: the one whose cells ARE organisations. A header
+    // word is only a tiebreak — "O que a organização já tem" contains one too,
+    // and so does every row of a network whose members are called "Coletivo …".
+    let orgCol = -1; let bestN = 0;
+    for (let c = 0; c < width; c++) {
+      if (c === hasCol || c === wantsCol) continue;
+      const n = rows.filter(r => matchOrgName(r[c] ?? '', members)).length;
+      if (n > bestN) { bestN = n; orgCol = c; }
+    }
+    if (bestN < 2) {
+      orgCol = -1;
+      for (const h of head) { const i = h.findIndex((c, ci) => ci !== hasCol && ci !== wantsCol && ORG_HEAD.test(c)); if (i >= 0) { orgCol = i; break; } }
+    }
+    if (orgCol < 0) continue;
     if (hasCol < 0 && wantsCol < 0) {
       const others = Array.from({ length: width }, (_, i) => i).filter(i => i !== orgCol && rows.some(r => plain(r[i] ?? '')));
       if (others.length !== 1) continue;
       wantsCol = others[0];
     }
-    const headerRows = head.findIndex(h => ORG_HEAD.test(h[orgCol] ?? '') || HAS_HEAD.test(h[hasCol] ?? '') || WANTS_HEAD.test(h[wantsCol] ?? ''));
-    const body = rows.slice(headerRows + 1);
-    const found: SolutionsTable['orgs'] = [];
+    // The header is the LAST of the first rows that reads like one and is not
+    // itself an organisation: a title above it goes too, and a first data row
+    // ("Coletivo Beira-Rio | …") is never taken for a header.
+    const headerLike = (h: string[], raw: string[]) =>
+      !matchOrgName(raw[orgCol] ?? '', members)
+      && (HAS_HEAD.test(h[hasCol] ?? '') || WANTS_HEAD.test(h[wantsCol] ?? '') || (ORG_HEAD.test(h[orgCol] ?? '') && (h[orgCol] ?? '').split(' ').length <= 3));
+    let headerRow = -1;
+    head.forEach((h, i) => { if (headerLike(h, rows[i])) headerRow = i; });
+    // A header in words this does not know ("Nome | Soluções"): the first row
+    // names no organisation and lists no solution of the catalogue, in a sheet
+    // whose other rows do name organisations.
+    if (headerRow < 0 && bestN >= 2 && !matchOrgName(rows[0][orgCol] ?? '', members)
+      && [hasCol, wantsCol].filter(i => i >= 0).flatMap(i => splitItems(rows[0][i] ?? '')).every(x => !matchSolutionName(x).solutionId)) headerRow = 0;
+    const body = rows.slice(headerRow + 1);
+    // One organisation over several rows (a solution per row, a merged name
+    // cell) is still one organisation: its rows are read together.
+    const byName = new Map<string, SolutionsTable['orgs'][number]>();
     for (const r of body) {
       const sheetName = (r[orgCol] ?? '').trim();
       if (!plain(sheetName)) continue;
-      const list = (i: number) => i < 0 ? [] : Array.from(new Set(splitItems(r[i] ?? '').map(note).filter((k): k is string => !!k)));
-      found.push({ sheetName, memberId: matchOrgName(sheetName, members), has: list(hasCol), wants: list(wantsCol) });
+      const list = (i: number) => i < 0 ? [] : splitItems(r[i] ?? '').map(note).filter((k): k is string => !!k);
+      const row = byName.get(plain(sheetName)) ?? { sheetName, memberId: matchOrgName(sheetName, members), has: [], wants: [] };
+      row.has = Array.from(new Set([...row.has, ...list(hasCol)]));
+      row.wants = Array.from(new Set([...row.wants, ...list(wantsCol)]));
+      byName.set(plain(sheetName), row);
     }
+    const found = Array.from(byName.values());
     if (found.length >= 2) orgs = found;
   }
 
@@ -267,6 +309,7 @@ export function proposeSolutionsTable(grids: Grid[], members: Array<{ id: string
   for (const n of Array.from(names.values())) {
     if (n.solutionId || !famByKey.has(n.key)) continue;
     const want = nameKey(famByKey.get(n.key)!);
+    if (!want) continue;
     const fam = NBS_FAMILIAS.find(f => { const k = nameKey(f.pt.label); return k === want || k.includes(want) || want.includes(k); });
     if (fam) n.familiaId = fam.id;
   }
@@ -374,7 +417,8 @@ export interface OutsideCross {
 
 const famLabel = (id: string | null) => (id && NBS_FAMILIAS.find(f => f.id === id)?.pt.label) || 'Fora das famílias';
 const list = (xs: string[]) => xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`;
-const share = (a: number, b: number) => a === b ? 'todas' : a / b >= 0.8 ? 'quase todas' : a / b > 0.5 ? 'a maior parte' : a / b === 0.5 ? 'metade' : a / b >= 0.3 ? 'menos da metade' : 'poucas';
+/** "… das escolhas parece(m) responder": the subject with its verb, so the sentence agrees. */
+const shareOfChoices = (a: number, b: number) => a === b ? 'todas as escolhas parecem' : a / b >= 0.8 ? 'quase todas as escolhas parecem' : 'a maior parte das escolhas parece';
 
 /**
  * Everything the report's new sections show, counted from the confirmed table
@@ -494,7 +538,7 @@ export function crossAnalysis(table: SolutionsTable, platform: PlatformSide[], f
         const o = orgs.find(o => o.memberId === x.r.memberId)!;
         for (const w of o.wants) { total++; if (Math.max(...x.cells.map(c => R(w, c.hazard))) >= 2) answers++; }
       }
-      if (total) readingPt.push(`Olhando só para as ameaças altas de cada lugar, ${answers} dos ${total} desejos dessas organizações (${Math.round(100 * answers / total)}%) são de soluções com redução média ou forte para o risco do próprio lugar${answers / total < 0.5 ? `: ${share(total - answers, total)} das escolhas parece responder a outras necessidades mais do que ao risco climático` : ''}.`);
+      if (total) readingPt.push(`Olhando só para as ameaças altas de cada lugar, ${answers} dos ${total} desejos dessas organizações (${Math.round(100 * answers / total)}%) são de soluções com redução média ou forte para o risco do próprio lugar${answers / total < 0.5 ? `: ${shareOfChoices(total - answers, total)} responder a outras necessidades mais do que ao risco climático` : ''}.`);
 
       // Simple to build AND rated to do something: what a training session could show.
       const rated = (h: Hazard3) => Array.from(items.values()).filter(i => !i.outside && i.simple && R(i.id, h) >= 2).sort((a, b) => R(b.id, h) - R(a.id, h));
@@ -527,6 +571,58 @@ export function crossAnalysis(table: SolutionsTable, platform: PlatformSide[], f
     fileName: file.name, fileDate: file.date ?? null, hasRatings, items: used, orgs, absent, unmatchedRows,
     families, bySolution, versus, risk, readingPt, suggestion, matching,
   };
+}
+
+// ── checking what the narrative says about the table ─────────────────────────
+
+/**
+ * ⚠️ THE NARRATIVE MIXES UP WHO WANTS WHAT. Live, over six organisations, one
+ * sentence in nine that cited the coordination's table gave an organisation a
+ * solution that was another's ("a Organização D quer … solo grampeado verde" —
+ * it was E's). The tables on the page are counted and right; a wrong sentence
+ * beside them is what gets read aloud in the meeting.
+ *
+ * So a sentence is checked the only way a sentence can be without a second
+ * model: every solution of the table it names, in the stretch of text after an
+ * organisation's name and before the next one, must be linked to THAT
+ * organisation — in the file (has or wants) or on the platform. A solution
+ * named before any organisation, or an organisation followed by none, proves
+ * nothing and passes. Returns the first unsupported pair, or null.
+ */
+export function unsupportedClaim(
+  sentence: string,
+  orgs: Array<{ name: string; linked: string[] }>,
+  items: Array<{ id: string; name: string }>,
+): { org: string; item: string } | null {
+  // Organisation names as written, longest first, each occurrence once.
+  const marks: Array<{ at: number; end: number; org: (typeof orgs)[number] }> = [];
+  const lower = sentence.toLowerCase();
+  for (const org of [...orgs].sort((a, b) => b.name.length - a.name.length)) {
+    const needle = org.name.toLowerCase();
+    if (!needle) continue;
+    for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
+      const end = at + needle.length;
+      if (/[a-z0-9\u00c0-\u024f]/i.test(lower[end] ?? '') || marks.some(m => at < m.end && end > m.at)) continue;
+      marks.push({ at, end, org });
+    }
+  }
+  marks.sort((a, b) => a.at - b.at);
+  const keyed = items.map(i => ({ ...i, key: nameKey(i.name) })).filter(i => i.key);
+  for (let i = 0; i < marks.length; i++) {
+    const stretch = ` ${tokens(sentence.slice(marks[i].end, marks[i + 1]?.at ?? sentence.length)).join(' ')} `;
+    for (const it of keyed) {
+      if (stretch.includes(` ${it.key} `) && !marks[i].org.linked.includes(it.id)) return { org: marks[i].org.name, item: it.name };
+    }
+  }
+  return null;
+}
+
+/** What each organisation is linked to, for `unsupportedClaim`: the file's has and wants, and whatever the platform holds. */
+export function linksFor(c: OutsideCross, platformSolutions: (memberId: string) => string[]): Array<{ name: string; linked: string[] }> {
+  return c.orgs.map(o => {
+    const v = c.versus.find(x => x.memberId === o.memberId);
+    return { name: o.name, linked: Array.from(new Set([...o.has, ...o.wants, ...o.onPlatform, ...(v?.platformOnly ?? []), ...platformSolutions(o.memberId)])) };
+  });
 }
 
 /** What the coordination's confirmed table says about ONE organisation. */

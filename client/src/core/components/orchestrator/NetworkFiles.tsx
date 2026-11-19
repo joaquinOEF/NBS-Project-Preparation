@@ -34,6 +34,8 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
   const [data, setData] = useState<ReviewData | null>(null);
   const [orgs, setOrgs] = useState<Record<string, string>>({});
   const [names, setNames] = useState<Record<string, string>>({});
+  // For a doubtful name: the catalogue solution it resembles, offered and not chosen.
+  const [suggested, setSuggested] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
 
@@ -50,7 +52,12 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
       setOrgs(Object.fromEntries(d.table.orgs.map(o => [o.sheetName, o.memberId ?? ''])));
       // One value per name: a catalogue solution id, `fam:<id>` / `fam:` for an
       // item kept outside the catalogue, or `ignore`.
-      setNames(Object.fromEntries(d.table.names.map(n => [n.key, n.ignore ? 'ignore' : n.solutionId ?? `fam:${n.familiaId ?? ''}`])));
+      // ⚠️ A name that only RESEMBLES a catalogue solution ("Cozinha comunitária"
+      // against "Cozinha comunitária com biodigestor") starts with no answer:
+      // confirming without looking would count it as that solution, silently.
+      // Once a person has confirmed the table, what they chose stands.
+      setNames(Object.fromEntries(d.table.names.map(n => [n.key, n.ignore ? 'ignore' : n.how === 'similar' && !d.table.confirmedAt ? '' : n.solutionId ?? `fam:${n.familiaId ?? ''}`])));
+      setSuggested(Object.fromEntries(d.table.names.filter(n => n.how === 'similar' && n.solutionId).map(n => [n.key, n.solutionId!])));
     })();
     return () => { live = false; };
   }, [slug, fileId]);
@@ -58,6 +65,7 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
   const used = useMemo(() => new Set(data ? data.table.orgs.flatMap(o => [...o.has, ...o.wants]) : []), [data]);
   const rows = useMemo(() => (data?.table.names ?? []).filter(n => used.has(n.key)), [data, used]);
   const doubtful = (how: string) => how === 'similar' || how === 'outside';
+  const unanswered = rows.filter(n => (names[n.key] ?? '') === '').length;
 
   const confirm = async () => {
     if (!data || !fileId) return;
@@ -121,6 +129,12 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
                   <div key={n.key} className={`grid grid-cols-[1fr_1fr] items-center gap-2 rounded-md px-2 py-1 ${doubtful(n.how) ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`} data-testid="review-name" data-how={n.how}>
                     <span className="text-[12.5px]">{n.typed}</span>
                     <select className={selectCls} value={names[n.key] ?? ''} onChange={e => setNames(p => ({ ...p, [n.key]: e.target.value }))} aria-label={n.typed}>
+                      {(names[n.key] ?? '') === '' && (
+                        <option value="">
+                          {isPt ? 'Escolher…' : 'Choose…'}
+                          {suggested[n.key] ? ` (${isPt ? 'parece' : 'looks like'}: ${data.solutions.find(s => s.id === suggested[n.key])?.label ?? ''})` : ''}
+                        </option>
+                      )}
                       <optgroup label={isPt ? 'Solução da plataforma' : 'Platform solution'}>
                         {data.solutions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                       </optgroup>
@@ -147,7 +161,12 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{isPt ? 'Fechar' : 'Close'}</Button>
-          <Button onClick={confirm} disabled={!data || saving} data-testid="review-confirm">
+          {unanswered > 0 && (
+            <span className="mr-auto text-[12px] text-amber-700 dark:text-amber-300" data-testid="review-unanswered">
+              {isPt ? `${unanswered} ${unanswered === 1 ? 'nome parecido espera' : 'nomes parecidos esperam'} uma escolha` : `${unanswered} look-alike ${unanswered === 1 ? 'name needs' : 'names need'} a choice`}
+            </span>
+          )}
+          <Button onClick={confirm} disabled={!data || saving || unanswered > 0} data-testid="review-confirm">
             {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
             {isPt ? 'Confirmar' : 'Confirm'}
           </Button>
@@ -193,6 +212,9 @@ export function NetworkFiles({ slug, isPt, onSelection }: { slug: string; isPt: 
       const j = await r.json().catch(() => ({}));
       if (!r.ok) setFailed(j?.error ?? (isPt ? 'O arquivo não pôde ser lido.' : 'The file could not be read.'));
       else {
+        if (j?.keptOlder) setFailed(isPt
+          ? 'Nesta versão não foi encontrada a tabela de organizações. A versão anterior, com a tabela conferida, foi mantida.'
+          : 'No table of organisations was found in this version. The earlier one, with its confirmed table, was kept.');
         await load();
         // A table that was found is reviewed at once: an unconfirmed one is never counted.
         if (j?.file?.table && !j.file.table.confirmedAt) setReview(j.file.id);

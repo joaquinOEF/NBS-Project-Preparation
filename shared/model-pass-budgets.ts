@@ -184,14 +184,19 @@ export const PASS_BUDGETS: PassBudget[] = [
   {
     id: 'synergyReport',
     env: 'CBO_SYNERGY_TIMEOUT_MS',
-    capMs: 240_000,
-    measuredMs: 72_343,
-    measuredOn: '2026-09-04',
+    capMs: 270_000,
+    measuredMs: 81_000,
+    measuredOn: '2026-11-19',
     how:
       'npx tsx scripts/w3-synergy-live.ts over all eight simulated organisations: 49.0 s, then 55.2 s, then 71.3 and 72.3 s once the ' +
       'pass was actually reading the photo observations and the published timings AND writing tensions and sequencing. ⚠️ The 55.2 s ' +
       'figure was measured on a checkout that did not yet contain those — a full test caught it, and the cap moved 180 → 240 s because ' +
-      '3× the real number no longer fitted. Measure the thing you shipped, not the thing you were about to.',
+      '3× the real number no longer fitted. Measure the thing you shipped, not the thing you were about to. ' +
+      '2026-11-19, with the coordination\'s files in the prompt (docs/synergy-outside-documents.md): three live runs over six demo ' +
+      'organisations through the product, wall clock including up to 2 s of polling — ~75 s with no file, ~65 s with a counted table ' +
+      'and a context file, ~57 s focused with a sentence, then ~64, ~77 and ~81 s on three more full runs with the table. The spread is ' +
+      'the model\'s, not the second input\'s (the no-file run sits inside it); the slowest is recorded and the cap moved 240 → 270 s ' +
+      'because 3× 81 no longer fitted.',
     costsWhenItFires:
       'the coordinator gets the deterministic groupings with no narrative — the reading that says what to DO about them is missing',
     blocking: false,

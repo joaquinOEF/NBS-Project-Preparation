@@ -376,7 +376,7 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
   // null until that list has loaded: the server then uses every file.
   const [fileIds, setFileIds] = useState<string[] | null>(null);
   // Earlier runs, so a report a meeting was planned from can still be opened.
-  const [history, setHistory] = useState<Array<{ id: string; finishedAt: string | null; organisations: number; lines: number; files: Array<{ name: string; use: string }> }>>([]);
+  const [history, setHistory] = useState<Array<{ id: string; finishedAt: string | null; organisations: number; lines: number; files: Array<{ name: string; use: string }>; focus?: Array<{ pt: string; en: string }>; note?: string | null }>>([]);
   const [hasTable, setHasTable] = useState(false);
   const onFiles = useCallback((ids: string[], table: boolean) => { setFileIds(ids); setHasTable(table); }, []);
   // What the next report is asked to focus on (shared/synergy-focus.ts). Everything, until a button is switched off.
@@ -408,7 +408,9 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
     try {
       await fetch(`/api/cohort/${cohortId}/synergies`, {
         method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...(fileIds ? { fileIds } : {}), focus: focus.filter(id => hasTable || !SYNERGY_FOCUS.find(f => f.id === id)!.needsTable), note }),
+        // The focus is sent only when a button was switched off: an untouched
+        // panel asks for the whole report, whatever has loaded so far.
+        body: JSON.stringify({ ...(fileIds ? { fileIds } : {}), ...(focus.length < ALL_FOCUS.length ? { focus } : {}), note }),
       });
       setState({ status: 'running', report: null });
     } finally {
@@ -558,6 +560,8 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
                           ? `${h.organisations} organizações · ${h.lines} ${h.lines === 1 ? 'linha de programa' : 'linhas de programa'}`
                           : `${h.organisations} organisations · ${h.lines} programme ${h.lines === 1 ? 'line' : 'lines'}`}
                         {h.files.length > 0 && ` · ${h.files.map(f => f.name).join(', ')}`}
+                        {(h.focus?.length ?? 0) > 0 && ` · ${isPt ? 'foco' : 'focus'}: ${h.focus!.map(f => (isPt ? f.pt : f.en)).join(', ')}`}
+                        {h.note && ` · “${h.note}”`}
                       </span>
                     </li>
                   ))}

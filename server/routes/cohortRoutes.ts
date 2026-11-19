@@ -63,7 +63,7 @@ import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { synergyFactsFrom, synergyExtrasFrom, interestOf, type SynergyFacts } from '@shared/w3-synergies';
 import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, coordinationNoteFor, type SolutionsTable, type PlatformSide, type Hazard3, type CoordinationNote } from '@shared/network-solutions';
 import { networkScope, gridsOf } from '../services/networkFiles';
-import { synergyRequestFrom } from '@shared/synergy-focus';
+import { synergyRequestFrom, settleRequest, SYNERGY_FOCUS, ALL_FOCUS } from '@shared/synergy-focus';
 import { buildCrossWorkbook } from '../services/synergyCrossXlsx';
 import { arvcHazardAtPin } from '../services/arvcPointHazard';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
@@ -1250,6 +1250,10 @@ export function registerCohortRoutes(app: Express): void {
           lines: p.narrative?.lines?.length ?? 0,
           // What the coordination added to that run, when it added anything.
           files: (p.inputs?.files ?? []).map((f: any) => ({ name: String(f.name ?? ''), use: String(f.use ?? '') })),
+          // What that run was asked to focus on — empty for a full report.
+          focus: Array.isArray(p.request?.focus) && p.request.focus.length < ALL_FOCUS.length
+            ? SYNERGY_FOCUS.filter(f => p.request.focus.includes(f.id)).map(f => ({ pt: f.pt, en: f.en })) : [],
+          note: typeof p.request?.note === 'string' ? p.request.note : null,
         };
       }),
     });
@@ -1444,7 +1448,7 @@ export function registerCohortRoutes(app: Express): void {
         });
         const day = (d: any) => (d.createdAt ? new Date(d.createdAt).toISOString().slice(0, 10) : null);
         const inputs: SynergyInputs = {
-          files: netDocs.map(d => ({ name: d.filename, date: day(d), use: d.id === tableDoc?.id ? 'table' as const : entries[d.id]?.table ? 'unconfirmed' as const : 'context' as const })),
+          files: netDocs.map(d => ({ name: d.filename, date: day(d), use: d.id === tableDoc?.id ? 'table' as const : entries[d.id]?.table && !entries[d.id]!.table!.confirmedAt ? 'unconfirmed' as const : 'context' as const })),
         };
         extras = {
           outside: tableDoc ? crossAnalysis(entries[tableDoc.id].table!, sides, { name: tableDoc.filename, date: day(tableDoc) }) : null,
@@ -1456,7 +1460,7 @@ export function registerCohortRoutes(app: Express): void {
       console.error(`[synergy] ${req.params.cohortId}: the coordination's files could not be read — report runs without them:`, err?.message || err);
     }
 
-    extras = { ...extras, request: synergyRequestFrom(req.body) };
+    extras = { ...extras, request: settleRequest(synergyRequestFrom(req.body), !!extras.outside) };
 
     const [row] = await db
       .insert(synergyReports)
@@ -1493,10 +1497,15 @@ export function registerCohortRoutes(app: Express): void {
     return (r?.settings ?? { workshops: [] }) as CohortSettings;
   };
   const saveNetworkEntry = async (cohortId: string, docId: string, entry: { table: SolutionsTable | null } | undefined) => {
-    const cur = await networkSettings(cohortId);
-    const next = { ...(cur.networkFiles ?? {}) };
-    if (entry) next[docId] = entry; else delete next[docId];
-    await db.update(cohorts).set({ settings: { ...cur, networkFiles: next } }).where(eq(cohorts.id, cohortId));
+    // ⚠️ ONE STATEMENT, touching only this key. `settings` is a single JSON
+    // blob that the board, the publication maps and the workshops also write;
+    // read-modify-write here could put back a stale copy of theirs.
+    const base = sql`coalesce(${cohorts.settings}, '{}'::jsonb)`;
+    await db.update(cohorts).set({
+      settings: entry
+        ? sql`${base} || jsonb_build_object('networkFiles', coalesce(${cohorts.settings}->'networkFiles', '{}'::jsonb) || jsonb_build_object(${docId}::text, ${JSON.stringify(entry)}::jsonb))`
+        : sql`${base} #- ${`{networkFiles,${docId}}`}::text[]`,
+    } as any).where(eq(cohorts.id, cohortId));
   };
   /** The organisations a row of the file can be: on the roster, in the analysis. */
   const networkMembers = async (cohort: any) => {
@@ -1543,14 +1552,21 @@ export function registerCohortRoutes(app: Express): void {
     // because the rows may have changed.
     const entries = (await networkSettings(cohort.id)).networkFiles ?? {};
     const older = (await listDocumentsForScope({ orgId: scope })).filter(d => d.id !== doc.id && d.filename === doc.filename);
+    let replaced = 0, keptOlder = false;
     for (const old of older) {
       const prev = entries[old.id]?.table;
+      // ⚠️ A version in which no table could be found does NOT replace one
+      // whose table was read: that would delete a confirmed table, and with it
+      // the report's sections and every organisation's note, on a file that
+      // may simply have a new layout. Both stay, and the answer says so.
+      if (prev && !table) { keptOlder = true; continue; }
       if (table && prev) table = applyReview(table, { orgs: prev.orgs, names: prev.names }, new Set((await networkMembers(cohort)).map(m => m.id)));
       await deleteDocument(old.id);
       await saveNetworkEntry(cohort.id, old.id, undefined);
+      replaced++;
     }
     await saveNetworkEntry(cohort.id, doc.id, { table });
-    res.json({ file: networkFileView(doc, table), replaced: older.length, parsed: !parsed.parseError, parseError: parsed.parseError ?? null });
+    res.json({ file: networkFileView(doc, table), replaced, keptOlder, parsed: !parsed.parseError, parseError: parsed.parseError ?? null });
   }), uploadErrorHandler);
 
   /** The proposed (or confirmed) table of one file, with what each name can be matched to. */
