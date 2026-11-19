@@ -77,6 +77,7 @@ import { SimulationStrip, useSimulations } from '@/core/components/orchestrator/
 import { JourneyCard, nextStepOf, type Actor, type JourneyCardData } from '@/core/components/orchestrator/JourneyCard';
 import { usePersistedFlag } from '@/core/hooks/usePersistedFlag';
 import { NetworkFiles } from '@/core/components/orchestrator/NetworkFiles';
+import { SYNERGY_FOCUS, ALL_FOCUS, MAX_FOCUS_NOTE, type SynergyFocusId } from '@shared/synergy-focus';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -374,6 +375,11 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
   // Which of the coordination's files the next report uses (NetworkFiles ticks).
   // null until that list has loaded: the server then uses every file.
   const [fileIds, setFileIds] = useState<string[] | null>(null);
+  const [hasTable, setHasTable] = useState(false);
+  const onFiles = useCallback((ids: string[], table: boolean) => { setFileIds(ids); setHasTable(table); }, []);
+  // What the next report is asked to focus on (shared/synergy-focus.ts). Everything, until a button is switched off.
+  const [focus, setFocus] = useState<SynergyFocusId[]>(ALL_FOCUS);
+  const [note, setNote] = useState('');
 
   const load = useCallback(async () => {
     if (!cohortId) return;
@@ -398,7 +404,7 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
     try {
       await fetch(`/api/cohort/${cohortId}/synergies`, {
         method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(fileIds ? { fileIds } : {}),
+        body: JSON.stringify({ ...(fileIds ? { fileIds } : {}), focus: focus.filter(id => hasTable || !SYNERGY_FOCUS.find(f => f.id === id)!.needsTable), note }),
       });
       setState({ status: 'running', report: null });
     } finally {
@@ -485,7 +491,44 @@ function SynergyPanel({ cohortId, coordinatorSlug = null, excluded = 0 }: { coho
               </p>
             )}
 
-            {coordinatorSlug && <NetworkFiles slug={coordinatorSlug} isPt={!!isPt} onSelection={setFileIds} />}
+            {coordinatorSlug && <NetworkFiles slug={coordinatorSlug} isPt={!!isPt} onSelection={onFiles} />}
+
+            {/* What the next report should focus on. The buttons choose what
+                prints; the platform's whole record is read either way. */}
+            <div className="mt-4 border-t border-foreground/10 pt-3" data-testid="synergy-focus">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {isPt ? 'Foco do próximo relatório' : 'Focus of the next report'}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {SYNERGY_FOCUS.map(f => {
+                  const unavailable = f.needsTable && !hasTable;
+                  const on = focus.includes(f.id) && !unavailable;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      disabled={unavailable}
+                      aria-pressed={on}
+                      data-testid={`synergy-focus-${f.id}`}
+                      title={unavailable ? (isPt ? 'Precisa de uma planilha da coordenação conferida' : "Needs a confirmed spreadsheet of the coordination") : undefined}
+                      onClick={() => setFocus(p => p.includes(f.id) ? p.filter(x => x !== f.id) : [...p, f.id])}
+                      className={`rounded-full border px-2.5 py-0.5 text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${on ? 'border-foreground bg-foreground text-background' : 'border-input bg-background text-foreground hover:bg-muted'}`}
+                    >
+                      {isPt ? f.pt : f.en}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                value={note}
+                maxLength={MAX_FOCUS_NOTE}
+                onChange={e => setNote(e.target.value)}
+                data-testid="synergy-focus-note"
+                placeholder={isPt ? 'Algo mais? Uma frase, opcional (sai impressa no relatório)' : 'Anything else? One optional sentence (printed on the report)'}
+                className="mt-2 h-8 w-full max-w-[62ch] rounded-md border border-input bg-background px-2.5 text-[12.5px]"
+              />
+            </div>
           </div>
         </div>
 

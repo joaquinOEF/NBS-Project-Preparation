@@ -159,9 +159,10 @@ function ReviewDialog({ slug, fileId, isPt, onClose, onConfirmed }: {
 
 /**
  * The list under "Mapear sinergias". `onSelection` hands the parent the ids
- * the next report should use — every file, unless one was unticked.
+ * the next report should use — every file, unless one was unticked — and
+ * whether one of them is a confirmed table (the focus buttons depend on it).
  */
-export function NetworkFiles({ slug, isPt, onSelection }: { slug: string; isPt: boolean; onSelection: (ids: string[]) => void }) {
+export function NetworkFiles({ slug, isPt, onSelection }: { slug: string; isPt: boolean; onSelection: (ids: string[], hasConfirmedTable: boolean) => void }) {
   const [files, setFiles] = useState<NetworkFile[] | null>(null);
   const [off, setOff] = useState<Set<string>>(new Set());
   const [uploading, setUploading] = useState(false);
@@ -177,7 +178,11 @@ export function NetworkFiles({ slug, isPt, onSelection }: { slug: string; isPt: 
   }, [slug]);
   useEffect(() => { void load(); }, [load]);
   // Only once the list is known — an empty answer before that would run a report without the files.
-  useEffect(() => { if (files) onSelection(files.filter(f => !off.has(f.id)).map(f => f.id)); }, [files, off, onSelection]);
+  useEffect(() => {
+    if (!files) return;
+    const on = files.filter(f => !off.has(f.id));
+    onSelection(on.map(f => f.id), on.some(f => !!f.table?.confirmedAt));
+  }, [files, off, onSelection]);
 
   const add = async (file: File | undefined) => {
     if (!file) return;
