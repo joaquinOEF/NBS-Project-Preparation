@@ -1,6 +1,8 @@
 """Print hazard maps for the Rede SCbN POA publication — official data only.
 
-PLAC/ARVC threat 2050 (relative stretch p2–p98, five classes), the SMAMUS Guaíba
+PLAC/ARVC threat for TWO periods — the reference period 1995–2014 ("atual") and
+2050 — on ONE shared scale per hazard (p2–p98 over both periods, five classes),
+so the change between them is visible (Julia, 20 Nov 2026), the SMAMUS Guaíba
 contour of the May 2024 peak, SGB mass-movement sectors, and the network's
 organisations numbered north → south. Decided 10 Nov 2026 (refine
 rede-maps-official-2026-11-10); JVP: official data only, never our own index.
@@ -107,21 +109,34 @@ json.dump([{'org': o['full'], 'n': o['n']} for o in orgs], open(f'{OUT}/numbers.
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# OFFICIAL-DATA VERSION — ARVC/PLAC ameaça (2050) + SMAMUS Guaíba cota + SGB sectors
+# OFFICIAL-DATA VERSION — ARVC/PLAC ameaça (atual + 2050) + SMAMUS Guaíba cota + SGB sectors
 # usage: see the docstring at the top
 # ════════════════════════════════════════════════════════════════════════════
 import textwrap
 from PIL import Image
 ARVC = sys.argv[3]
-WINDOW = '2050'
+# The two periods printed. 'historical' is the PLAC's reference period — what
+# the publication calls "atual". Only 2050 has a 24-bit .value.png; the display
+# PNG is paletted with the pixel index = round(value × 254) and 255 = nodata
+# (scripts/build-arvc-official.py), so it decodes to the same values.
+WINDOWS = ('historical', '2050')
+WINDOW_SLUG = {'historical': 'atual', '2050': '2050'}
+WINDOW_PT = {'historical': 'período atual (referência 1995–2014)', '2050': 'cenário 2050 do PLAC (2041–2060, SSP3-7.0)'}
+WINDOW_SHORT = {'historical': 'atual (1995–2014)', '2050': '2050'}
 man = json.load(open(f'{ARVC}/manifest.json'))
 
-def load_arvc(h):
-    lid = f'arvc_off_threat_{h}_{WINDOW}'
+def load_arvc(h, window):
+    lid = f'arvc_off_threat_{h}_{window}'
     meta = man['layers'][lid]
-    a = np.asarray(Image.open(f'{ARVC}/{lid}.value.png').convert('RGB')).astype(np.int32)
-    valid = (a[..., 1] == 0) & (a[..., 2] == 0)       # nodata = (255,255,255)
-    v = np.where(valid, a[..., 0] / 254.0, np.nan).astype(np.float32)
+    if os.path.exists(f'{ARVC}/{lid}.value.png'):
+        a = np.asarray(Image.open(f'{ARVC}/{lid}.value.png').convert('RGB')).astype(np.int32)
+        valid = (a[..., 1] == 0) & (a[..., 2] == 0)       # nodata = (255,255,255)
+        v = np.where(valid, a[..., 0] / 254.0, np.nan).astype(np.float32)
+    else:
+        im = Image.open(f'{ARVC}/{lid}.png')
+        assert im.mode == 'P', f'{lid}.png is not paletted — cannot read values from it'
+        idx = np.asarray(im).astype(np.int32)
+        v = np.where(idx < 255, idx / 254.0, np.nan).astype(np.float32)
     (s, w), (n, e) = meta['bounds']
     x0, y0 = merc(w, s); x1, y1 = merc(e, n)
     return v, (x0, x1, y0, y1), meta, lid
@@ -131,7 +146,6 @@ CLASS_NAMES = ['muito baixa', 'baixa', 'média', 'alta', 'muito alta']
 WATER, WATER_EDGE, RIVER = '#dfe6ec', '#b4c3cf', '#9fb3c3'
 CITY_FILL = '#f3f3f1'; BAIRRO = '#a3a3a0'; BOUNDARY = '#2b2b2b'; INK = '#1f1f1f'
 FLOOD24 = '#08306b'; SGB_COL = '#1a1a1a'
-PLAC = 'cenário 2050 do PLAC (2041–2060, SSP3-7.0)'
 
 # SMAMUS "Cotas de inundação do Guaíba (10 cm a 6 m)": nested cumulative contours
 # (each polygon = everything below that Guaíba level). Take the contour closest to,
@@ -149,16 +163,17 @@ sgb_all = json.load(open(ARVC.replace('client/public/arvc-official', 'knowledge/
 sgb = [merc_geom(shape(f['geometry'])) for f in sgb_all if f['properties'].get('tipolo_g1') in SGB_TYPES]
 
 HAZ = {
-    'enchentes': dict(arvc='flood', title='Ameaça de inundação',
-        subtitle=f'Porto Alegre · inundação fluvial (arroios), cenário 2050 do PLAC, e Guaíba a {COTA_TXT} m (cheia de maio de 2024)',
+    # "enchente" is not the name of a risk (Julia, 20 Nov): the file says inundação.
+    'inundacao': dict(arvc='flood', title='Ameaça de inundação',
+        subtitle='Porto Alegre · inundação fluvial (arroios), {period}, e Guaíba a ' + COTA_TXT + ' m (cheia de maio de 2024)',
         ramp_label='inundação fluvial (arroios), PLAC/ARVC',
         nodata='fora da área de inundação fluvial do PLAC',
         extra_src='Cotas de inundação do Guaíba — SMAMUS'),
     'ilhas_de_calor': dict(arvc='heat', title='Ameaça de ondas de calor',
-        subtitle=f'Porto Alegre · ondas de calor, {PLAC}',
+        subtitle='Porto Alegre · ondas de calor, {period}',
         ramp_label='ondas de calor, PLAC/ARVC', nodata='sem dado', extra_src=None),
     'deslizamentos': dict(arvc='landslide', title='Ameaça de deslizamentos',
-        subtitle='Porto Alegre · deslizamentos, cenário 2050 do PLAC, e setores de risco mapeados (SGB/CPRM)',
+        subtitle='Porto Alegre · deslizamentos, {period}, e setores de risco mapeados (SGB/CPRM)',
         ramp_label='deslizamentos, PLAC/ARVC', nodata='sem dado',
         extra_src='SGB/CPRM — Setorização de Risco'),
 }
@@ -181,26 +196,27 @@ def fit_extent(cx, cy, w, h, aspect):
     return cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
 
 _EDGES = {}
-def classes_for(meta):
-    # per-layer linear contrast stretch (platform convention), over the 2nd–98th
-    # percentile instead of min–max so a few outliers (e.g. landslide zeros) don't
-    # squeeze the city into one or two classes; ends are open (≤ / ≥).
-    lid = meta['id']
-    if lid not in _EDGES:
-        v = load_arvc(lid.split('_')[3])[0]
+def classes_for(h):
+    # ONE linear stretch per hazard, over the 2nd–98th percentile of BOTH periods
+    # together — so "atual" and 2050 share a legend and the change shows as colour
+    # (a per-period stretch would paint both maps the same). p2–p98 instead of
+    # min–max so a few outliers (e.g. landslide zeros) don't squeeze the city into
+    # one or two classes; ends are open (≤ / ≥).
+    if h not in _EDGES:
+        v = np.concatenate([load_arvc(h, w)[0].ravel() for w in WINDOWS])
         lo, hi = np.nanpercentile(v, [2, 98])
-        _EDGES[lid] = [float(lo + k * (hi - lo) / 5) for k in range(6)]
-    return _EDGES[lid]
+        _EDGES[h] = [float(lo + k * (hi - lo) / 5) for k in range(6)]
+    return _EDGES[h]
 
-def draw_map(ax, hz, ext, badge_r_pt, show_furniture=True, fig=None):
+def draw_map(ax, hz, window, ext, badge_r_pt, show_furniture=True, fig=None):
     cfg = HAZ[hz]
     ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3]); ax.set_aspect('equal'); ax.set_axis_off()
     ax.add_patch(Rectangle((ext[0], ext[2]), ext[1] - ext[0], ext[3] - ext[2], fc='white', ec='none', zorder=0))
     view = box(ext[0], ext[2], ext[1], ext[3])
     city_path = geom_to_path(city)
     ax.add_patch(PathPatch(city_path, fc=CITY_FILL, ec='none', zorder=1))
-    v, rext, meta, _ = load_arvc(cfg['arvc'])
-    edges = classes_for(meta)
+    v, rext, meta, _ = load_arvc(cfg['arvc'], window)
+    edges = classes_for(cfg['arvc'])
     cls = np.clip(np.digitize(v, edges[1:5]), 0, 4).astype(float)
     cls[~np.isfinite(v)] = np.nan
     cmap = ListedColormap(YLORRD); cmap.set_bad((0, 0, 0, 0))
@@ -215,7 +231,7 @@ def draw_map(ax, hz, ext, badge_r_pt, show_furniture=True, fig=None):
     for g in bairros_m:
         p = geom_to_path(g)
         if p: ax.add_patch(PathPatch(p, fc='none', ec=BAIRRO, lw=0.28, zorder=4))
-    if hz == 'enchentes':
+    if hz == 'inundacao':
         p = geom_to_path(flood24)
         plt.rcParams['hatch.linewidth'] = 0.45
         ax.add_patch(PathPatch(p, fc='none', ec=FLOOD24, hatch='//////', lw=0, zorder=6))
@@ -281,20 +297,20 @@ def source_line(cfg):
     if cfg['extra_src']: parts.append(cfg['extra_src'])
     return '; '.join(parts) + '. Limites: IBGE. Água: ©\u00a0OpenStreetMap.'
 
-def render_with_legend(hz):
+def render_with_legend(hz, window):
     cfg = HAZ[hz]
-    _, _, meta, _ = load_arvc(cfg['arvc']); edges = classes_for(meta)
+    edges = classes_for(cfg['arvc'])
     fig = plt.figure(figsize=(A4W, A4H), dpi=300); fig.patch.set_facecolor('white')
     L, Rm = 0.45, 0.45
     map_bottom, map_top = 3.28, A4H - 1.25
     axw, axh = A4W - L - Rm, map_top - map_bottom
     ax = fig.add_axes([L / A4W, map_bottom / A4H, axw / A4W, axh / A4H])
     ext = fit_extent(cxm, cym, CW * 1.04, CH * 1.04, axw / axh)
-    draw_map(ax, hz, ext, badge_r_pt=6.2, fig=fig)
+    draw_map(ax, hz, window, ext, badge_r_pt=6.2, fig=fig)
     fig.add_artist(Rectangle((L / A4W, map_bottom / A4H), axw / A4W, axh / A4H, transform=fig.transFigure,
                              fc='none', ec='#c9c9c6', lw=0.5))
-    fig.text(L / A4W, (A4H - 0.62) / A4H, cfg['title'], fontsize=20, fontweight='semibold', color=INK, va='baseline')
-    sub = textwrap.wrap(cfg['subtitle'], 112)
+    fig.text(L / A4W, (A4H - 0.62) / A4H, f"{cfg['title']} — {WINDOW_SHORT[window]}", fontsize=20, fontweight='semibold', color=INK, va='baseline')
+    sub = textwrap.wrap(cfg['subtitle'].format(period=WINDOW_PT[window]), 112)
     for k, line in enumerate(sub):
         fig.text(L / A4W, (A4H - 0.93 - k * 0.17) / A4H, line, fontsize=9.5, color='#555', va='baseline')
     H = 2.45
@@ -302,7 +318,7 @@ def render_with_legend(hz):
     lg.set_xlim(0, axw); lg.set_ylim(0, H)
     lg.text(0, H - 0.05, 'Ameaça', fontsize=10, fontweight='semibold', color=INK, va='top')
     lg.text(0.68, H - 0.07, cfg['ramp_label'], fontsize=7.5, color=INK, va='top')
-    lg.text(0, H - 0.32, 'ameaça relativa no município: mais baixa → mais alta', fontsize=7, color='#555', va='top')
+    lg.text(0, H - 0.32, 'mais baixa → mais alta · mesma escala em atual e 2050', fontsize=7, color='#555', va='top')
     sw_w, sw_h, top = 0.62, 0.18, H - 0.52
     for i, (c, n) in enumerate(zip(YLORRD, CLASS_NAMES)):
         lg.add_patch(Rectangle((i * sw_w, top - sw_h), sw_w, sw_h, fc=c, ec='white', lw=0.8))
@@ -311,7 +327,7 @@ def render_with_legend(hz):
         lg.text(i * sw_w + sw_w / 2, top - sw_h - 0.21, rng, ha='center', va='top',
                 fontsize=6.2, color='#666')
     rows = []
-    if hz == 'enchentes':
+    if hz == 'inundacao':
         rows.append(('hatch', f'área atingida com o Guaíba a {COTA_TXT} m\n(cota da cheia de maio de 2024), SMAMUS'))
         rows.append(('nodata', cfg['nodata'])); rows.append(('water', 'água (Guaíba, rios, lagos)'))
     else:
@@ -345,10 +361,11 @@ def render_with_legend(hz):
         if label and kind != 'nodata+water':
             lg.text(0.34, yy, label, fontsize=7, va='center', color=INK, linespacing=1.25)
         yy -= 0.235 + (0.09 if label and '\n' in label else 0)
-    note = 'Cenário 2050 do PLAC = 2041–2060, SSP3-7.0. Classes: intervalos iguais entre os percentis 2 e 98 do município.'
-    if hz == 'enchentes':
-        note = ('A camada do PLAC cobre só os arroios; o Guaíba aparece pela cota da SMAMUS, que inclui áreas protegidas por diques, '
-                'atingidas em 2024 quando o sistema falhou. Cenário 2050 = 2041–2060, SSP3-7.0; classes entre os percentis 2 e 98.')
+    scale = 'Atual = 1995–2014; 2050 = 2041–2060, SSP3-7.0. Classes iguais entre os percentis 2 e 98 dos dois períodos.'
+    note = scale
+    if hz == 'inundacao':
+        note = ('O PLAC cobre só os arroios; o Guaíba aparece pela cota da SMAMUS (inclui áreas atrás de diques). '
+                'Alagamento por chuva não está modelado. ' + scale)
     for k, line in enumerate(textwrap.wrap(note, 140)):
         lg.text(0, min(yy + 0.02, 0.36) - k * 0.13, line, fontsize=6.2, color='#666', va='center')
     ox = 3.3
@@ -363,22 +380,22 @@ def render_with_legend(hz):
     lines = textwrap.wrap(source_line(cfg), 150)
     for k, line in enumerate(lines):
         fig.text(L / A4W, (0.42 - k * 0.14) / A4H, line, fontsize=6.8, color='#555', va='baseline')
-    base = f'{OUT}/mapa_{hz}'
+    base = f'{OUT}/mapa_{hz}_{WINDOW_SLUG[window]}'
     fig.savefig(base + '.png', dpi=300, facecolor='white')
     fig.savefig(base + '.pdf', dpi=300, facecolor='white')
     plt.close(fig)
 
-def render_bare(hz):
+def render_bare(hz, window):
     fig = plt.figure(figsize=(A4W, A4H), dpi=300)
     ax = fig.add_axes([0, 0, 1, 1])
     ext = fit_extent(cxm, cym, CW * 1.06, CH * 1.06, A4W / A4H)
-    draw_map(ax, hz, ext, badge_r_pt=7.0, fig=fig)
-    fig.savefig(f'{OUT}/mapa_{hz}_sem_legenda.png', dpi=300, facecolor='white')
+    draw_map(ax, hz, window, ext, badge_r_pt=7.0, fig=fig)
+    fig.savefig(f'{OUT}/mapa_{hz}_{WINDOW_SLUG[window]}_sem_legenda.png', dpi=300, facecolor='white')
     plt.close(fig)
 
 if __name__ == '__main__':
     print('sgb mass-movement sectors:', len(sgb), 'of', len(sgb_all))
     for hz in (sys.argv[4:] or list(HAZ)):
-        _, _, meta, lid = load_arvc(HAZ[hz]['arvc'])
-        print(hz, lid, 'edges', [round(e, 3) for e in classes_for(meta)])
-        render_with_legend(hz); render_bare(hz); print('done', hz)
+        print(hz, 'edges (both periods)', [round(e, 3) for e in classes_for(HAZ[hz]['arvc'])])
+        for window in WINDOWS:
+            render_with_legend(hz, window); render_bare(hz, window); print('done', hz, window)

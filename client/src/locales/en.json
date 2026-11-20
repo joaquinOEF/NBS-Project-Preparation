@@ -216,7 +216,11 @@
       "noMapsShort": "no maps yet",
       "stale": "Maps drawn on {{date}} are out of date: {{list}}",
       "staleShort": "maps out of date",
-      "fresh": "Maps drawn on {{date}} with every current pin"
+      "fresh": "Maps drawn on {{date}} with every current pin",
+      "xlsx": "Spreadsheet (Excel)",
+      "xlsxHint": "The same tables in one Excel workbook, with a tab explaining every column",
+      "maps": "Maps (ZIP)",
+      "mapsHint": "Flood, heat-wave and landslide hazard (PLAC), today and 2050, on one scale — PNG and PDF"
     },
     "profiles": {
       "all": "All profiles (PDF)",

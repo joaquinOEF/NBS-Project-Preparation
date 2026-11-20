@@ -1,7 +1,8 @@
 /**
  * THE PUBLICATION MAPS — render from the live pins and upload.
  *
- * The three print maps (flood, heat, landslide; official data only) are drawn
+ * The six print maps (flood, heat, landslide × "atual" 1995–2014 and 2050, one
+ * scale per hazard; official data only) are drawn
  * by matplotlib (scripts/publication-maps/render.py), which the Node-only
  * deployment cannot run. So they are drawn here, from the pins the platform
  * holds right now, and uploaded with those pins; the coordinator's

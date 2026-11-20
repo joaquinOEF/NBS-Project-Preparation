@@ -43,6 +43,30 @@ export function PublicationDownloadButton({ coordinatorSlug }: { coordinatorSlug
           {t('orchestrator.publication.button', { defaultValue: 'Publication data (ZIP)' })}
         </a>
       </Button>
+      <Button asChild size="sm" variant="outline">
+        <a
+          href={`/api/cohort/${coordinatorSlug}/publication.xlsx`}
+          download
+          data-testid="link-publication-xlsx"
+          title={t('orchestrator.publication.xlsxHint', { defaultValue: 'The same tables in one Excel workbook, with a tab explaining every column' })}
+        >
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          {t('orchestrator.publication.xlsx', { defaultValue: 'Spreadsheet (Excel)' })}
+        </a>
+      </Button>
+      {status?.maps && (
+        <Button asChild size="sm" variant="outline">
+          <a
+            href={`/api/cohort/${coordinatorSlug}/publication/maps.zip`}
+            download
+            data-testid="link-publication-maps"
+            title={`${t('orchestrator.publication.mapsHint', { defaultValue: 'Flood, heat-wave and landslide hazard (PLAC), today and 2050, on one scale — PNG and PDF' })}\n${hint}`}
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            {t('orchestrator.publication.maps', { defaultValue: 'Maps (ZIP)' })}
+          </a>
+        </Button>
+      )}
       {warn && (
         <span className="text-[11px] text-amber-700" title={hint} data-testid="publication-maps-warning">
           ⚠ {stale.length ? t('orchestrator.publication.staleShort', { defaultValue: 'maps out of date' }) : t('orchestrator.publication.noMapsShort', { defaultValue: 'no maps yet' })}
