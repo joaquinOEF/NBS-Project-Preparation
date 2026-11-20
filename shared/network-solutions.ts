@@ -107,6 +107,26 @@ const SYNONYMS: Record<string, string> = {
   composteira: 'compostagem',
   'horta comunitaria': 'hortas-urbanas',
   'telhado verde': 'teto-verde',
+  // Rob, 19 Nov 2026: rainwater collection is the captação the catalogue has.
+  'coleta agua chuva': 'captacao-agua-da-chuva',
+  'tratamento agua chuva': 'captacao-agua-da-chuva',
+};
+
+/**
+ * Support techniques the Rede's sheet names that are NOT catalogue solutions,
+ * with the family each sits in (Rob, 19 Nov 2026: "São técnicas de apoio").
+ * They stay items of their own — never folded into a catalogue solution by the
+ * "one contains the other" rule: a community kitchen is not the "cozinha
+ * comunitária com biodigestor", and a biodigester alone (GHG, like compost) is
+ * not the kitchen. A family the file itself gives still wins, and the
+ * coordinator can change it on the review screen. Keys are `nameKey`s.
+ */
+export const SUPPORT_OUTSIDE_FAMILY: Record<string, string> = {
+  'cozinha comunitaria': 'agricultura-urbana',
+  biodigestor: 'agricultura-urbana',
+  biodigestore: 'agricultura-urbana',
+  // drainage, and the health risk when a flood reaches open sewage
+  'fossa ecologica': 'aguas-pluviais',
 };
 
 const CATALOGUE = NBS_SOLUTIONS.map(s => ({ id: s.id, key: nameKey(s.pt.label), set: new Set(tokens(s.pt.label)) }));
@@ -123,6 +143,7 @@ export function matchSolutionName(typed: string): { solutionId: string | null; h
     return { solutionId: same.id, how: plain(label) === plain(typed) ? 'exact' : 'spelling' };
   }
   if (SYNONYMS[key]) return { solutionId: SYNONYMS[key], how: 'synonym' };
+  if (SUPPORT_OUTSIDE_FAMILY[key]) return { solutionId: null, how: 'outside' };
   const set = new Set(key.split(' '));
   // Same words in another order ("captação água chuva").
   const reordered = CATALOGUE.filter(c => c.set.size === set.size && subset(set, c.set));
@@ -200,7 +221,7 @@ export function proposeSolutionsTable(grids: Grid[], members: Array<{ id: string
     if (!key) return null;
     if (!names.has(key)) {
       const m = matchSolutionName(typed);
-      names.set(key, { key, typed: typed.trim(), solutionId: m.solutionId, familiaId: m.solutionId ? getSolution(m.solutionId)!.familiaId : null, how: m.how });
+      names.set(key, { key, typed: typed.trim(), solutionId: m.solutionId, familiaId: m.solutionId ? getSolution(m.solutionId)!.familiaId : SUPPORT_OUTSIDE_FAMILY[key] ?? null, how: m.how });
     }
     return key;
   };
