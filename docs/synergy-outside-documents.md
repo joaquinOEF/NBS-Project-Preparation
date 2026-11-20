@@ -142,6 +142,8 @@ its tables before it goes into a meeting.
 
 ## Rules that are not obvious
 
+- **Support techniques outside the catalogue have a home family** (Rob, 19 Nov 2026: *"São técnicas de apoio"*): `SUPPORT_OUTSIDE_FAMILY` puts *cozinha comunitária* and *biodigestor* in Agricultura Urbana and *fossa ecológica* in Águas Pluviais. They stay items of their own: a plain *cozinha comunitária* is never folded into *cozinha comunitária com biodigestor* by the "one contains the other" rule. *Coleta/tratamento de água da chuva* are synonyms of *captação de água da chuva*. A family the file itself gives still wins, and the coordinator can change any of them on the review screen.
+
 - **The hazard-reduction ratings belong to the file.** They are shown credited
   to it and are **not** the platform's catalogue. Do not copy them into
   `shared/nbs-catalog.ts` or use them in Encontros 2–3 until the technical lead

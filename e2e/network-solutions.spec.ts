@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { TestApi } from './helpers/testApi';
 import {
-  proposeSolutionsTable, applyReview, crossAnalysis, crossForModel, matchSolutionName, matchOrgName, nameKey, splitItems, doubtsIn, unsupportedClaim, linksFor,
+  proposeSolutionsTable, applyReview, crossAnalysis, crossForModel, matchSolutionName, matchOrgName, nameKey, SUPPORT_OUTSIDE_FAMILY, splitItems, doubtsIn, unsupportedClaim, linksFor,
   type Grid, type PlatformSide,
 } from '../shared/network-solutions';
 
@@ -64,6 +64,15 @@ test.describe('reading names', () => {
   test('a known other name is a synonym, and says so', () => {
     expect(matchSolutionName('Cisterna')).toEqual({ solutionId: 'captacao-agua-da-chuva', how: 'synonym' });
     expect(matchSolutionName('Composteira').how).toBe('synonym');
+    // Rob, 19 Nov 2026: support techniques stay their own items, in their family.
+    expect(matchSolutionName('Cozinha comunitária')).toEqual({ solutionId: null, how: 'outside' });
+    expect(matchSolutionName('Cozinha comunitária com biodigestor')).toEqual({ solutionId: 'cozinha-comunitaria-biodigestor', how: 'exact' });
+    expect(matchSolutionName('Biodigestores')).toEqual({ solutionId: null, how: 'outside' });
+    expect(matchSolutionName('Fossa ecológica')).toEqual({ solutionId: null, how: 'outside' });
+    for (const n of ['Cozinha comunitária', 'Biodigestor', 'Biodigestores']) expect(SUPPORT_OUTSIDE_FAMILY[nameKey(n)]).toBe('agricultura-urbana');
+    expect(SUPPORT_OUTSIDE_FAMILY[nameKey('Fossas ecológicas')]).toBe('aguas-pluviais');
+    expect(matchSolutionName('Coleta de água da chuva')).toEqual({ solutionId: 'captacao-agua-da-chuva', how: 'synonym' });
+    expect(matchSolutionName('Tratamento de água da chuva').solutionId).toBe('captacao-agua-da-chuva');
   });
 
   test('one name inside another is a doubt for a person, never a silent match', () => {
@@ -209,8 +218,9 @@ test.describe('the cross', () => {
 
   test('an item outside the catalogue is kept, marked, and unrated', () => {
     expect(item('Biodigestor')).toMatchObject({ outside: true, rating: null });
-    expect(item('Fossa ecológica').familiaId).toBeNull();
-    expect(c.families.at(-1)).toMatchObject({ id: null, labelPt: 'Fora das famílias' });
+    expect(item('Fossa ecológica').familiaId).toBe('aguas-pluviais'); // a support technique (Rob, 19 Nov 2026)
+    // Every outside item in this file is a known support technique now, so none is left outside the families.
+    expect(c.families.find(f => f.id === null)).toBeUndefined();
   });
 
   test('an organisation with an empty row is named as absent, not dropped', () => {
