@@ -97,7 +97,8 @@ import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor, cohortLinesForMany } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject, putObject } from '../services/blobStorage';
-import { buildPublicationZip, publicationPins, staleMapReasons, type PublicationOrg, type MapsManifest } from '../services/publicationPackage';
+import { buildPublicationZip, buildMapsZip, orgTables, publicationPins, staleMapReasons, type PublicationOrg, type MapsManifest } from '../services/publicationPackage';
+import { buildPublicationWorkbook } from '../services/publicationXlsx';
 import express from 'express';
 import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
 import { deleteCboState, loadCboMessages } from '../services/cboPersistence';
@@ -2240,6 +2241,30 @@ export function registerCohortRoutes(app: Express): void {
     res.setHeader('Content-Disposition', `attachment; filename="dados-da-publicacao-${day}.zip"`);
     res.setHeader('Cache-Control', 'no-store');
     res.send(buf);
+  }));
+
+  // Just the maps (the last upload) — "Mapas (ZIP)". 404 until one is uploaded.
+  app.get('/api/cohort/:coordinatorSlug/publication/maps.zip', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const manifest = mapsManifestOf(cohort);
+    const mapsZip = manifest ? await getObject(manifest.blobKey).catch(() => null) : null;
+    if (!manifest || !mapsZip) { res.status(404).json({ error: 'no maps uploaded yet' }); return; }
+    const buf = await buildMapsZip({ manifest, zip: mapsZip }, publicationPins(await publicationOrgs(cohort.id)));
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="mapas-de-ameaca-${manifest.renderedAt.slice(0, 10)}.zip"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buf);
+  }));
+
+  // The publication tables as one workbook — "Planilha (Excel)", built at the click.
+  app.get('/api/cohort/:coordinatorSlug/publication.xlsx', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const tables = orgTables(await publicationOrgs(cohort.id), mapsManifestOf(cohort));
+    const stamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="dados-da-publicacao-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(await buildPublicationWorkbook(tables, { cohortName: cohort.name ?? null, stamp }));
   }));
 
   // A document's original bytes, for the coordinator — the profile's photographs.

@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import JSZip from 'jszip';
 import { TestApi } from './helpers/testApi';
-import { staleMapReasons, publicationPins, type MapsManifest } from '../server/services/publicationPackage';
+import { staleMapReasons, publicationPins, orgTables, buildMapsZip, type MapsManifest } from '../server/services/publicationPackage';
+import { buildPublicationWorkbook } from '../server/services/publicationXlsx';
 
 // "DADOS DA PUBLICAÇÃO (ZIP)" — the Rede's package, built live (refine
 // rede-publication-download-2026-11-16). Pins move on prod between deploys, so
@@ -30,6 +31,29 @@ test.describe('which maps are out of date', () => {
     expect(staleMapReasons(manifest([live[0]]), live)).toEqual(['B (entrou depois dos mapas)']);
     expect(staleMapReasons(manifest([...live, { ...live[1], memberId: 'c', org: 'C' }]), live)).toEqual(['C (saiu da rede)']);
     expect(staleMapReasons(null, live)).toEqual(['nenhum mapa foi enviado ainda']);
+  });
+});
+
+test.describe('the workbook and the maps-only ZIP (20 Nov 2026)', () => {
+  const orgs = [{ memberId: 'a', orgName: 'A', neighborhood: 'Centro', site: { _site_lat: MERCADO.lat, _site_lng: MERCADO.lng } }];
+
+  test('the income header says it is the ~300 m tracts, not the bairro, and every tab is there', async () => {
+    const zip = await JSZip.loadAsync(await buildPublicationWorkbook(orgTables(orgs as any), { cohortName: 'T', stamp: 'agora' }));
+    const book = await zip.file('xl/workbook.xml')!.async('string');
+    for (const tab of ['Leia-me', 'Organizações', 'Em volta (300 m)', 'Bairros', 'Soluções SbN']) expect(book).toContain(`name="${tab}"`);
+    const strings = await zip.file('xl/sharedStrings.xml')!.async('string');
+    expect(strings).toContain('setores a até ~300 m, NÃO o bairro');
+    expect(strings).toContain('Bairro inteiro — renda típica do responsável');
+  });
+
+  test('the maps ZIP carries the upload minus its manifest, with a LEIA-ME that flags a moved pin', async () => {
+    const live = publicationPins(orgs as any);
+    const up = new JSZip();
+    up.file('mapa_inundacao_atual.png', 'x'); up.file('mapa_inundacao_2050.png', 'x'); up.file('manifest.json', '{}');
+    const manifest: MapsManifest = { renderedAt: '2026-11-20T12:00:00Z', blobKey: 'k', pins: [{ ...live[0], lat: REDENCAO.lat }] };
+    const out = await JSZip.loadAsync(await buildMapsZip({ manifest, zip: await up.generateAsync({ type: 'nodebuffer' }) }, live));
+    expect(Object.keys(out.files).sort()).toEqual(['LEIA-ME.txt', 'mapa_inundacao_2050.png', 'mapa_inundacao_atual.png']);
+    expect(await out.file('LEIA-ME.txt')!.async('string')).toContain('A (ponto mudou)');
   });
 });
 
@@ -88,7 +112,7 @@ test.describe('the coordinator downloads it', () => {
     const pins = (await (await page.request.get(`${base}/publication/pins`)).json()).pins;
     expect(pins).toHaveLength(1);
     const maps = new JSZip();
-    maps.file('mapa_enchentes.png', Buffer.from('png'));
+    maps.file('mapa_inundacao_atual.png', Buffer.from('png'));
     maps.file('numbers.json', '[]');
     maps.file('manifest.json', JSON.stringify({ renderedAt: new Date().toISOString(), pins: pins.map((p: any) => ({ ...p, n: 1 })) }));
     const bad = await page.request.post(`${base}/publication/maps`, { headers: { 'content-type': 'application/zip' }, data: Buffer.from('not a zip') });
@@ -98,7 +122,15 @@ test.describe('the coordinator downloads it', () => {
     expect(up.status()).toBe(200);
     expect((await (await page.request.get(`${base}/publication/status`)).json()).maps.stale).toEqual([]);
     const z2 = await read();
-    expect(Object.keys(z2.files)).toContain('mapas/mapa_enchentes.png');
+    expect(Object.keys(z2.files)).toContain('mapas/mapa_inundacao_atual.png');
+    expect(Object.keys(z2.files)).toContain('dados_da_publicacao.xlsx');
+    // The maps alone, and the tables as a workbook — their own buttons.
+    const onlyMaps = await page.request.get(`${base}/publication/maps.zip`);
+    expect(onlyMaps.status()).toBe(200);
+    expect(Object.keys((await JSZip.loadAsync(await onlyMaps.body())).files)).toEqual(expect.arrayContaining(['mapa_inundacao_atual.png', 'LEIA-ME.txt']));
+    const xlsx = await page.request.get(`${base}/publication.xlsx`);
+    expect(xlsx.status()).toBe(200);
+    expect(xlsx.headers()['content-type']).toContain('spreadsheetml');
     expect(Object.keys(z2.files)).not.toContain('mapas/manifest.json');
     expect(await z2.file('LEIA-ME.txt')!.async('string')).toMatch(/com os pontos atuais de todas as organizações/);
 

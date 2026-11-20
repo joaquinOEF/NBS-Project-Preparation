@@ -31,6 +31,7 @@ import { recordPin } from '@shared/site-of-record';
 import { worryLabel } from '@shared/w3-dossier';
 import { NBS_FAMILIAS, NBS_SOLUTIONS, COMPLEXIDADE_LABEL, TIPO_LABEL } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
+import { buildPublicationWorkbook } from './publicationXlsx';
 
 export interface PublicationOrg {
   memberId: string;
@@ -117,8 +118,8 @@ function sgbWithin(lat: number, lng: number, radiusM = 300) {
 }
 
 // ── the tables ─────────────────────────────────────────────────────────────
-const ORG_KEYS = ['numero_no_mapa', 'organizacao', 'bairro', 'endereco_do_projeto', 'nome_do_lugar', 'latitude', 'longitude', 'localizacao'];
-const KEYS_300M = ['organizacao', 'bairro', 'localizacao', 'moradores_300m', 'domicilios_300m', 'pct_domicilios_sem_esgoto_adequado',
+export const ORG_KEYS = ['numero_no_mapa', 'organizacao', 'bairro', 'endereco_do_projeto', 'nome_do_lugar', 'latitude', 'longitude', 'localizacao'];
+export const KEYS_300M = ['organizacao', 'bairro', 'localizacao', 'moradores_300m', 'domicilios_300m', 'pct_domicilios_sem_esgoto_adequado',
   'pct_domicilios_em_rua_sem_arvores', 'renda_tipica_300m', 'dado_parcial_ibge', 'setores_risco_sgb_300m', 'sgb_tipos', 'sgb_mais_proximo',
   'mancha_de_inundacao_guaiba', 'ponto_de_alagamento_registrado', 'preocupacao_da_organizacao',
   'bairro_censo', 'bairro_moradores', 'bairro_moradores_abaixo_da_cheia_2024', 'bairro_pct_abaixo_da_cheia_2024',
@@ -165,12 +166,20 @@ export function orgTables(orgs: PublicationOrg[], manifest?: MapsManifest | null
     }
     rows300.push(r);
   }
-  return { pins, orgsCsv: csv(orgRows, ORG_KEYS), csv300: csv(rows300, KEYS_300M) };
+  return { pins, orgRows, rows300, orgsCsv: csv(orgRows, ORG_KEYS), csv300: csv(rows300, KEYS_300M) };
 }
 
 // ── the city's context ─────────────────────────────────────────────────────
 /** S2ID / Atlas Digital de Desastres, Porto Alegre 1991–2025, consulted 11 Nov 2026 (the Rede's PDF). */
 const S2ID = { records: 18, hydro: 13, meteo: 3, clim: 2, deaths: 5, injured: 416, displaced: 33_930, affected: 38_500, damageMi: 177, publicMi: 57, privateMi: 62, displaced2024: 20_100, displaced2015: 8_400, consulted: '11/11/2026' };
+
+export const BAIRRO_KEYS = ['bairro', 'moradores_censo_2022', 'moradores_abaixo_da_cheia_2024', 'pct_abaixo_da_cheia_2024', 'moradores_em_setor_de_risco_sgb', 'moradores_ameaca_inundacao_arroios_alta_2050', 'pct_pretos_e_pardos', 'renda_tipica_responsavel_RS'];
+/** One row per bairro — the city table (CSV in the ZIP, a tab in the workbook). */
+export function bairroRows(): Array<Record<string, unknown>> {
+  return (cityExposure()?.bairros ?? []).map(b => ({ bairro: b.bairro, moradores_censo_2022: b.people, moradores_abaixo_da_cheia_2024: b.cota2024,
+    pct_abaixo_da_cheia_2024: b.people ? Math.round(100 * b.cota2024 / b.people) : '', moradores_em_setor_de_risco_sgb: b.sgb,
+    moradores_ameaca_inundacao_arroios_alta_2050: b.arroios2050 ?? '', pct_pretos_e_pardos: pct(b.blackOrBrownShare), renda_tipica_responsavel_RS: b.incomeMedian ?? '' }));
+}
 
 export function cityContextFiles(generatedAt: string): Record<string, string> {
   const x = cityExposure();
@@ -209,10 +218,7 @@ Indicador sugerido: proporção de pretos e pardos e renda típica dentro das á
 Fontes: IBGE, Censo 2022 por setor censitário (via GeoReDUS/CEM-USP); SMAMUS, cotas de inundação do Guaíba; Planet SkySat 6/5/2024 (zenodo.org/records/14662897); PLAC/ARVC 2023; SGB/CPRM, setorização de risco; MIDR, Atlas Digital de Desastres (S2ID).
 Método: a população de cada setor censitário conta na proporção da área do setor dentro da área de risco. Renda típica = mediana, entre os moradores, da renda média do responsável pelo domicílio em cada setor.
 `;
-  const bairroCsv = csv(x.bairros.map(b => ({ bairro: b.bairro, moradores_censo_2022: b.people, moradores_abaixo_da_cheia_2024: b.cota2024,
-    pct_abaixo_da_cheia_2024: b.people ? Math.round(100 * b.cota2024 / b.people) : '', moradores_em_setor_de_risco_sgb: b.sgb,
-    moradores_ameaca_inundacao_arroios_alta_2050: b.arroios2050 ?? '', pct_pretos_e_pardos: pct(b.blackOrBrownShare), renda_tipica_responsavel_RS: b.incomeMedian ?? '' })),
-  ['bairro', 'moradores_censo_2022', 'moradores_abaixo_da_cheia_2024', 'pct_abaixo_da_cheia_2024', 'moradores_em_setor_de_risco_sgb', 'moradores_ameaca_inundacao_arroios_alta_2050', 'pct_pretos_e_pardos', 'renda_tipica_responsavel_RS']);
+  const bairroCsv = csv(bairroRows(), BAIRRO_KEYS);
   return { 'contexto_porto_alegre/contexto_desastres_e_injustica_climatica.txt': text, 'contexto_porto_alegre/bairros_exposicao_e_perfil.csv': bairroCsv };
 }
 
@@ -231,6 +237,21 @@ const assetFile = (webPath: string | undefined | null) => {
   const f = path.join(d, webPath.replace(/^\//, ''));
   return existsSync(f) ? f : null;
 };
+
+export const SOLUTION_KEYS = ['numero', 'solucao', 'familia', 'complexidade', 'tipo', 'o_que_e', 'como_funciona', 'quanto_custa', 'quem_precisa_dizer_sim', 'quem_cuida_depois', 'fontes', 'foto'];
+function solutionRow(s: any, n: number, f: any, ficha: any, foto: string): Record<string, unknown> {
+  const fp = ficha?.pt ?? {};
+  const cx = COMPLEXIDADE_LABEL[s.complexidade as keyof typeof COMPLEXIDADE_LABEL]?.pt, tp = TIPO_LABEL[s.tipo as keyof typeof TIPO_LABEL]?.pt;
+  const srcs = (ficha?.sources ?? []).map((x: any) => (typeof x === 'string' ? x : x?.label ?? x?.title ?? x?.name ?? '')).filter(Boolean);
+  return { numero: n, solucao: s.pt.label, familia: f?.pt.label ?? '', complexidade: cx?.label ?? '', tipo: tp?.label ?? '',
+    o_que_e: s.pt.whatItIs ?? '', como_funciona: fp.comoFunciona ?? '', quanto_custa: fp.quantoCusta ?? '', quem_precisa_dizer_sim: fp.quemPrecisaDizerSim ?? '',
+    quem_cuida_depois: fp.quemCuidaDepois ?? '', fontes: srcs.join(' · '), foto };
+}
+/** The solutions as rows, without reading any file — the workbook's tab. */
+export function solutionRows(): Array<Record<string, unknown>> {
+  const fam = new Map(NBS_FAMILIAS.map((f: any) => [f.id, f]));
+  return NBS_SOLUTIONS.map((s: any, i: number) => solutionRow(s, i + 1, fam.get(s.familiaId), getSolutionFicha(s.id), ''));
+}
 
 export function solutionFiles(): Record<string, string | Buffer> {
   const files: Record<string, string | Buffer> = {};
@@ -269,14 +290,34 @@ export function solutionFiles(): Record<string, string | Buffer> {
     const h = (t: string, v: unknown, e = false) => (v ? `<h4>${t}${est(e)}</h4><p>${esc(v)}</p>` : '');
     const srcs = (ficha?.sources ?? []).map((x: any) => (typeof x === 'string' ? x : x?.label ?? x?.title ?? x?.name ?? '')).filter(Boolean);
     body.push(`<section class=sol>${photo ? `<div class=photo><img src="${pname}"></div><div class=cap><span>${s.exampleCity ? `📍 ${esc(s.exampleCity)}` : ''}</span><span>Foto: cartas da Rede SCbN de POA</span></div>` : ''}<p class=eyebrow style="color:${esc(f?.color)}">${n} · ${esc(f?.pt.label)}</p><h3>${esc(s.pt.label)}</h3><p class=cx><b>Complexidade: ${esc(cx?.label)}</b> — ${esc(cx?.detail)} · <b>${esc(tp?.label)}</b> — ${esc(tp?.detail)}</p>${h('O que é?', s.pt.whatItIs)}${h('Como funciona', fp.comoFunciona)}${h('Quanto custa', fp.quantoCusta, !!ficha?.custoEstimado)}${h('Quem precisa dizer sim', fp.quemPrecisaDizerSim, !!ficha?.autorizacaoEstimada)}${h('Quem cuida depois', fp.quemCuidaDepois)}${srcs.length ? `<p class=src>Fontes: ${esc(srcs.join(' · '))}</p>` : ''}</section>`);
-    textRows.push({ numero: n, solucao: s.pt.label, familia: f?.pt.label ?? '', complexidade: cx?.label ?? '', tipo: tp?.label ?? '',
-      o_que_e: s.pt.whatItIs ?? '', como_funciona: fp.comoFunciona ?? '', quanto_custa: fp.quantoCusta ?? '', quem_precisa_dizer_sim: fp.quemPrecisaDizerSim ?? '',
-      quem_cuida_depois: fp.quemCuidaDepois ?? '', fontes: srcs.join(' · '), foto: photo ? pname : '' });
+    textRows.push(solutionRow(s, n, f, ficha, photo ? pname : ''));
   }
   const css = '@page{size:A4;margin:14mm 15mm}body{font-family:Inter,-apple-system,Helvetica,Arial,sans-serif;color:#1c1c1c;font-size:10.2pt;line-height:1.45;margin:0 auto;max-width:180mm}section{page-break-after:always;padding:6mm 0}h1{font-size:26pt;margin:20mm 0 2mm}h2{font-size:20pt;margin:0 0 6mm}h3{font-size:16pt;margin:0 0 1mm}.sub{color:#666;font-size:12pt;margin:0 0 10mm}.idx{columns:2;font-size:9.5pt;line-height:1.7;padding-left:6mm}.idx i{color:#888;font-style:normal;font-size:8pt}.note{color:#777;font-size:8.5pt;margin-top:8mm}.eyebrow{font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:4mm 0 1mm}.pair{display:flex;gap:5mm}.pair figure{margin:0;flex:1;position:relative;background:#f8f4ea;border:1px solid #e2d9c4;border-radius:3mm;padding:3mm}.pair img{width:100%;display:block;border-radius:1.5mm}.pair figcaption{font-size:9pt;color:#555;margin-top:2mm}.tag{position:absolute;top:5mm;left:5mm;background:#fff;border-radius:2mm;padding:.5mm 2mm;font-size:7.5pt;font-weight:700;color:#555}.photo{height:62mm;overflow:hidden;border-radius:2mm 2mm 0 0;background:#eee}.photo img{width:100%;height:100%;object-fit:cover}.cap{display:flex;justify-content:space-between;font-size:7.5pt;color:#888;background:#f3f3f3;padding:1mm 2mm;border-radius:0 0 2mm 2mm}.cx{color:#555;font-size:9pt;margin:2mm 0 3mm}h4{font-size:8pt;text-transform:uppercase;letter-spacing:.05em;color:#777;margin:3.5mm 0 .8mm}h4+p{margin:0}.est{background:#fdecc8;color:#8a5a00;font-size:6.5pt;border-radius:1mm;padding:.2mm 1.2mm;text-transform:lowercase;letter-spacing:0}.src{color:#888;font-size:7.5pt;margin-top:5mm;border-top:1px solid #eee;padding-top:2mm}';
   files['solucoes_SbN/27_solucoes_SbN.html'] = `<!doctype html><html lang=pt><meta charset=utf-8><title>${NBS_SOLUTIONS.length} Soluções Baseadas na Natureza</title><style>${css}</style>${body.join('\n')}</html>`;
-  files['solucoes_SbN/27_solucoes_textos.csv'] = csv(textRows, ['numero', 'solucao', 'familia', 'complexidade', 'tipo', 'o_que_e', 'como_funciona', 'quanto_custa', 'quem_precisa_dizer_sim', 'quem_cuida_depois', 'fontes', 'foto']);
+  files['solucoes_SbN/27_solucoes_textos.csv'] = csv(textRows, SOLUTION_KEYS);
   return files;
+}
+
+// ── the maps ───────────────────────────────────────────────────────────────
+export const MAPS_LINE = 'Ameaça de inundação, de ondas de calor e de deslizamentos (PLAC/ARVC, dados oficiais), cada uma no período atual (1995–2014) e em 2050, na mesma escala; PNG e PDF com legenda, e PNG sem legenda para a diagramação.';
+
+/** Just the maps, from the last upload — the "Mapas (ZIP)" button. Null when none was uploaded. */
+export async function buildMapsZip(maps: { manifest: MapsManifest; zip: Buffer }, live: PublicationPin[]): Promise<Buffer> {
+  const out = new JSZip();
+  const inner = await JSZip.loadAsync(maps.zip);
+  for (const [name, f] of Object.entries(inner.files)) if (!f.dir && !/(^|\/)(manifest|numbers)\.json$/.test(name)) out.file(name.replace(/^mapas\//, ''), await f.async('nodebuffer'));
+  const drawn = new Date(maps.manifest.renderedAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+  const stale = staleMapReasons(maps.manifest, live);
+  out.file('LEIA-ME.txt', `MAPAS DE AMEAÇA — Rede SCbN POA
+${MAPS_LINE}
+Desenhados em ${drawn}.${stale.length ? ` ⚠️ DESATUALIZADOS: ${stale.join('; ')}. Peça para gerar de novo antes de publicar.` : ' Com os pontos atuais de todas as organizações.'}
+
+- inundacao: inundação fluvial dos arroios (PLAC) + a cota do Guaíba na cheia de maio de 2024 (SMAMUS). Alagamento por chuva (drenagem) não está modelado pelo PLAC.
+- ilhas_de_calor: ameaça de ondas de calor (PLAC).
+- deslizamentos: ameaça de deslizamentos (PLAC) + setores de risco mapeados pelo SGB/CPRM.
+As cores mostram a ameaça relativa dentro do município; atual e 2050 usam a mesma escala, então a diferença de cor entre os dois é a mudança projetada.
+`);
+  return out.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
 // ── the ZIP ────────────────────────────────────────────────────────────────
@@ -284,9 +325,11 @@ export async function buildPublicationZip(orgs: PublicationOrg[], opts: { cohort
   const now = opts.now ?? new Date();
   const stamp = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
   const zip = new JSZip();
-  const { pins, orgsCsv, csv300 } = orgTables(orgs, opts.maps?.manifest);
+  const tables = orgTables(orgs, opts.maps?.manifest);
+  const { pins, orgsCsv, csv300 } = tables;
   zip.file('organizacoes.csv', orgsCsv);
   zip.file('dados_por_organizacao_300m.csv', csv300);
+  zip.file('dados_da_publicacao.xlsx', await buildPublicationWorkbook(tables, { cohortName: opts.cohortName, stamp }));
   for (const [name, body] of Object.entries(cityContextFiles(stamp))) zip.file(name, body);
   for (const [name, body] of Object.entries(solutionFiles())) zip.file(name, body);
   let mapsLine = 'mapas/ — ainda não há mapas enviados para esta rede.';
@@ -296,14 +339,15 @@ export async function buildPublicationZip(orgs: PublicationOrg[], opts: { cohort
     const stale = staleMapReasons(opts.maps.manifest, pins);
     const drawn = new Date(opts.maps.manifest.renderedAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
     mapsLine = stale.length
-      ? `mapas/ — desenhados em ${drawn}. ⚠️ DESATUALIZADOS: ${stale.join('; ')}. Peça para gerar de novo antes de publicar.`
-      : `mapas/ — desenhados em ${drawn}, com os pontos atuais de todas as organizações.`;
+      ? `mapas/ — ${MAPS_LINE} Desenhados em ${drawn}. ⚠️ DESATUALIZADOS: ${stale.join('; ')}. Peça para gerar de novo antes de publicar.`
+      : `mapas/ — ${MAPS_LINE} Desenhados em ${drawn}, com os pontos atuais de todas as organizações.`;
   }
   zip.file('LEIA-ME.txt', `DADOS DA PUBLICAÇÃO — ${opts.cohortName ?? 'Rede SCbN POA'}
 Gerado pela plataforma em ${stamp}, a partir dos pontos e respostas atuais de cada organização.
 
 - organizacoes.csv — as ${orgs.length} organizações, numeradas como nos mapas (norte → sul): bairro, endereço e coordenadas do lugar do projeto.
-- dados_por_organizacao_300m.csv — em volta de cada lugar (raio de 300 m): moradores e domicílios (Censo 2022), esgoto, ruas sem árvores, renda típica, setores de risco do SGB, cota do Guaíba, ponto de alagamento, a preocupação da organização; e, nas colunas "bairro_…", os números do bairro onde fica o lugar.
+- dados_da_publicacao.xlsx — as mesmas tabelas numa planilha do Excel, com cabeçalhos por extenso e uma aba explicando cada coluna.
+- dados_por_organizacao_300m.csv — em volta de cada lugar (raio de 300 m): moradores e domicílios (Censo 2022), esgoto, ruas sem árvores, renda típica do responsável pelo domicílio (mediana, entre os setores censitários a até ~300 m, da renda média de cada setor — por isso duas organizações do mesmo bairro têm valores diferentes), setores de risco do SGB, cota do Guaíba, ponto de alagamento, a preocupação da organização; e, nas colunas "bairro_…", os números do bairro onde fica o lugar.
 - contexto_porto_alegre/ — desastres já vividos (S2ID), onde a cheia de 2024 chegou, quem mora nas áreas de risco (injustiça climática), e a tabela por bairro.
 - solucoes_SbN/ — as ${NBS_SOLUTIONS.length} soluções: página para imprimir (abra o .html no navegador → Imprimir → Salvar como PDF), textos em CSV, fotos e croquis antes/depois.
 - ${mapsLine}

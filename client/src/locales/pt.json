@@ -422,7 +422,11 @@
       "noMapsShort": "sem mapas ainda",
       "stale": "Os mapas desenhados em {{date}} estão desatualizados: {{list}}",
       "staleShort": "mapas desatualizados",
-      "fresh": "Mapas desenhados em {{date}} com os pontos atuais"
+      "fresh": "Mapas desenhados em {{date}} com os pontos atuais",
+      "xlsx": "Planilha (Excel)",
+      "xlsxHint": "As mesmas tabelas numa planilha do Excel, com uma aba explicando cada coluna",
+      "maps": "Mapas (ZIP)",
+      "mapsHint": "Ameaça de inundação, ondas de calor e deslizamentos (PLAC), atual e 2050, na mesma escala — PNG e PDF"
     },
     "profiles": {
       "all": "Todos os perfis (PDF)",
