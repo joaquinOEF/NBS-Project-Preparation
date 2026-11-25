@@ -426,29 +426,31 @@ test.describe('a look-alike name is flagged on the review screen', () => {
     await api.createCoordinator({ email: `par-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
     for (const m of MEMBERS) await api.inviteMember(cohort.id, { orgName: m.orgName, neighborhood: 'Centro', withSession: true });
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Organizações');
-    [['Organização', 'Já tem', 'Quer'], ['Associação Aurora', 'Cozinha comunitária', 'Teto verde'], ['Coletivo Beira-Rio', 'Horta Urbana', 'Biodigestor']].forEach(r => ws.addRow(r));
+    // "Cozinha comunitária" used to be the look-alike here; since #675 it is its own
+    // item (a support technique), so the look-alike is "Solo grampeado".
+    [['Organização', 'Já tem', 'Quer'], ['Associação Aurora', 'Solo grampeado', 'Teto verde'], ['Coletivo Beira-Rio', 'Horta Urbana', 'Biodigestor']].forEach(r => ws.addRow(r));
 
     await page.goto('/orchestrator');
     await page.getByTestId('view-projects').click();
     await page.getByTestId('network-file-input').setInputFiles({ name: 'planilha.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(await wb.xlsx.writeBuffer()) });
 
     const row = (typed: string) => page.getByTestId('review-name').filter({ has: page.locator('div', { hasText: new RegExp(`^${typed}$`) }) });
-    const kitchen = row('Cozinha comunitária');
-    await expect(kitchen).toHaveAttribute('data-how', 'similar');
+    const lookAlike = row('Solo grampeado');
+    await expect(lookAlike).toHaveAttribute('data-how', 'similar');
     // The resembling solution is chosen, and the note is beside the name, not in the list.
-    await expect(kitchen.locator('select')).toHaveValue('cozinha-comunitaria-biodigestor');
-    await expect(kitchen.getByTestId('review-hint')).toHaveText('Nome parecido: confira se é esta solução');
-    await expect(kitchen.locator('option', { hasText: /parece|Escolher/ })).toHaveCount(0);
+    await expect(lookAlike.locator('select')).toHaveValue('solo-grampeado-verde');
+    await expect(lookAlike.getByTestId('review-hint')).toHaveText('Nome parecido: confira se é esta solução');
+    await expect(lookAlike.locator('option', { hasText: /parece|Escolher/ })).toHaveCount(0);
     await expect(row('Biodigestor').getByTestId('review-hint')).toHaveText('Não está no catálogo: escolha a família');
 
     // Changing it removes the note and is what gets saved.
-    await kitchen.locator('select').selectOption('fam:agricultura-urbana');
-    await expect(kitchen.getByTestId('review-hint')).toHaveCount(0);
+    await lookAlike.locator('select').selectOption('fam:encostas-e-solo');
+    await expect(lookAlike.getByTestId('review-hint')).toHaveCount(0);
     await page.getByTestId('review-confirm').click();
     await expect(page.getByTestId('network-file')).toHaveAttribute('data-state', 'confirmed');
     const files = await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/network-files`)).json();
     const table = (await (await page.request.get(`/api/cohort/${cohort.coordinatorSlug}/network-files/${files.files[0].id}/table`)).json()).table;
-    expect(table.names.find((n: any) => n.typed === 'Cozinha comunitária')).toMatchObject({ solutionId: null, familiaId: 'agricultura-urbana' });
+    expect(table.names.find((n: any) => n.typed === 'Solo grampeado')).toMatchObject({ solutionId: null, familiaId: 'encostas-e-solo' });
   });
 });
 
@@ -494,13 +496,13 @@ test.describe('what the narrative says about the table is checked against it', (
   });
 
   test('a longer solution name is not also read as the shorter ones inside it', () => {
-    const kitchen = [
+    const lookAlike = [
       { name: 'Coletivo Sul', linked: ['cozinha-comunitaria-biodigestor'] },
       { name: 'Coletivo Norte', linked: ['x:biodigestor'] },
     ];
     const menu = [{ id: 'cozinha-comunitaria-biodigestor', name: 'Cozinha comunitária com biodigestor' }, { id: 'x:cozinha comunitaria', name: 'Cozinha comunitária' }, { id: 'x:biodigestor', name: 'Biodigestor' }];
-    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer cozinha comunitária com biodigestor e o Coletivo Norte quer biodigestor.', kitchen, menu)).toBeNull();
-    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer biodigestor.', kitchen, menu)).toEqual({ org: 'Coletivo Sul', item: 'Biodigestor' });
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer cozinha comunitária com biodigestor e o Coletivo Norte quer biodigestor.', lookAlike, menu)).toBeNull();
+    expect(unsupportedClaim('Segundo a planilha, o Coletivo Sul quer biodigestor.', lookAlike, menu)).toEqual({ org: 'Coletivo Sul', item: 'Biodigestor' });
   });
 
   test('a longer name is not read as the shorter one inside it', () => {
