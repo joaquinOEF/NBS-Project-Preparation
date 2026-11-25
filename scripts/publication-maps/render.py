@@ -1,10 +1,18 @@
 """Print hazard maps for the Rede SCbN POA publication — official data only.
 
-PLAC/ARVC threat for TWO periods — the reference period 1995–2014 ("atual") and
+Landslide and flood = SGB/CPRM susceptibility (Carta de suscetibilidade, 2015),
+one map each (Julia Caon Froeder, 24 Nov 2026, refine
+cougar-sgb-hazard-maps-2026-11-24): the ARVC landslide layer is classed
+relative to the city and painted 36% of it "alta/muito alta", flat centre
+included; SGB is the source Civil Defence uses. Landslide shows média + alta
+(baixa = the rest, left uncoloured) with the SGB mass-movement sectors; flood
+shows SGB's single layer (streams and Guaíba together) with the May 2024
+Guaíba level as a line. See docs/sgb-suscetibilidade.md.
+
+Heat = PLAC/ARVC threat for TWO periods — the reference period 1995–2014 ("atual") and
 2050 — on ONE shared scale per hazard (p2–p98 over both periods, five classes),
 so the change between them is visible (Julia, 20 Nov 2026), the SMAMUS Guaíba
-contour of the May 2024 peak, SGB mass-movement sectors, and the network's
-organisations numbered north → south. Decided 10 Nov 2026 (refine
+contour of the May 2024 peak, and the network's organisations numbered north → south. Decided 10 Nov 2026 (refine
 rede-maps-official-2026-11-10); JVP: official data only, never our own index.
 
 Not run by hand: scripts/publication-maps.ts fetches the live pins, prepares
@@ -161,22 +169,32 @@ COTA_TXT = f'{COTA_CM / 100:.2f}'.replace('.', ',')
 SGB_TYPES = {'Deslizamento', 'Queda', 'Corrida de massa'}
 sgb_all = json.load(open(ARVC.replace('client/public/arvc-official', 'knowledge/official-risk/porto-alegre/sgb-setorizacao.json')))['features']
 sgb = [merc_geom(shape(f['geometry'])) for f in sgb_all if f['properties'].get('tipolo_g1') in SGB_TYPES]
+# SGB/CPRM susceptibility (scripts/build-sgb-suscetibilidade.py), one feature per class.
+def load_susc(slug):
+    fc = json.load(open(ARVC.replace('client/public/arvc-official', f'knowledge/official-risk/porto-alegre/sgb-suscetibilidade-{slug}.json')))
+    return {f['properties']['classe']: merc_geom(shape(f['geometry'])).buffer(0).intersection(city) for f in fc['features']}
+SUSC_SRC = 'SGB/CPRM — Carta de suscetibilidade a movimentos gravitacionais de massa e inundação, Porto Alegre, 2015 (1:70.000)'
 
 HAZ = {
     # "enchente" is not the name of a risk (Julia, 20 Nov): the file says inundação.
-    'inundacao': dict(arvc='flood', title='Ameaça de inundação',
-        subtitle='Porto Alegre · inundação fluvial (arroios), {period}, e Guaíba a ' + COTA_TXT + ' m (cheia de maio de 2024)',
-        ramp_label='inundação fluvial (arroios), PLAC/ARVC',
-        nodata='fora da área de inundação fluvial do PLAC',
+    'inundacao': dict(sgb='inundacao', title='Suscetibilidade a inundação',
+        subtitle='Porto Alegre · inundação pelos arroios e pelo Guaíba (SGB/CPRM), e o nível do Guaíba na cheia de maio de 2024 (' + COTA_TXT + ' m, SMAMUS)',
+        classes=['Baixa', 'Média', 'Alta'], colors=['#c6dbef', '#6baed6', '#08519c'],
+        nodata='sem suscetibilidade a inundação mapeada',
         extra_src='Cotas de inundação do Guaíba — SMAMUS'),
     'ilhas_de_calor': dict(arvc='heat', title='Ameaça de ondas de calor',
         subtitle='Porto Alegre · ondas de calor, {period}',
         ramp_label='ondas de calor, PLAC/ARVC', nodata='sem dado', extra_src=None),
-    'deslizamentos': dict(arvc='landslide', title='Ameaça de deslizamentos',
-        subtitle='Porto Alegre · deslizamentos, {period}, e setores de risco mapeados (SGB/CPRM)',
-        ramp_label='deslizamentos, PLAC/ARVC', nodata='sem dado',
-        extra_src='SGB/CPRM — Setorização de Risco'),
+    'deslizamentos': dict(sgb='movimento-de-massa', title='Suscetibilidade a deslizamentos',
+        subtitle='Porto Alegre · suscetibilidade a deslizamentos (SGB/CPRM) e setores de risco mapeados em campo (SGB)',
+        classes=['Média', 'Alta'], colors=['#fd8d3c', '#bd0026'],
+        nodata='suscetibilidade baixa',
+        extra_src='SGB — Setorização de Risco (2022)'),
 }
+SUSC = {hz: load_susc(c['sgb']) for hz, c in HAZ.items() if 'sgb' in c}
+FLOOD24_LINE = '#d7301f'
+def windows_for(hz): return (None,) if 'sgb' in HAZ[hz] else WINDOWS
+def out_base(hz, window): return f'{OUT}/mapa_{hz}' + (f'_{WINDOW_SLUG[window]}' if window else '')
 
 def fmt(x): return f'{x:.2f}'.replace('.', ',')
 
@@ -215,14 +233,19 @@ def draw_map(ax, hz, window, ext, badge_r_pt, show_furniture=True, fig=None):
     view = box(ext[0], ext[2], ext[1], ext[3])
     city_path = geom_to_path(city)
     ax.add_patch(PathPatch(city_path, fc=CITY_FILL, ec='none', zorder=1))
-    v, rext, meta, _ = load_arvc(cfg['arvc'], window)
-    edges = classes_for(cfg['arvc'])
-    cls = np.clip(np.digitize(v, edges[1:5]), 0, 4).astype(float)
-    cls[~np.isfinite(v)] = np.nan
-    cmap = ListedColormap(YLORRD); cmap.set_bad((0, 0, 0, 0))
-    im = ax.imshow(np.ma.masked_invalid(cls), extent=rext, cmap=cmap, vmin=-0.5, vmax=4.5,
-                   interpolation='nearest', zorder=2)
-    im.set_clip_path(PathPatch(city_path, transform=ax.transData))
+    if 'sgb' in cfg:
+        for c, col in zip(cfg['classes'], cfg['colors']):
+            p = geom_to_path(SUSC[hz].get(c, Polygon()))
+            if p: ax.add_patch(PathPatch(p, fc=col, ec='none', lw=0, zorder=2))
+    else:
+        v, rext, meta, _ = load_arvc(cfg['arvc'], window)
+        edges = classes_for(cfg['arvc'])
+        cls = np.clip(np.digitize(v, edges[1:5]), 0, 4).astype(float)
+        cls[~np.isfinite(v)] = np.nan
+        cmap = ListedColormap(YLORRD); cmap.set_bad((0, 0, 0, 0))
+        im = ax.imshow(np.ma.masked_invalid(cls), extent=rext, cmap=cmap, vmin=-0.5, vmax=4.5,
+                       interpolation='nearest', zorder=2)
+        im.set_clip_path(PathPatch(city_path, transform=ax.transData))
     wp = geom_to_path(water.intersection(view))
     if wp: ax.add_patch(PathPatch(wp, fc=WATER, ec=WATER_EDGE, lw=0.25, zorder=3))
     for ln in river_lines:
@@ -233,9 +256,8 @@ def draw_map(ax, hz, window, ext, badge_r_pt, show_furniture=True, fig=None):
         if p: ax.add_patch(PathPatch(p, fc='none', ec=BAIRRO, lw=0.28, zorder=4))
     if hz == 'inundacao':
         p = geom_to_path(flood24)
-        plt.rcParams['hatch.linewidth'] = 0.45
-        ax.add_patch(PathPatch(p, fc='none', ec=FLOOD24, hatch='//////', lw=0, zorder=6))
-        ax.add_patch(PathPatch(p, fc='none', ec=FLOOD24, lw=0.7, zorder=6))
+        ax.add_patch(PathPatch(p, fc='none', ec='white', lw=1.6, zorder=6))
+        ax.add_patch(PathPatch(p, fc='none', ec=FLOOD24_LINE, lw=0.8, zorder=6.1))
     if hz == 'deslizamentos':
         for g in sgb:
             p = geom_to_path(g)
@@ -293,13 +315,13 @@ x0m, y0m = merc(lng0, lat0); x1m, y1m = merc(lng1, lat1)
 CW, CH = (x1m - x0m), (y1m - y0m)
 
 def source_line(cfg):
-    parts = ['Fonte: Prefeitura de Porto Alegre / SMAMUS — Análise de Riscos e Vulnerabilidades Climáticas (ARVC) do PLAC, 2023']
+    parts = [('Fonte: ' + SUSC_SRC) if 'sgb' in cfg else 'Fonte: Prefeitura de Porto Alegre / SMAMUS — Análise de Riscos e Vulnerabilidades Climáticas (ARVC) do PLAC, 2023']
     if cfg['extra_src']: parts.append(cfg['extra_src'])
     return '; '.join(parts) + '. Limites: IBGE. Água: ©\u00a0OpenStreetMap.'
 
 def render_with_legend(hz, window):
     cfg = HAZ[hz]
-    edges = classes_for(cfg['arvc'])
+    edges = classes_for(cfg['arvc']) if 'arvc' in cfg else None
     fig = plt.figure(figsize=(A4W, A4H), dpi=300); fig.patch.set_facecolor('white')
     L, Rm = 0.45, 0.45
     map_bottom, map_top = 3.28, A4H - 1.25
@@ -309,37 +331,48 @@ def render_with_legend(hz, window):
     draw_map(ax, hz, window, ext, badge_r_pt=6.2, fig=fig)
     fig.add_artist(Rectangle((L / A4W, map_bottom / A4H), axw / A4W, axh / A4H, transform=fig.transFigure,
                              fc='none', ec='#c9c9c6', lw=0.5))
-    fig.text(L / A4W, (A4H - 0.62) / A4H, f"{cfg['title']} — {WINDOW_SHORT[window]}", fontsize=20, fontweight='semibold', color=INK, va='baseline')
-    sub = textwrap.wrap(cfg['subtitle'].format(period=WINDOW_PT[window]), 112)
+    fig.text(L / A4W, (A4H - 0.62) / A4H, cfg['title'] + (f" — {WINDOW_SHORT[window]}" if window else ''), fontsize=20, fontweight='semibold', color=INK, va='baseline')
+    sub = textwrap.wrap(cfg['subtitle'].format(period=WINDOW_PT.get(window, '')), 112)
     for k, line in enumerate(sub):
         fig.text(L / A4W, (A4H - 0.93 - k * 0.17) / A4H, line, fontsize=9.5, color='#555', va='baseline')
     H = 2.45
     lg = fig.add_axes([L / A4W, 0.62 / A4H, axw / A4W, H / A4H]); lg.set_axis_off()
     lg.set_xlim(0, axw); lg.set_ylim(0, H)
-    lg.text(0, H - 0.05, 'Ameaça', fontsize=10, fontweight='semibold', color=INK, va='top')
-    lg.text(0.68, H - 0.07, cfg['ramp_label'], fontsize=7.5, color=INK, va='top')
-    lg.text(0, H - 0.32, 'mais baixa → mais alta · mesma escala em atual e 2050', fontsize=7, color='#555', va='top')
     sw_w, sw_h, top = 0.62, 0.18, H - 0.52
-    for i, (c, n) in enumerate(zip(YLORRD, CLASS_NAMES)):
-        lg.add_patch(Rectangle((i * sw_w, top - sw_h), sw_w, sw_h, fc=c, ec='white', lw=0.8))
-        lg.text(i * sw_w + sw_w / 2, top - sw_h - 0.06, n, ha='center', va='top', fontsize=7, color=INK)
-        rng = f'≤ {fmt(edges[1])}' if i == 0 else f'≥ {fmt(edges[4])}' if i == 4 else f'{fmt(edges[i])}–{fmt(edges[i + 1])}'
-        lg.text(i * sw_w + sw_w / 2, top - sw_h - 0.21, rng, ha='center', va='top',
-                fontsize=6.2, color='#666')
+    if 'sgb' in cfg:
+        lg.text(0, H - 0.05, 'Suscetibilidade', fontsize=10, fontweight='semibold', color=INK, va='top')
+        lg.text(1.12, H - 0.07, 'SGB/CPRM, 2015', fontsize=7.5, color=INK, va='top')
+        lg.text(0, H - 0.32, 'classes da carta de suscetibilidade do SGB (validada em campo)', fontsize=7, color='#555', va='top')
+        names = (['baixa'] if hz == 'deslizamentos' else []) + [c.lower() for c in cfg['classes']]
+        cols = ([CITY_FILL] if hz == 'deslizamentos' else []) + cfg['colors']
+        for i, (c, n) in enumerate(zip(cols, names)):
+            lg.add_patch(Rectangle((i * sw_w, top - sw_h), sw_w, sw_h, fc=c, ec='white' if c != CITY_FILL else '#bbb', lw=0.8 if c != CITY_FILL else 0.4))
+            lg.text(i * sw_w + sw_w / 2, top - sw_h - 0.06, n, ha='center', va='top', fontsize=7, color=INK)
+    else:
+        lg.text(0, H - 0.05, 'Ameaça', fontsize=10, fontweight='semibold', color=INK, va='top')
+        lg.text(0.68, H - 0.07, cfg['ramp_label'], fontsize=7.5, color=INK, va='top')
+        lg.text(0, H - 0.32, 'mais baixa → mais alta · mesma escala em atual e 2050', fontsize=7, color='#555', va='top')
+        for i, (c, n) in enumerate(zip(YLORRD, CLASS_NAMES)):
+            lg.add_patch(Rectangle((i * sw_w, top - sw_h), sw_w, sw_h, fc=c, ec='white', lw=0.8))
+            lg.text(i * sw_w + sw_w / 2, top - sw_h - 0.06, n, ha='center', va='top', fontsize=7, color=INK)
+            rng = f'≤ {fmt(edges[1])}' if i == 0 else f'≥ {fmt(edges[4])}' if i == 4 else f'{fmt(edges[i])}–{fmt(edges[i + 1])}'
+            lg.text(i * sw_w + sw_w / 2, top - sw_h - 0.21, rng, ha='center', va='top',
+                    fontsize=6.2, color='#666')
     rows = []
     if hz == 'inundacao':
-        rows.append(('hatch', f'área atingida com o Guaíba a {COTA_TXT} m\n(cota da cheia de maio de 2024), SMAMUS'))
+        rows.append(('line24', f'nível do Guaíba a {COTA_TXT} m (cheia de maio de 2024), SMAMUS'))
         rows.append(('nodata', cfg['nodata'])); rows.append(('water', 'água (Guaíba, rios, lagos)'))
     else:
         if hz == 'deslizamentos':
-            rows.append(('sgb', 'setores de risco alto / muito alto mapeados (SGB/CPRM)'))
-        rows.append(('nodata+water', None))
+            rows.append(('sgb', 'setores de risco alto / muito alto mapeados em campo (SGB)'))
+            rows.append(('water', 'água (Guaíba, rios, lagos)'))
+        else:
+            rows.append(('nodata+water', None))
     rows.append(('markers', None))
     yy = top - sw_h - 0.52
     for kind, label in rows:
-        if kind == 'hatch':
-            yy -= 0.045
-            lg.add_patch(Rectangle((0, yy - 0.075), 0.26, 0.15, fc='white', ec=FLOOD24, lw=0.7, hatch='//////'))
+        if kind == 'line24':
+            lg.plot([0, 0.26], [yy, yy], color=FLOOD24_LINE, lw=1.2)
         elif kind == 'sgb':
             lg.add_patch(Rectangle((0, yy - 0.075), 0.26, 0.15, fc='white', ec=SGB_COL, lw=0.9))
         elif kind == 'nodata':
@@ -361,11 +394,13 @@ def render_with_legend(hz, window):
         if label and kind != 'nodata+water':
             lg.text(0.34, yy, label, fontsize=7, va='center', color=INK, linespacing=1.25)
         yy -= 0.235 + (0.09 if label and '\n' in label else 0)
-    scale = 'Atual = 1995–2014; 2050 = 2041–2060, SSP3-7.0. Classes iguais entre os percentis 2 e 98 dos dois períodos.'
-    note = scale
+    note = 'Atual = 1995–2014; 2050 = 2041–2060, SSP3-7.0. Classes iguais entre os percentis 2 e 98 dos dois períodos.'
     if hz == 'inundacao':
-        note = ('O PLAC cobre só os arroios; o Guaíba aparece pela cota da SMAMUS (inclui áreas atrás de diques). '
-                'Alagamento por chuva não está modelado. ' + scale)
+        note = ('Suscetibilidade: o quanto o terreno favorece a inundação (relevo e drenagem), sem cenário climático. '
+                'A linha do Guaíba inclui áreas atrás de diques. Alagamento por chuva (drenagem) não está mapeado.')
+    elif hz == 'deslizamentos':
+        note = ('Suscetibilidade: o quanto o terreno favorece deslizamentos (declividade, solo, geologia), sem cenário climático. '
+                'Setor de risco: área com moradias ameaçadas vistoriada pelo SGB; fora de um setor não quer dizer sem risco.')
     for k, line in enumerate(textwrap.wrap(note, 140)):
         lg.text(0, min(yy + 0.02, 0.36) - k * 0.13, line, fontsize=6.2, color='#666', va='center')
     ox = 3.3
@@ -380,7 +415,7 @@ def render_with_legend(hz, window):
     lines = textwrap.wrap(source_line(cfg), 150)
     for k, line in enumerate(lines):
         fig.text(L / A4W, (0.42 - k * 0.14) / A4H, line, fontsize=6.8, color='#555', va='baseline')
-    base = f'{OUT}/mapa_{hz}_{WINDOW_SLUG[window]}'
+    base = out_base(hz, window)
     fig.savefig(base + '.png', dpi=300, facecolor='white')
     fig.savefig(base + '.pdf', dpi=300, facecolor='white')
     plt.close(fig)
@@ -390,12 +425,12 @@ def render_bare(hz, window):
     ax = fig.add_axes([0, 0, 1, 1])
     ext = fit_extent(cxm, cym, CW * 1.06, CH * 1.06, A4W / A4H)
     draw_map(ax, hz, window, ext, badge_r_pt=7.0, fig=fig)
-    fig.savefig(f'{OUT}/mapa_{hz}_{WINDOW_SLUG[window]}_sem_legenda.png', dpi=300, facecolor='white')
+    fig.savefig(out_base(hz, window) + '_sem_legenda.png', dpi=300, facecolor='white')
     plt.close(fig)
 
 if __name__ == '__main__':
     print('sgb mass-movement sectors:', len(sgb), 'of', len(sgb_all))
     for hz in (sys.argv[4:] or list(HAZ)):
-        print(hz, 'edges (both periods)', [round(e, 3) for e in classes_for(HAZ[hz]['arvc'])])
-        for window in WINDOWS:
+        if 'arvc' in HAZ[hz]: print(hz, 'edges (both periods)', [round(e, 3) for e in classes_for(HAZ[hz]['arvc'])])
+        for window in windows_for(hz):
             render_with_legend(hz, window); render_bare(hz, window); print('done', hz, window)
