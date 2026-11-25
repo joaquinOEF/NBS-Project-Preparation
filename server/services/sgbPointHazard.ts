@@ -16,8 +16,17 @@
 //
 // Levels stay on the 0..4 scale the card, the synergy report and the chat
 // already read (≥ 3 = high): SGB Baixa 1 · Média 2 · Alta 3. A flood point
-// outside SGB's polygons gets level 0, "não mapeada" — SGB maps no flood
-// susceptibility there, which is not the same as "safe", so it never says so.
+// outside SGB's polygons used to read "não mapeada"; Julia (25 Nov) read that
+// as "no data". Since 25 Nov (refine cougar-flood-blanks-2026-11-25) it takes
+// the strongest official fact at the address instead, naming its source:
+//   1. inside the area the Guaíba reached in May 2024 (SMAMUS cotas ≤ 5,35 m)
+//      → 3 "alta" (e.g. Floresta behind the Mauá wall, which SGB's 2015 chart
+//      treats as protected)
+//   2. an SGB inundação/enxurrada risk sector within 100 m → 2 "perto de setor
+//      de risco"
+//   3. otherwise → 1 "baixa", fora da área suscetível do SGB (+ the nearest
+//      such sector within 1 km). Rain-driven alagamento is mapped by nobody.
+// No 1 km share or threshold: those would be our score, not an official one.
 //
 // Pure, synchronous, no network: the E2 checkpoint calls it while building a
 // card.
@@ -27,6 +36,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as turf from '@turf/turf';
 import { arvcHazardAtPin, type PinHazardLevel as ArvcLevel } from './arvcPointHazard';
+import { guaiba2024CmAt } from './officialHazardFacts';
 
 export interface PinHazard {
   hazard: 'flood' | 'heat' | 'landslide';
@@ -35,7 +45,7 @@ export interface PinHazard {
   pt: string;
   en: string;
   /** Who says so, short: shown beside the level. */
-  source: 'SGB' | 'PLAC';
+  source: 'SGB' | 'PLAC' | 'SMAMUS';
   /** One more line, e.g. the nearest SGB risk sector. */
   notePt?: string;
   noteEn?: string;
@@ -87,21 +97,58 @@ function inCity(lng: number, lat: number): boolean {
 }
 
 const MASS = new Set(['Deslizamento', 'Queda', 'Corrida de massa']);
-let massSectors: any[] | null = null;
+const WET = new Set(['Inundação', 'Enxurrada']);
+function sectorsOf(types: Set<string>): any[] {
+  const key = `sectors:${Array.from(types).join("|")}`;
+  if (!memo.has(key)) {
+    const gj = readJson(path.join(DIR(), 'sgb-setorizacao.json'));
+    memo.set(key, (gj?.features ?? []).filter((f: any) => f?.geometry && /Polygon/.test(f.geometry.type) && types.has(f.properties?.tipolo_g1)));
+  }
+  return memo.get(key);
+}
+/** The nearest SGB risk sector of these types: metres (0 = inside) and its typology. */
+function nearestSector(types: Set<string>, lat: number, lng: number): { m: number; tipo: string } | null {
+  const pt = turf.point([lng, lat]);
+  let best: { m: number; tipo: string } | null = null;
+  for (const f of sectorsOf(types)) {
+    const m = turf.booleanPointInPolygon(pt, f) ? 0 : turf.pointToPolygonDistance(pt, f, { units: 'meters' });
+    if (!best || m < best.m) best = { m, tipo: f.properties.tipolo_g1 };
+    if (m === 0) break;
+  }
+  return best;
+}
 /** Metres to the nearest SGB mass-movement risk sector (0 = inside one). */
 export function nearestLandslideSectorM(lat: number, lng: number): number | null {
-  if (!massSectors) {
-    const gj = readJson(path.join(DIR(), 'sgb-setorizacao.json'));
-    massSectors = (gj?.features ?? []).filter((f: any) => f?.geometry && /Polygon/.test(f.geometry.type) && MASS.has(f.properties?.tipolo_g1));
-  }
-  if (!massSectors!.length) return null;
-  const pt = turf.point([lng, lat]);
-  let best = Infinity;
-  for (const f of massSectors!) {
-    if (turf.booleanPointInPolygon(pt, f)) return 0;
-    best = Math.min(best, turf.pointToPolygonDistance(pt, f, { units: 'meters' }));
-  }
-  return Number.isFinite(best) ? best : null;
+  return nearestSector(MASS, lat, lng)?.m ?? null;
+}
+
+// 100 m steps under 1 km, then 0,1 km — a pin is never more precise than that.
+const distPt = (m: number) => m < 1000 ? `${Math.max(100, Math.round(m / 100) * 100)} m` : `${(Math.round(m / 100) / 10).toFixed(1).replace('.', ',')} km`;
+const distEn = (m: number) => m < 1000 ? `${Math.max(100, Math.round(m / 100) * 100)} m` : `${(Math.round(m / 100) / 10).toFixed(1)} km`;
+const metres = (cm: number, dec: string) => (cm / 100).toFixed(2).replace('.', dec);
+
+/** Flood where SGB draws no susceptibility polygon: the strongest official fact (see header). */
+function floodOutsideSgb(lat: number, lng: number): PinHazard {
+  const cm = guaiba2024CmAt(lat, lng);
+  if (cm != null) return {
+    hazard: 'flood', level: 3, pt: 'alta', en: 'high', source: 'SMAMUS',
+    notePt: `inundação: atingida pela cheia de maio de 2024 (dentro da cota de ${metres(cm, ',')} m do Guaíba); o mapa do SGB não marca o lugar`,
+    noteEn: `flood: reached by the May 2024 flood (inside the Guaíba ${metres(cm, '.')} m contour); SGB's map does not mark the place`,
+  };
+  const s = nearestSector(WET, lat, lng);
+  const kindPt = s?.tipo === 'Enxurrada' ? 'enxurrada' : 'inundação';
+  const kindEn = s?.tipo === 'Enxurrada' ? 'flash flood' : 'flood';
+  if (s && s.m <= 100) return {
+    hazard: 'flood', level: 2, pt: 'perto de setor de risco', en: 'near a risk sector', source: 'SGB',
+    notePt: s.m === 0 ? `dentro de um setor de risco de ${kindPt} do SGB` : `setor de risco de ${kindPt} do SGB a menos de 100 m`,
+    noteEn: s.m === 0 ? `inside an SGB ${kindEn} risk sector` : `SGB ${kindEn} risk sector less than 100 m away`,
+  };
+  const near = s && s.m <= 1000;
+  return {
+    hazard: 'flood', level: 1, pt: 'baixa', en: 'low', source: 'SGB',
+    notePt: `inundação: fora da área suscetível do SGB${near ? `; setor de risco de ${kindPt} a ${distPt(s!.m)}` : ''}`,
+    noteEn: `flood: outside SGB's susceptible area${near ? `; ${kindEn} risk sector ${distEn(s!.m)} away` : ''}`,
+  };
 }
 
 const WORDS = { 1: ['baixa', 'low'], 2: ['média', 'medium'], 3: ['alta', 'high'] } as Record<number, [string, string]>;
@@ -109,10 +156,7 @@ const WORDS = { 1: ['baixa', 'low'], 2: ['média', 'medium'], 3: ['alta', 'high'
 function sectorNote(m: number | null): Pick<PinHazard, 'notePt' | 'noteEn'> {
   if (m == null) return {};
   if (m === 0) return { notePt: 'dentro de um setor de risco mapeado pelo SGB', noteEn: 'inside a risk sector mapped by SGB' };
-  // 100 m steps under 1 km, then 0,1 km — a pin is never more precise than that.
-  const pt = m < 1000 ? `${Math.max(100, Math.round(m / 100) * 100)} m` : `${(Math.round(m / 100) / 10).toFixed(1).replace('.', ',')} km`;
-  const en = m < 1000 ? `${Math.max(100, Math.round(m / 100) * 100)} m` : `${(Math.round(m / 100) / 10).toFixed(1)} km`;
-  return { notePt: `setor de risco do SGB mais próximo a ${pt}`, noteEn: `nearest SGB risk sector ${en} away` };
+  return { notePt: `setor de risco do SGB mais próximo a ${distPt(m)}`, noteEn: `nearest SGB risk sector ${distEn(m)} away` };
 }
 
 /** Flood and landslide from SGB, heat from PLAC/ARVC — one entry per hazard with a reading. */
@@ -123,7 +167,7 @@ export function hazardAtPin(lat: number, lng: number): PinHazard[] {
   if (city) {
     const f = classAt('inundacao', lng, lat);
     out.push(f == null
-      ? { hazard: 'flood', level: 0, pt: 'não mapeada', en: 'not mapped', source: 'SGB' }
+      ? floodOutsideSgb(lat, lng)
       : { hazard: 'flood', level: f, pt: WORDS[f][0], en: WORDS[f][1], source: 'SGB' });
   }
   const heat = arvcHazardAtPin(lat, lng).find((h: ArvcLevel) => h.hazard === 'heat');

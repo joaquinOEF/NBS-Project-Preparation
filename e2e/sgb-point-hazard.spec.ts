@@ -35,10 +35,31 @@ test.describe('hazard at a pin — SGB for flood and landslide', () => {
     expect(hazardAtPin(p.lat, p.lng).find(h => h.hazard === 'landslide')).toMatchObject({ level: 3, pt: 'alta', source: 'SGB' });
   });
 
-  test('flood: inside SGB alta → 3; outside every SGB polygon → 0 "não mapeada", never "baixa"', () => {
+  test('flood: inside SGB alta → 3 "alta" (SGB)', () => {
     const p = pointIn('inundacao', 'Alta');
     expect(hazardAtPin(p.lat, p.lng).find(h => h.hazard === 'flood')).toMatchObject({ level: 3, pt: 'alta', source: 'SGB' });
-    expect(hazardAtPin(PRACA_DA_MATRIZ.lat, PRACA_DA_MATRIZ.lng).find(h => h.hazard === 'flood')).toMatchObject({ level: 0, pt: 'não mapeada' });
+  });
+
+  // Outside SGB's polygons: the strongest official fact, never "não mapeada" (Julia, 25 Nov).
+  test('flood outside SGB, reached by the Guaíba in May 2024 → 3 "alta" (SMAMUS)', () => {
+    const fl = hazardAtPin(-30.0272, -51.2280).find(h => h.hazard === 'flood')!; // Mercado Público
+    expect(fl).toMatchObject({ level: 3, pt: 'alta', source: 'SMAMUS' });
+    expect(fl.notePt).toMatch(/cheia de maio de 2024 \(dentro da cota de 2,90 m do Guaíba\)/);
+  });
+
+  test('flood outside SGB, high ground → 1 "baixa", fora da área suscetível', () => {
+    const fl = hazardAtPin(PRACA_DA_MATRIZ.lat, PRACA_DA_MATRIZ.lng).find(h => h.hazard === 'flood')!;
+    expect(fl).toMatchObject({ level: 1, pt: 'baixa', source: 'SGB' });
+    expect(fl.notePt).toMatch(/^inundação: fora da área suscetível do SGB/);
+  });
+
+  test('flood outside SGB, inside an enxurrada sector → 2 "perto de setor de risco"', () => {
+    const gj = JSON.parse(readFileSync(path.join(process.cwd(), 'knowledge/official-risk/porto-alegre/sgb-setorizacao.json'), 'utf8'));
+    const hit = gj.features.filter((x: any) => x.properties.tipolo_g1 === 'Enxurrada' && x.geometry)
+      .map((f: any) => turf.pointOnFeature(f).geometry.coordinates as [number, number])
+      .map(([lng, lat]: [number, number]) => hazardAtPin(lat, lng).find(h => h.hazard === 'flood')!)
+      .find((h: any) => h.level === 2);
+    expect(hit).toMatchObject({ pt: 'perto de setor de risco', source: 'SGB', notePt: 'dentro de um setor de risco de enxurrada do SGB' });
   });
 
   test('inside a mass-movement risk sector: distance 0 and the note says so', () => {
