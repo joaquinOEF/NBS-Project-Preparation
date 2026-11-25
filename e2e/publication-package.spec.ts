@@ -40,10 +40,12 @@ test.describe('the workbook and the maps-only ZIP (20 Nov 2026)', () => {
   test('the income header says it is the ~300 m tracts, not the bairro, and every tab is there', async () => {
     const zip = await JSZip.loadAsync(await buildPublicationWorkbook(orgTables(orgs as any), { cohortName: 'T', stamp: 'agora' }));
     const book = await zip.file('xl/workbook.xml')!.async('string');
-    for (const tab of ['Leia-me', 'Organizações', 'Em volta (300 m)', 'Bairros', 'Soluções SbN']) expect(book).toContain(`name="${tab}"`);
+    for (const tab of ['Leia-me', 'Organizações', 'Em volta (300 m)', 'Em volta (1 km)', 'Bairros', 'Soluções SbN']) expect(book).toContain(`name="${tab}"`);
     const strings = await zip.file('xl/sharedStrings.xml')!.async('string');
     expect(strings).toContain('setores a até ~300 m, NÃO o bairro');
     expect(strings).toContain('Bairro inteiro — renda típica do responsável');
+    expect(strings).toContain('setores a até 1 km, NÃO o bairro');
+    expect(strings).toContain('Deslizamento no lugar — suscetibilidade SGB');
   });
 
   test('the maps ZIP carries the upload minus its manifest, with a LEIA-ME that flags a moved pin', async () => {
@@ -106,6 +108,12 @@ test.describe('the coordinator downloads it', () => {
     expect(cell('bairro_censo')).toBeTruthy();                   // their bairro's row, on the same line (B1 note)
     expect(Number(cell('bairro_moradores'))).toBeGreaterThan(Number(cell('moradores_300m')) / 10);
     expect(cols.join(',')).not.toMatch(/pret|pard/);             // race only by city and bairro
+    // 1 km (Rede, 25 Nov 2026): more people than 300 m, and the official hazard at the pin.
+    const t1 = (await z.file('dados_por_organizacao_1km.csv')!.async('string')).replace(/^\uFEFF/, '').trim().split('\n');
+    const c1 = t1[0].split(','), v1 = t1[1].match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.map(x => x.replace(/,$/, '').replace(/^"|"$/g, ''));
+    expect(Number(v1[c1.indexOf('moradores_1km')])).toBeGreaterThan(Number(cell('moradores_300m')));
+    expect(v1[c1.indexOf('deslizamento_no_lugar_sgb')]).toMatch(/^(baixa|média|alta)$/);
+    expect(v1[c1.indexOf('calor_no_lugar_plac')]).toBeTruthy();
     expect(await z.file('LEIA-ME.txt')!.async('string')).toContain('ainda não há mapas enviados');
 
     // The maps arrive with the pins they were drawn from.

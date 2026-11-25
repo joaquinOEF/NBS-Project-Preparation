@@ -11,7 +11,7 @@
 // ============================================================================
 
 import {
-  BAIRRO_KEYS, KEYS_300M, ORG_KEYS, SOLUTION_KEYS,
+  BAIRRO_KEYS, KEYS_300M, KEYS_1KM, ORG_KEYS, SOLUTION_KEYS,
   bairroRows, solutionRows,
 } from './publicationPackage';
 
@@ -39,6 +39,18 @@ const HEADER: Record<string, string> = {
   mancha_de_inundacao_guaiba: 'Mancha de inundação do Guaíba',
   ponto_de_alagamento_registrado: 'Ponto de alagamento registrado?',
   preocupacao_da_organizacao: 'Preocupação da organização',
+  moradores_1km: 'Moradores — a até 1 km (Censo 2022)',
+  domicilios_1km: 'Domicílios — a até 1 km (Censo 2022)',
+  pct_domicilios_sem_esgoto_adequado_1km: '% domicílios sem esgoto adequado — até 1 km',
+  pct_domicilios_em_rua_sem_arvores_1km: '% domicílios em rua sem árvores — até 1 km',
+  renda_tipica_1km: 'Renda típica do responsável (R$) — setores a até 1 km, NÃO o bairro',
+  dado_parcial_ibge_1km: 'Dado parcial do IBGE? (1 km)',
+  setores_risco_sgb_1km: 'Setores de risco SGB a até 1 km (nº)',
+  sgb_tipos_1km: 'Tipos de risco SGB (1 km)',
+  sgb_mais_proximo_1km: 'Setor SGB mais próximo (1 km)',
+  inundacao_no_lugar_sgb: 'Inundação no lugar — suscetibilidade SGB',
+  calor_no_lugar_plac: 'Ondas de calor no lugar — ameaça PLAC/ARVC 2050',
+  deslizamento_no_lugar_sgb: 'Deslizamento no lugar — suscetibilidade SGB',
   bairro_censo: 'Bairro (Censo)',
   bairro_moradores: 'Bairro inteiro — moradores',
   bairro_moradores_abaixo_da_cheia_2024: 'Bairro inteiro — moradores abaixo da cheia de 2024',
@@ -68,14 +80,15 @@ const HEADER: Record<string, string> = {
 const README: Array<[string, string]> = [
   ['Organizações', 'As organizações, numeradas como nos mapas (norte → sul), com o endereço e as coordenadas do lugar do projeto.'],
   ['Em volta (300 m)', 'Dados públicos em volta do ponto marcado de cada organização: Censo 2022 (IBGE) dos setores censitários a até ~300 m, setores de risco do SGB, cota do Guaíba e pontos de alagamento. Não são palavras da organização nem quem ela atende.'],
+  ['Em volta (1 km)', 'Os mesmos indicadores a até 1 km do ponto (pedido da Rede, 25/11/2026), os setores de risco do SGB a até 1 km e as ameaças no lugar: inundação e deslizamento pela suscetibilidade do Serviço Geológico do Brasil (SGB/CPRM, 2015), ondas de calor pelo PLAC/ARVC (2050). Com 1 km o retrato é do território; a rua do projeto se dilui — compare com a aba de 300 m.'],
   ['Renda típica', 'Mediana, entre os setores censitários a até ~300 m do ponto, da renda média do responsável pelo domicílio em cada setor (Censo 2022). Um setor conta inteiro se encosta no raio. Por isso duas organizações do mesmo bairro têm valores diferentes. O valor do bairro inteiro está nas colunas "Bairro inteiro — …".'],
   ['Bairros', 'Um bairro por linha: moradores, quem mora abaixo da cota da cheia de 2024, em setor de risco do SGB e na ameaça alta de inundação dos arroios em 2050; perfil de raça e renda. Raça aparece só por bairro, nunca por organização.'],
   ['Soluções SbN', 'As soluções do catálogo da plataforma, com os textos das fichas. "Medida de apoio" = técnica que apoia uma SbN, sem ser uma SbN em si.'],
-  ['Fontes', 'IBGE, Censo 2022 por setor censitário (via GeoReDUS/CEM-USP); SMAMUS, cotas de inundação do Guaíba; PLAC/ARVC 2023; SGB/CPRM, setorização de risco.'],
+  ['Fontes', 'IBGE, Censo 2022 por setor censitário (via GeoReDUS/CEM-USP); SMAMUS, cotas de inundação do Guaíba; PLAC/ARVC 2023; SGB/CPRM, setorização de risco (2022) e carta de suscetibilidade (2015).'],
 ];
 
 export async function buildPublicationWorkbook(
-  tables: { orgRows: Row[]; rows300: Row[] },
+  tables: { orgRows: Row[]; rows300: Row[]; rows1km?: Row[] },
   opts: { cohortName: string | null; stamp: string },
 ): Promise<Buffer> {
   const mod: any = await import('exceljs');
@@ -105,6 +118,7 @@ export async function buildPublicationWorkbook(
 
   sheet('Organizações', ORG_KEYS, tables.orgRows, k => (k === 'organizacao' || k === 'endereco_do_projeto' ? 36 : 14));
   sheet('Em volta (300 m)', KEYS_300M, tables.rows300, k => (k === 'organizacao' ? 32 : /sgb_mais|preocupacao|mancha/.test(k) ? 30 : 18));
+  if (tables.rows1km) sheet('Em volta (1 km)', KEYS_1KM, tables.rows1km, k => (k === 'organizacao' ? 32 : /sgb_mais|mancha/.test(k) ? 30 : 18));
   sheet('Bairros', BAIRRO_KEYS, bairroRows(), k => (k === 'bairro' ? 26 : 18));
   sheet('Soluções SbN', SOLUTION_KEYS.filter(k => k !== 'foto'), solutionRows(),
     k => (k === 'numero' ? 6 : /solucao|familia|complexidade|tipo/.test(k) ? 22 : 60));
