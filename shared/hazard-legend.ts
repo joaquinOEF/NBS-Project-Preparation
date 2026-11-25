@@ -104,6 +104,12 @@ function bandValue(spec: LegendSpec, i: number): number {
  * vocabulary across the whole tool.
  */
 export function legendBands(spec: LegendSpec | undefined): LegendBand[] {
+  // Class legends (SGB susceptibility): one band per class, named in the same
+  // riskBands vocabulary. `value` is the class number, not a reading.
+  if (spec?.kind === 'classes' && spec.stops?.length) {
+    const KEY: Record<string, RiskBandKey> = { baixa: 'low', 'média': 'moderate', media: 'moderate', alta: 'high' };
+    return spec.stops.map(s => ({ key: KEY[(s.label ?? '').toLowerCase()] ?? 'moderate', color: s.color, value: s.value }));
+  }
   if (!spec || spec.kind !== 'gradient' || !spec.stops?.length) return [];
   return RISK_BAND_KEYS.map((key, i) => ({
     key,
@@ -175,6 +181,13 @@ export function describeRamp(spec: LegendSpec | undefined): string {
   // Ameaça, not risco: the tour's tiles are the PLAC/ARVC hazard layers, and
   // "menor risco → maior risco" invited the model to talk about exposure and
   // vulnerability the map does not carry.
+  if (spec.kind === 'classes') {
+    // SGB susceptibility (since 24 Nov 2026): classes, not a ramp.
+    return `${spec.layerId}: suscetibilidade do SGB/CPRM em classes — ` +
+      spec.stops.map(s => `${s.label} ${s.color}`).join(', ') +
+      (/landslide/.test(spec.layerId) ? '; fora das cores a suscetibilidade é baixa' : '; fora das cores o SGB não mapeia suscetibilidade a inundação') +
+      (/flood/.test(spec.layerId) ? '; cobre arroios e Guaíba juntos; a área inundada em maio de 2024 aparece por cima, tracejada em vermelho' : '');
+  }
   const fluvial = /flood/.test(spec.layerId)
     ? ' — ameaça de inundação FLUVIAL (arroios) apenas; o Guaíba aparece à parte, como a área inundada em maio de 2024'
     : '';

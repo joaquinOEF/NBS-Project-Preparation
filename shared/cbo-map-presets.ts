@@ -39,7 +39,10 @@ const E2_OSM_LAYERS = ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospital
 // at 0.85 because one shared exposure surface dominates them, so heat risk and
 // landslide risk are nearly the same picture — useless for a tour whose whole job
 // is teaching one hazard at a time. Served as tiles by arvcTileRoutes.ts.
-const E2_HAZARD_TILES = ['arvc_flood_hazard', 'arvc_heat_hazard', 'arvc_landslide_hazard'];
+// Since 24 Nov 2026 flood and landslide are SGB susceptibility (the PLAC
+// landslide layer, classed relative to the city, painted most of it "alta");
+// heat stays PLAC/ARVC. docs/sgb-suscetibilidade.md.
+const E2_HAZARD_TILES = ['sgb_flood_susc', 'arvc_heat_hazard', 'sgb_landslide_susc'];
 
 interface PresetDef {
   /** Everything except the prompt, which is copy and therefore localized. */

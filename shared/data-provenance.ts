@@ -45,6 +45,14 @@ const PLAC_SOURCE = {
   en: 'Porto Alegre City Hall — Climate Action Plan (PLAC), Climate Risk and Vulnerability Analysis (ARVC), prepared by WayCarbon with ICLEI, Ludovino Lopes and Ecofinance. Rasters sent by SMAMUS in August 2026.',
   pt: 'Prefeitura de Porto Alegre — Plano de Ação Climática (PLAC), Análise de Riscos e Vulnerabilidades Climáticas (ARVC), elaborada pela WayCarbon com ICLEI, Ludovino Lopes e Ecofinance. Arquivos enviados pela SMAMUS em agosto de 2026.',
 };
+const SGB_SOURCE = {
+  en: 'Brazilian Geological Service (SGB/CPRM) — Susceptibility chart for mass movements and flooding, Porto Alegre.',
+  pt: 'Serviço Geológico do Brasil (SGB/CPRM) — Carta de suscetibilidade a movimentos gravitacionais de massa e inundação, Porto Alegre.',
+};
+const SGB_VINTAGE = {
+  en: '2015, checked in the field in 2012–2014.',
+  pt: '2015, validada em campo em 2012–2014.',
+};
 const PLAC_VINTAGE = {
   en: '2050 scenario (the plan also has 1995–2014 and 2030).',
   pt: 'Cenário 2050 (o plano também traz 1995–2014 e 2030).',
@@ -55,25 +63,27 @@ const PLAC_COLORS = {
 };
 
 export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
+  // Since 24 Nov 2026 flood and landslide are SGB susceptibility (the map
+  // layers sgb_flood_susc / sgb_landslide_susc); see docs/sgb-suscetibilidade.md.
   flood: {
     key: 'flood',
     en: {
-      title: 'River-flood hazard (PLAC)',
-      whatItShows: 'The city’s own map of river-flood hazard: where the arroios (streams) overflow. It is the hazard only — not who lives there or how vulnerable they are.',
-      colorMeaning: PLAC_COLORS.en,
-      source: PLAC_SOURCE.en,
-      vintage: PLAC_VINTAGE.en,
-      resolution: '~30 m grid',
-      caveat: 'Fluvial only: it covers the arroios, not the Guaíba and not rain that pools in the street. The Guaíba is shown separately, as the area flooded in May 2024.',
+      title: 'Flood susceptibility (SGB)',
+      whatItShows: 'Where the terrain favours flooding — from the arroios (streams) and from the Guaíba, in one map. It is about the ground, not who lives there or how vulnerable they are.',
+      colorMeaning: 'Light blue = low, mid blue = medium, dark blue = high susceptibility. No colour = no flood susceptibility mapped there.',
+      source: SGB_SOURCE.en,
+      vintage: SGB_VINTAGE.en,
+      resolution: '1:70,000 map',
+      caveat: 'Susceptibility has no climate scenario, and it does not cover rain that pools in the street (alagamento). The area actually flooded in May 2024 can be turned on over it.',
     },
     pt: {
-      title: 'Ameaça de inundação fluvial (PLAC)',
-      whatItShows: 'O mapa da própria Prefeitura para a ameaça de inundação fluvial: onde os arroios transbordam. É só a ameaça — não diz quem mora ali nem quão vulnerável é.',
-      colorMeaning: PLAC_COLORS.pt,
-      source: PLAC_SOURCE.pt,
-      vintage: PLAC_VINTAGE.pt,
-      resolution: 'grade de ~30 m',
-      caveat: 'Só fluvial: cobre os arroios, não o Guaíba nem a água da chuva que acumula na rua. O Guaíba aparece à parte, como a área inundada em maio de 2024.',
+      title: 'Suscetibilidade a inundação (SGB)',
+      whatItShows: 'Onde o terreno favorece inundação — pelos arroios e pelo Guaíba, num mapa só. Fala do terreno, não de quem mora ali nem de quão vulnerável é.',
+      colorMeaning: 'Azul-claro = baixa, azul-médio = média, azul-escuro = alta suscetibilidade. Sem cor = o SGB não mapeia suscetibilidade a inundação ali.',
+      source: SGB_SOURCE.pt,
+      vintage: SGB_VINTAGE.pt,
+      resolution: 'mapa em 1:70.000',
+      caveat: 'Suscetibilidade não tem cenário climático e não cobre a água da chuva que acumula na rua (alagamento). A área inundada em maio de 2024 pode ser ligada por cima.',
     },
   },
   flood2024: {
@@ -121,22 +131,22 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
   landslide: {
     key: 'landslide',
     en: {
-      title: 'Landslide hazard (PLAC)',
-      whatItShows: 'The city’s own map of landslide hazard: the slopes where the ground can slide. The hazard only — not who lives there or how vulnerable they are.',
-      colorMeaning: PLAC_COLORS.en,
-      source: PLAC_SOURCE.en,
-      vintage: PLAC_VINTAGE.en,
-      resolution: '~30 m grid',
-      caveat: 'For the sectors a geologist walked, the Serviço Geológico do Brasil (SGB) risk sectors are more precise — and a place outside them was simply not surveyed, which does not mean it is safe.',
+      title: 'Landslide susceptibility (SGB)',
+      whatItShows: 'The slopes where the terrain favours landslides (slope, soil, geology). About the ground only — not who lives there or how vulnerable they are.',
+      colorMeaning: 'Orange = medium, dark red = high susceptibility. No colour = low.',
+      source: SGB_SOURCE.en,
+      vintage: SGB_VINTAGE.en,
+      resolution: '1:70,000 map',
+      caveat: 'For the areas a geologist walked, the SGB risk sectors are more precise — and a place outside them was simply not surveyed, which does not mean it is safe.',
     },
     pt: {
-      title: 'Ameaça de deslizamento (PLAC)',
-      whatItShows: 'O mapa da própria Prefeitura para a ameaça de deslizamento: as encostas onde o terreno pode deslizar. É só a ameaça — não diz quem mora ali nem quão vulnerável é.',
-      colorMeaning: PLAC_COLORS.pt,
-      source: PLAC_SOURCE.pt,
-      vintage: PLAC_VINTAGE.pt,
-      resolution: 'grade de ~30 m',
-      caveat: 'Nos setores que um geólogo percorreu, os setores de risco do Serviço Geológico do Brasil (SGB) são mais precisos — e um lugar fora deles só não foi vistoriado, o que não quer dizer que seja seguro.',
+      title: 'Suscetibilidade a deslizamentos (SGB)',
+      whatItShows: 'As encostas onde o terreno favorece deslizamentos (declividade, solo, geologia). Fala só do terreno — não de quem mora ali nem de quão vulnerável é.',
+      colorMeaning: 'Laranja = média, vermelho-escuro = alta suscetibilidade. Sem cor = baixa.',
+      source: SGB_SOURCE.pt,
+      vintage: SGB_VINTAGE.pt,
+      resolution: 'mapa em 1:70.000',
+      caveat: 'Nas áreas que um geólogo percorreu, os setores de risco do SGB são mais precisos — e um lugar fora deles só não foi vistoriado, o que não quer dizer que seja seguro.',
     },
   },
   // The organisation's map: outlines only, no shading (MapMicroapp).

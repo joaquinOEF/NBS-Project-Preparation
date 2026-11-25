@@ -50,7 +50,7 @@ test.describe('COUGAR — E2 site card confirms the place, not the risk', () => 
     await expect(page.getByText('É isso mesmo?', { exact: false })).toHaveCount(0);
   });
 
-  test('hazard is the PLAC ameaça at the pin, never a bairro average', async ({ page, request }) => {
+  test('hazard is official data at the pin, never a bairro average', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -59,16 +59,20 @@ test.describe('COUGAR — E2 site card confirms the place, not the risk', () => 
     const card = page.getByTestId('cbo-site-card');
     // The eyebrow names the place, not "seu lugar" risk.
     await expect(card).not.toContainText(/SEU LUGAR/i);
-    // The official ameaça sampled at the pin, with its source (JVP, 10 Nov 2026).
-    await expect(card).toContainText(/Ameaça no ponto \(PLAC\)/i);
-    await expect(card).toContainText('PLAC/ARVC, cenário 2050');
+    // Official data sampled at the pin, with its source (JVP, 10 Nov 2026):
+    // since 24 Nov 2026 flood + landslide from SGB, heat from PLAC.
+    await expect(card).toContainText('No ponto (dados oficiais)');
+    await expect(card).toContainText('Serviço Geológico do Brasil (SGB/CPRM)');
+    await expect(card).toContainText('PLAC/ARVC, 2050');
+    await expect(page.getByTestId('cbo-site-card-hazard-landslide')).toContainText('SGB');
+    await expect(page.getByTestId('cbo-site-card-hazard-note').first()).toContainText(/setor de risco do SGB/);
     // Our bairro index is gone: no average, no bairro label, no percentile.
     await expect(card).not.toContainText(/em média/i);
     await expect(card).not.toContainText(/média do bairro/i);
     await expect(card).not.toContainText(/no bairro/i);
     await expect(card).not.toContainText(/\d+\s*%/);
     await expect(page.getByTestId('cbo-site-card-risk-label')).toHaveCount(0);
-    // Flood is named as what the layer is — the arroios — never plain "Enchente".
+    // Flood is named "Inundação" (the file's word), never "Enchente".
     await expect(card).not.toContainText(/Enchente/);
   });
 

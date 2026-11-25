@@ -61,4 +61,15 @@ has no climate scenario, so the landslide and flood maps are single maps (no
   (never "baixa"). Landslide adds the nearest SGB mass-movement sector. Heat is
   still PLAC/ARVC 2050 (`arvcHazardAtPin`). The synergy risk table also counts
   the May 2024 Guaíba mark on its own.
-- Map layers in the tour and the orchestrator — follow-up PR.
+- Map layers — `sgb_flood_susc` / `sgb_landslide_susc`, drawn by
+  `server/routes/sgbSuscTileRoutes.ts` (`/api/geospatial/sgb-susc/:id/{z}/{x}/{y}.png`)
+  from the committed vectors; classes and colours in `shared/sgb-susceptibility.ts`
+  (same as the print). Used by the CBO hazard tour (`E2_HAZARD_TILES`) and the
+  orchestrator map (`HAZARD_RASTER`); heat keeps `arvc_heat_hazard`. Legends are
+  `kind: 'classes'` entries in `layer-legends.json` (hand-added, like the ARVC
+  ones — `generate-legends.ts` does not write either). The tour's May 2024
+  overlay is now red dashed so it reads over the blue classes. "Sobre os dados"
+  (`shared/data-provenance.ts`) and the map-help prompt say SGB.
+- Not changed: our internal bairro ordering (ARVC risco ranks) and the
+  publication's bairro table column `moradores_ameaca_inundacao_arroios_alta_2050`
+  (city-exposure-stats.py) — both say what they are.
