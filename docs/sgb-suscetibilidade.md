@@ -82,8 +82,9 @@ address outside its polygons used to read "não mapeada", which people read as
 its source:
 
 1. reached by the Guaíba in May 2024 (SMAMUS cotas ≤ 5,35 m) → alta (SMAMUS).
-   SGB's 2015 chart leaves out ground behind the Mauá wall and dikes, e.g.
-   Mercado Público, Rodoviária and Floresta, all under water in 2024;
+   SGB's chart is 1:70.000 (a 1 mm line ≈ 70 m), so ground at the edge of its
+   polygons can fall outside them: Mercado Público (180 m from SGB alta), the
+   Rodoviária (12 m) and a Floresta address (37 m) were all under water in 2024;
 2. an SGB inundação/enxurrada risk sector within 100 m → "perto de setor de risco";
 3. otherwise → baixa, "fora da área suscetível do SGB", plus the nearest such
    sector within 1 km.

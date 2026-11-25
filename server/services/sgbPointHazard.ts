@@ -20,8 +20,9 @@
 // as "no data". Since 25 Nov (refine cougar-flood-blanks-2026-11-25) it takes
 // the strongest official fact at the address instead, naming its source:
 //   1. inside the area the Guaíba reached in May 2024 (SMAMUS cotas ≤ 5,35 m)
-//      → 3 "alta" (e.g. Floresta behind the Mauá wall, which SGB's 2015 chart
-//      treats as protected)
+//      → 3 "alta". SGB's chart is 1:70.000 (a 1 mm line ≈ 70 m), so ground at
+//      the edge of its polygons can fall outside them: e.g. a Floresta
+//      address 37 m from SGB alta, and Mercado Público, both under water in 2024
 //   2. an SGB inundação/enxurrada risk sector within 100 m → 2 "perto de setor
 //      de risco"
 //   3. otherwise → 1 "baixa", fora da área suscetível do SGB (+ the nearest
