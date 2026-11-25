@@ -3446,5 +3446,53 @@
     "max": 0.644,
     "source": "official",
     "note": "Ameaça — Deslizamento, PLAC/ARVC 2050 (Prefeitura de Porto Alegre). Painted on the app’s shared hazard ramp (dark = higher) rather than the plan’s teal→olive, and contrast-stretched across this layer’s observed range 0.000–0.644; the Site Explorer overlay keeps the published ramp and absolute classes."
+  },
+  "sgb_flood_susc": {
+    "layerId": "sgb_flood_susc",
+    "kind": "classes",
+    "unit": "suscetibilidade (SGB/CPRM)",
+    "stops": [
+      {
+        "value": 1,
+        "color": "#c6dbef",
+        "label": "Baixa"
+      },
+      {
+        "value": 2,
+        "color": "#6baed6",
+        "label": "Média"
+      },
+      {
+        "value": 3,
+        "color": "#08519c",
+        "label": "Alta"
+      }
+    ],
+    "source": "official",
+    "note": "Suscetibilidade a inundação — SGB/CPRM, carta de Porto Alegre (2015, 1:70.000): arroios e Guaíba numa camada só. Fora das cores, o SGB não mapeia suscetibilidade a inundação."
+  },
+  "sgb_landslide_susc": {
+    "layerId": "sgb_landslide_susc",
+    "kind": "classes",
+    "unit": "suscetibilidade (SGB/CPRM)",
+    "stops": [
+      {
+        "value": 1,
+        "color": "#f3f3f1",
+        "label": "Baixa"
+      },
+      {
+        "value": 2,
+        "color": "#fd8d3c",
+        "label": "Média"
+      },
+      {
+        "value": 3,
+        "color": "#bd0026",
+        "label": "Alta"
+      }
+    ],
+    "source": "official",
+    "note": "Suscetibilidade a deslizamentos — SGB/CPRM, carta de Porto Alegre (2015, 1:70.000). Baixa (o resto do município) fica sem cor no mapa."
   }
 }

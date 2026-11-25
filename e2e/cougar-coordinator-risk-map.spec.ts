@@ -41,11 +41,11 @@ test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
     expect(mb.width, 'map spans most of the page width').toBeGreaterThan(900);
     await page.waitForTimeout(1200);
 
-    // Defaults to flood (the PLAC/ARVC fluvial ameaça), with its source and the
-    // note that the Guaíba is not in it.
+    // Defaults to flood (SGB susceptibility since 24 Nov 2026: streams and
+    // Guaíba together), with its source and the pointer to the 2024 overlay.
     await expect(flood).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('hazard-source')).toContainText('PLAC/ARVC');
-    await expect(page.getByTestId('flood-fluvial-note')).toBeVisible();
+    await expect(page.getByTestId('hazard-source')).toContainText('SGB/CPRM');
+    await expect(page.getByTestId('flood-fluvial-note')).toContainText('Guaíba together');
     await page.waitForTimeout(1200);
 
     // May 2024 flood extent — an overlay, not exclusive with the hazard view.
@@ -65,10 +65,13 @@ test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
     await heat.click();
     await expect(heat).toHaveAttribute('aria-pressed', 'true');
     await expect(flood).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('hazard-source')).toContainText('PLAC/ARVC');
     await page.waitForTimeout(1000);
 
     await landslide.click();
     await expect(landslide).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('hazard-source')).toContainText('SGB/CPRM');
+    await expect(page.getByTestId('landslide-sgb-note')).toBeVisible();
     await page.waitForTimeout(1000);
 
     // #4 — Priority by neighborhood (OEF estimate): typology hue + intensity.
@@ -85,7 +88,7 @@ test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('pt: hazard toggles read "Ameaça", the bairro view reads "estimativa OEF"', async ({ page }) => {
+  test('pt: hazard toggles name their source, the bairro view reads "estimativa OEF"', async ({ page }) => {
     await page.addInitScript(() => { try { localStorage.setItem('i18nextLng', 'pt'); } catch {} });
     const api = new TestApi(page.request);
     await api.createCoordinator({ email: `map-pt-${randomUUID()}@e2e.test`, password: 'map-pass-123', name: 'Mapa' });
@@ -94,11 +97,11 @@ test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
     await showMap(page);
     await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByTestId('risk-view-flood')).toHaveText(/Ameaça de inundação \(arroios\)/);
+    await expect(page.getByTestId('risk-view-flood')).toHaveText(/Suscetibilidade a inundação \(SGB\)/);
     await expect(page.getByTestId('risk-view-heat')).toHaveText(/Ameaça de ondas de calor/);
-    await expect(page.getByTestId('risk-view-landslide')).toHaveText(/Ameaça de deslizamentos/);
+    await expect(page.getByTestId('risk-view-landslide')).toHaveText(/Suscetibilidade a deslizamentos \(SGB\)/);
     await expect(page.getByTestId('risk-view-flood2024')).toHaveText(/Área inundada em maio de 2024/);
-    await expect(page.getByTestId('hazard-source')).toContainText('PLAC/ARVC');
+    await expect(page.getByTestId('hazard-source')).toContainText('SGB/CPRM');
 
     const bairro = page.getByTestId('risk-view-risk');
     await expect(bairro).toHaveText(/Prioridade por bairro \(estimativa OEF\)/);

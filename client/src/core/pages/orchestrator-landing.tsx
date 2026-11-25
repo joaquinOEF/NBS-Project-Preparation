@@ -48,6 +48,7 @@ import { useLocation } from 'wouter';
 import type { CohortMember, CohortProject, WorkshopConfig } from '@shared/cohort-schema';
 import { TYPOLOGY_COLORS, zoneRiskOpacity } from '@shared/risk-display';
 import { HAZARD_TILE_RAMP } from '@shared/arvc-official';
+import { SGB_SUSC_URL, sgbLegendColors } from '@shared/sgb-susceptibility';
 import {
   InviteCboDialog,
   ShareLinkDialog,
@@ -762,9 +763,10 @@ type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
 // (exposure carries 92–95% of the log-variance and is shared across all six
 // hazards), so the three risk maps would be near-identical. See docs/arvc-official.md.
 const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
-  flood:     { url: '/api/geospatial/arvc/arvc_flood_hazard/{z}/{x}/{y}.png',     attribution: 'PLAC/ARVC · ameaça de inundação fluvial 2050' },
+  // Flood + landslide: SGB susceptibility since 24 Nov 2026 (docs/sgb-suscetibilidade.md).
+  flood:     { url: SGB_SUSC_URL('sgb_flood_susc'),                                attribution: 'SGB/CPRM · suscetibilidade a inundação (2015)' },
   heat:      { url: '/api/geospatial/arvc/arvc_heat_hazard/{z}/{x}/{y}.png',      attribution: 'PLAC/ARVC · ameaça de ondas de calor 2050' },
-  landslide: { url: '/api/geospatial/arvc/arvc_landslide_hazard/{z}/{x}/{y}.png', attribution: 'PLAC/ARVC · ameaça de deslizamento 2050' },
+  landslide: { url: SGB_SUSC_URL('sgb_landslide_susc'),                            attribution: 'SGB/CPRM · suscetibilidade a deslizamentos (2015)' },
 };
 
 // Legend ramps must MATCH what is painted on the map. All three overlays are now
@@ -776,9 +778,16 @@ const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attri
 // described the OEF catalog tiles that used to be here; leaving them would have
 // put a purple-to-yellow key under a teal-to-olive map.
 const HAZARD_RAMPS: Record<'flood' | 'heat' | 'landslide', string[]> = {
-  flood:     [...HAZARD_TILE_RAMP],
+  flood:     sgbLegendColors('sgb_flood_susc'),
   heat:      [...HAZARD_TILE_RAMP],
-  landslide: [...HAZARD_TILE_RAMP],
+  landslide: sgbLegendColors('sgb_landslide_susc'),
+};
+/** SGB layers are classes (hard-edged segments); heat is a continuous ramp. */
+const rampCss = (h: 'flood' | 'heat' | 'landslide') => {
+  const c = HAZARD_RAMPS[h];
+  if (h === 'heat') return `linear-gradient(to right, ${c.join(', ')})`;
+  const w = 100 / c.length;
+  return `linear-gradient(to right, ${c.map((x, i) => `${x} ${(i * w).toFixed(1)}% ${((i + 1) * w).toFixed(1)}%`).join(', ')})`;
 };
 
 // City-wide min/max of the per-zone max-hazard mean, for normalizing the 'risk'
@@ -1215,18 +1224,25 @@ function MapLayerControls({
               heat/landslide = green→red) so the legend matches the map. */}
           <div
             className="h-2 rounded-full"
-            style={{ background: `linear-gradient(to right, ${HAZARD_RAMPS[active].join(', ')})` }}
+            style={{ background: rampCss(active) }}
           />
           <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
             <span>{t('orchestrator.map.low', { defaultValue: 'low' })}</span>
             <span>{t('orchestrator.map.high', { defaultValue: 'high' })}</span>
           </div>
           <div className="text-[9px] text-muted-foreground mt-1" data-testid="hazard-source">
-            {t('orchestrator.map.hazardSource', { defaultValue: 'Source: PLAC/ARVC, 2050 hazard' })}
+            {active === 'heat'
+              ? t('orchestrator.map.hazardSource', { defaultValue: 'Source: PLAC/ARVC, 2050 hazard' })
+              : t('orchestrator.map.hazardSourceSgb', { defaultValue: 'Source: SGB/CPRM susceptibility chart (2015)' })}
           </div>
+          {active === 'landslide' && (
+            <div className="text-[9px] text-muted-foreground/90 mt-0.5 leading-snug" data-testid="landslide-sgb-note">
+              {t('orchestrator.map.sgbLandslideNote', { defaultValue: 'Outside the colours, susceptibility is low.' })}
+            </div>
+          )}
           {active === 'flood' && !flood2024 && (
             <div className="text-[9px] text-muted-foreground/90 mt-0.5 leading-snug" data-testid="flood-fluvial-note">
-              {t('orchestrator.map.fluvialOnlyNote', { defaultValue: 'Streams only. The May 2024 Guaíba flood is not in this layer; turn on "Area flooded in May 2024".' })}
+              {t('orchestrator.map.sgbFloodNote', { defaultValue: 'Streams and Guaíba together. To see the May 2024 flood, turn on "Area flooded in May 2024".' })}
             </div>
           )}
         </div>

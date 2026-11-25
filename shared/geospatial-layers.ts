@@ -425,6 +425,34 @@ export const ARVC_HAZARD_TILE_LAYERS: TileLayerDef[] = [
 ];
 
 
+// ── SGB susceptibility as XYZ tiles (since 24 Nov 2026) ─────────────────────
+// Flood and landslide in the CBO tour and the orchestrator: drawn by
+// server/routes/sgbSuscTileRoutes.ts from the committed SGB/CPRM vectors (not
+// SGB's WMS, which paints "Baixa" across the whole city). Classes and colours:
+// shared/sgb-susceptibility.ts. Why: docs/sgb-suscetibilidade.md.
+export const SGB_SUSC_TILE_LAYERS: TileLayerDef[] = [
+  {
+    id: 'sgb_flood_susc',
+    name: 'Flood susceptibility (SGB/CPRM)',
+    group: 'official_risk',
+    color: '#08519c',
+    available: true,
+    tileLayerId: 'sgb_flood_susc',
+    visualUrlTemplate: '/api/geospatial/sgb-susc/sgb_flood_susc/{z}/{x}/{y}.png',
+    hasValueTiles: false,
+  },
+  {
+    id: 'sgb_landslide_susc',
+    name: 'Landslide susceptibility (SGB/CPRM)',
+    group: 'official_risk',
+    color: '#bd0026',
+    available: true,
+    tileLayerId: 'sgb_landslide_susc',
+    visualUrlTemplate: '/api/geospatial/sgb-susc/sgb_landslide_susc/{z}/{x}/{y}.png',
+    hasValueTiles: false,
+  },
+];
+
 export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...TILE_LAYERS,
   ...LOCAL_RISK_LAYERS,
@@ -433,6 +461,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...LANDSLIDE_INDEX_LAYERS,
   ...OFFICIAL_RISK_LAYERS,
   ...ARVC_HAZARD_TILE_LAYERS,
+  ...SGB_SUSC_TILE_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,

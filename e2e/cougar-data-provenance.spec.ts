@@ -47,13 +47,15 @@ test.describe('COUGAR — data provenance dialog (CBO map)', () => {
     await expect(dialog.getByText('Where this data comes from')).toBeVisible();
     await expect(page.getByTestId('provenance-entry-flood')).toBeVisible();
     await expect(page.getByTestId('provenance-entry-landslide')).toBeVisible();
-    // The tiles on screen are the Prefeitura's PLAC/ARVC ameaça, so that is
-    // what the dialog describes — not OEF's H×E×V rasters (10 Nov 2026).
+    // The tiles on screen are official data, so that is what the dialog
+    // describes — not OEF's H×E×V rasters (10 Nov 2026). Since 24 Nov 2026 flood
+    // and landslide are SGB susceptibility; heat is the PLAC/ARVC ameaça.
+    await expect(dialog.getByText(/Brazilian Geological Service \(SGB\/CPRM\)/i).first()).toBeVisible();
     await expect(dialog.getByText(/Climate Action Plan \(PLAC\)/i).first()).toBeVisible();
     await expect(dialog.getByText(/2050 scenario/i).first()).toBeVisible();
     await expect(dialog.getByText(/JRC|Aqueduct|GFPLAIN/)).toHaveCount(0);
-    // Flood ameaça is fluvial only — the Guaíba is its own entry.
-    await expect(dialog.getByText(/Fluvial only/i)).toBeVisible();
+    // Flood is streams AND Guaíba; the May 2024 extent is still its own entry.
+    await expect(dialog.getByText(/from the arroios \(streams\) and from the Guaíba/i)).toBeVisible();
     await expect(page.getByTestId('provenance-entry-flood2024')).toBeVisible();
     // The org's map draws plain bairro outlines: no "OEF estimate" shading here.
     await expect(page.getByTestId('provenance-entry-bairros')).toBeVisible();

@@ -166,10 +166,10 @@ const TOUR_COPY: Record<
     titleKey: 'mapMicroapp.tourFloodTitle',
     title: 'Enchente',
     bodyKey: 'mapMicroapp.tourFloodBody',
-    // The ARVC flood ameaça is FLUVIAL — the arroios overtopping — not "where
-    // water pools", which is alagamento and has no layer here. The Guaíba
-    // (May 2024) is drawn over the same step as its own labelled overlay.
-    body: 'Inundação de arroios (PLAC/ARVC) — onde os arroios transbordam.',
+    // SGB susceptibility since 24 Nov 2026: streams AND Guaíba in one layer —
+    // not "where water pools", which is alagamento and has no layer here. The
+    // observed May 2024 extent is drawn over the same step as its own overlay.
+    body: 'Onde o terreno favorece inundação, pelos arroios e pelo Guaíba (SGB).',
   },
   heat: {
     emoji: '🔥',
@@ -183,26 +183,35 @@ const TOUR_COPY: Record<
     titleKey: 'mapMicroapp.tourLandslideTitle',
     title: 'Deslizamento',
     bodyKey: 'mapMicroapp.tourLandslideBody',
-    body: 'As encostas com risco de deslizar.',
+    body: 'As encostas onde o terreno favorece deslizamentos (SGB). Fora das cores, a suscetibilidade é baixa.',
   },
 };
 
 // May 2024 observed flood extent (Planet SkySat, 2024-05-06, Guaíba watershed —
 // see the file's own `source`). Dashed blue so it reads as an outline over the
-// yellow→red ameaça ramp rather than as one more step of it.
+// SGB's blue classes (red since 24 Nov 2026, when the flood step became SGB
+// susceptibility in blues) rather than as one more step of it.
 const FLOOD_2024_URL = '/sample-data/porto-alegre-flood-2024.json';
 const FLOOD_2024_PANE = 'flood2024';
 const FLOOD_2024_STYLE = {
-  color: '#1d4ed8',
+  color: '#d7301f',
   weight: 1.5,
   dashArray: '4 3',
-  fillColor: '#3b82f6',
-  fillOpacity: 0.25,
+  fillColor: '#d7301f',
+  fillOpacity: 0.12,
 };
 
 // Build a CSS gradient from a layer's legend stops (same source as the map's
 // real legends), so the tour shows the actual color→risk scale.
 function legendGradientCss(spec: LegendSpec | undefined): string | null {
+  // Class legends (SGB susceptibility, since 24 Nov 2026) are hard-edged
+  // segments, one per class, so the bar shows what the map shows.
+  if (spec?.kind === 'classes' && spec.stops?.length) {
+    const w = 100 / spec.stops.length;
+    return `linear-gradient(to right, ${spec.stops
+      .map((s, i) => `${s.color} ${(i * w).toFixed(1)}% ${((i + 1) * w).toFixed(1)}%`)
+      .join(', ')})`;
+  }
   if (!spec || spec.kind !== 'gradient' || !spec.stops?.length) return null;
   const min = spec.min ?? spec.stops[0].value;
   const max = spec.max ?? spec.stops[spec.stops.length - 1].value;
@@ -2667,15 +2676,26 @@ export default function MapMicroapp({
               {/* Real color scale for the active hazard layer (from the map's
                   own legend data), so the colors always match. */}
               {(() => {
-                const grad = legendGradientCss(legends[tourLayers[tourIdx]]);
+                const spec = legends[tourLayers[tourIdx]];
+                const grad = legendGradientCss(spec);
                 if (!grad) return null;
+                if (spec?.kind === 'classes') {
+                  return (
+                    <div className='mt-1.5'>
+                      <div className='h-2 rounded-sm w-full border border-foreground/10' style={{ background: grad }} />
+                      <div className='flex text-[9px] text-muted-foreground mt-0.5' data-testid='map-tour-classes'>
+                        {spec.stops.map(s => <span key={s.value} className='flex-1 text-center'>{s.label}</span>)}
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div className='mt-1.5'>
                     <div
                       className='h-2 rounded-sm w-full border border-foreground/10'
                       style={{ background: grad }}
                     />
-                    {/* Ameaça, not risco: these are the PLAC/ARVC hazard
+                    {/* Ameaça, not risco: the heat step is the PLAC/ARVC hazard
                         layers, and "mais risco" claimed exposure and
                         vulnerability the tiles do not carry. */}
                     <div className='flex justify-between text-[9px] text-muted-foreground mt-0.5'>

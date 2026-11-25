@@ -105,7 +105,7 @@ export default function HazardLegendSheet({
                     {t(`riskBands.${band.key}`)}
                   </span>
                   <span className='text-[9px] tabular-nums text-muted-foreground'>
-                    {band.value.toFixed(2)}
+                    {spec?.kind === 'classes' ? '' : band.value.toFixed(2)}
                   </span>
                 </div>
               ))}

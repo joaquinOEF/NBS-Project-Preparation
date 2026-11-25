@@ -58,8 +58,8 @@ test.describe('COUGAR — E2 hazard copy rests on official data', () => {
     // ── The site card ──────────────────────────────────────────────────────
     const card = page.getByTestId('cbo-site-card');
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await expect(card).toContainText('Ameaça no ponto (PLAC)');
-    await expect(card).toContainText('PLAC/ARVC, cenário 2050');
+    await expect(card).toContainText('No ponto (dados oficiais)');
+    await expect(card).toContainText('Serviço Geológico do Brasil (SGB/CPRM)');
     await expect(page.getByTestId('cbo-site-card-guaiba')).toContainText(/Dentro da área atingida com o Guaíba a 2,90 m/);
     const cardText = (await card.innerText()).replace(/\s+/g, ' ');
     for (const re of BAIRRO_INDEX) expect(cardText, `site card: ${re}`).not.toMatch(re);
