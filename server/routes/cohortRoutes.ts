@@ -65,7 +65,7 @@ import { proposeSolutionsTable, applyReview, crossAnalysis, doubtsIn, coordinati
 import { networkScope, gridsOf } from '../services/networkFiles';
 import { synergyRequestFrom, settleRequest, SYNERGY_FOCUS, ALL_FOCUS } from '@shared/synergy-focus';
 import { buildCrossWorkbook } from '../services/synergyCrossXlsx';
-import { arvcHazardAtPin } from '../services/arvcPointHazard';
+import { hazardAtPin } from '../services/sgbPointHazard';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport, type SynergyInputs } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
@@ -1437,7 +1437,7 @@ export function registerCohortRoutes(app: Express): void {
           const i = interestOf({ solutions: s.solutions ?? [], tested: s.tested ?? [] });
           const at = m.site && m.site.kind !== 'zone' && Array.isArray(m.site.coordinates) ? m.site.coordinates : null;
           const hazard: PlatformSide['hazard'] = {};
-          if (at) for (const h of arvcHazardAtPin(Number(at[0]), Number(at[1]))) hazard[h.hazard as Hazard3] = { level: h.level, pt: h.pt };
+          if (at) for (const h of hazardAtPin(Number(at[0]), Number(at[1]))) hazard[h.hazard as Hazard3] = { level: h.level, pt: h.pt };
           const cota = ((s.cityMapPt ?? []) as string[]).map(l => /cota de ([\d,.]+) m do Gua[ií]ba/.exec(l)?.[1]).find(Boolean);
           return {
             memberId: m.id, orgName: m.orgName, bairro: m.w2?.bairro ?? m.neighborhood ?? null,

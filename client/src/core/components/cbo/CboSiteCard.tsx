@@ -26,6 +26,12 @@ import { tileUrl } from '@/core/lib/basemaps';
 //     "média", no bairro, no percentile. A card persisted before the change
 //     still carries `risks`; it is ignored.
 //
+//  3. 24 Nov 2026 (Julia, Rede SCbN): the PLAC landslide layer, classed relative
+//     to the city, told flat sites "alta". Flood and landslide now come from
+//     SGB susceptibility (server/services/sgbPointHazard.ts), heat stays PLAC;
+//     each level carries its source, and landslide adds the nearest SGB risk
+//     sector. Older cards (no `source`) keep the old labels.
+//
 // i18n: in-component STRINGS + lang prop (never i18n.language in a leaf —
 // pre-fetch race), same pattern as NbsFamiliaStrip.
 
@@ -34,18 +40,22 @@ const STRINGS = {
     eyebrow: 'O lugar que vocês marcaram',
     tipo: 'Tipo de lugar:',
     fromMap: '(pelo mapa)',
-    hazardHead: 'Ameaça no ponto (PLAC)',
+    hazardHead: 'No ponto (dados oficiais)',
     hazardSource: 'Fonte: PLAC/ARVC, cenário 2050',
-    hz: { flood: '🌊 Inundação (arroios)', heat: '🔥 Calor', landslide: '⛰️ Deslizamento' },
+    hazardSources: 'Inundação e deslizamento: suscetibilidade do Serviço Geológico do Brasil (SGB/CPRM). Calor: ameaça do PLAC/ARVC, 2050.',
+    hz: { flood: '🌊 Inundação', heat: '🔥 Calor', landslide: '⛰️ Deslizamento' },
+    hzOld: { flood: '🌊 Inundação (arroios)', heat: '🔥 Calor', landslide: '⛰️ Deslizamento' },
     mapAlt: 'Mapa do lugar marcado',
   },
   en: {
     eyebrow: 'The place you marked',
     tipo: 'Kind of place:',
     fromMap: '(from the map)',
-    hazardHead: 'Hazard at this point (PLAC)',
+    hazardHead: 'At this point (official data)',
     hazardSource: 'Source: PLAC/ARVC, 2050 scenario',
-    hz: { flood: '🌊 River flooding (arroios)', heat: '🔥 Heat', landslide: '⛰️ Landslide' },
+    hazardSources: 'Flooding and landslide: susceptibility by the Brazilian Geological Service (SGB/CPRM). Heat: PLAC/ARVC hazard, 2050.',
+    hz: { flood: '🌊 Flooding', heat: '🔥 Heat', landslide: '⛰️ Landslide' },
+    hzOld: { flood: '🌊 River flooding (arroios)', heat: '🔥 Heat', landslide: '⛰️ Landslide' },
     mapAlt: 'Map of the marked place',
   },
 };
@@ -159,6 +169,11 @@ export function CboSiteCard({ card, lang }: { card: CboSiteCardPayload; lang: 'p
   const headline = card.address || card.name;
   const showNameBelow = !!card.address && card.name !== card.address;
   const hazards = (card.pinHazard ?? []).filter(h => h.level >= 0 && h.level <= 4);
+  // A card persisted before 24 Nov 2026 has no `source`: it was all PLAC/ARVC
+  // (flood = streams only) and keeps its old labels.
+  const sgb = hazards.some(h => h.source === 'SGB');
+  const names = sgb ? s.hz : s.hzOld;
+  const notes = hazards.map(h => (lang === 'pt' ? h.notePt : h.noteEn)).filter(Boolean) as string[];
 
   return (
     <div
@@ -212,9 +227,10 @@ export function CboSiteCard({ card, lang }: { card: CboSiteCardPayload; lang: 'p
                   className='flex-1 rounded-lg border border-[#e2d9c4] bg-white dark:bg-stone-950 dark:border-stone-700 px-2 py-1'
                   data-testid={`cbo-site-card-hazard-${h.hazard}`}
                 >
-                  <div className='text-[9.5px] font-semibold text-muted-foreground leading-tight'>{s.hz[h.hazard]}</div>
+                  <div className='text-[9.5px] font-semibold text-muted-foreground leading-tight'>{names[h.hazard]}</div>
                   <div className='text-[11.5px] font-bold' style={{ color: LEVEL_COLORS[h.level] }}>
                     {lang === 'pt' ? h.pt : h.en}
+                    {h.source && <span className='ml-1 text-[9px] font-semibold text-muted-foreground'>{h.source}</span>}
                   </div>
                   <div className='h-[3px] rounded-full bg-[#eee7d6] dark:bg-stone-800 mt-1 overflow-hidden'>
                     <div
@@ -226,13 +242,16 @@ export function CboSiteCard({ card, lang }: { card: CboSiteCardPayload; lang: 'p
               ))}
             </div>
             )}
+            {notes.map(n => (
+              <div key={n} className='text-[11px] leading-snug mt-1.5' data-testid='cbo-site-card-hazard-note'>⛰️ {n}</div>
+            ))}
             {card.guaiba && (
               <div className='text-[11px] leading-snug mt-1.5' data-testid='cbo-site-card-guaiba'>
                 🌊 {lang === 'pt' ? card.guaiba.pt : card.guaiba.en}{' '}
                 <span className='text-[10px] text-muted-foreground'>— {card.guaiba.source}</span>
               </div>
             )}
-            <div className='text-[10px] text-muted-foreground mt-1'>{s.hazardSource}</div>
+            <div className='text-[10px] text-muted-foreground mt-1'>{sgb ? s.hazardSources : s.hazardSource}</div>
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { cityMapFor } from './siteContext';
 import { guaibaLineAt, officialHazardFactsFor } from './officialHazardFacts';
-import { arvcHazardAtPin } from './arvcPointHazard';
+import { hazardAtPin } from './sgbPointHazard';
 import { censusForSite } from './censusContext';
 import { healSite } from './siteHealing';
 import { placeKey } from '@shared/site-of-record';
@@ -2656,13 +2656,15 @@ async function serveE2Inner(
     // tells us nothing, but a geocode that lands on "Praça Itália" or "EMEF
     // Vila Nova" feeds the same keyword rules the picked-place path uses.
     const typeLabel = inferSiteTypeLabel(address || s.name, isPt ? 'pt' : 'en');
-    // What the card may say about hazard (JVP, 10 Nov 2026): the PLAC/ARVC
-    // ameaça sampled AT THE PIN, classed and worded here — never the bairro
+    // What the card may say about hazard (JVP, 10 Nov 2026; sources changed
+    // 24 Nov 2026 — flood and landslide from SGB susceptibility, heat from
+    // PLAC/ARVC, see sgbPointHazard.ts): official data sampled AT THE PIN,
+    // classed and worded here — never the bairro
     // percentile above, which stays internal (família ranking, worry order,
     // which hazard to check). Plus the Guaíba line when the pin is inside a
     // SMAMUS contour the May 2024 flood reached, since the flood ameaça is
     // fluvial only.
-    const pinHazard = arvcHazardAtPin(s.lat, s.lng);
+    const pinHazard = hazardAtPin(s.lat, s.lng);
     const guaiba = guaibaLineAt(s.lat, s.lng);
     pushEvent({
       type: 'show_site_card',

@@ -54,5 +54,11 @@ has no climate scenario, so the landslide and flood maps are single maps (no
 ## Where it is used
 
 - Print maps — `scripts/publication-maps/render.py` (`npm run publication:maps`).
-- The rest of the platform (site card, synergy risk table, chat facts, map
-  layers) — follow-up PRs, see the PR list in the refine.
+- What is said at a pin — `server/services/sgbPointHazard.ts` → `hazardAtPin`:
+  the E2 site card, the synergy report's risk table ("No lugar") and the facts
+  the chat gets with the card. Levels keep the 0..4 scale (≥ 3 = high): SGB
+  Baixa 1 · Média 2 · Alta 3; flood outside SGB's polygons is 0, "não mapeada"
+  (never "baixa"). Landslide adds the nearest SGB mass-movement sector. Heat is
+  still PLAC/ARVC 2050 (`arvcHazardAtPin`). The synergy risk table also counts
+  the May 2024 Guaíba mark on its own.
+- Map layers in the tour and the orchestrator — follow-up PR.
