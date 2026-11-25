@@ -512,7 +512,7 @@ export interface CboSiteCard {
   // Since 24 Nov 2026: flood + landslide = SGB susceptibility (Baixa 1 · Média 2 ·
   // Alta 3; flood outside SGB's polygons = 0 "não mapeada"), heat = PLAC/ARVC.
   // `source` absent = a card persisted before the change (all PLAC).
-  pinHazard?: Array<{ hazard: 'flood' | 'heat' | 'landslide'; level: number; pt: string; en: string; source?: 'SGB' | 'PLAC'; notePt?: string; noteEn?: string }>;
+  pinHazard?: Array<{ hazard: 'flood' | 'heat' | 'landslide'; level: number; pt: string; en: string; source?: 'SGB' | 'PLAC' | 'SMAMUS'; notePt?: string; noteEn?: string }>;
   /**
    * When the pin is inside a SMAMUS Guaíba flood contour at or below the May
    * 2024 level (5,35 m): "Dentro da área atingida com o Guaíba a X m". The flood

@@ -73,3 +73,20 @@ has no climate scenario, so the landslide and flood maps are single maps (no
 - Not changed: our internal bairro ordering (ARVC risco ranks) and the
   publication's bairro table column `moradores_ameaca_inundacao_arroios_alta_2050`
   (city-exposure-stats.py) — both say what they are.
+
+## Flood at an address SGB does not mark (since 25 Nov 2026)
+
+SGB draws flood susceptibility only where the ground is flood-prone, so an
+address outside its polygons used to read "não mapeada", which people read as
+"no data". `hazardAtPin` now takes the strongest official fact there, naming
+its source:
+
+1. reached by the Guaíba in May 2024 (SMAMUS cotas ≤ 5,35 m) → alta (SMAMUS).
+   SGB's 2015 chart leaves out ground behind the Mauá wall and dikes, e.g.
+   Mercado Público, Rodoviária and Floresta, all under water in 2024;
+2. an SGB inundação/enxurrada risk sector within 100 m → "perto de setor de risco";
+3. otherwise → baixa, "fora da área suscetível do SGB", plus the nearest such
+   sector within 1 km.
+
+There is no 1 km share or threshold: that would be our score, not an official
+one. Rain-driven alagamento has no official map.

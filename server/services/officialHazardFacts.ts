@@ -153,16 +153,22 @@ const GUAIBA_MAY_2024_CM = 535;
  * first reaches the point. Null outside every contour that flood reached.
  */
 export function guaibaLineAt(lat: number, lng: number): { pt: string; en: string; source: string } | null {
-  let facts: ReturnType<typeof siteFacts> = [];
-  try { facts = siteFacts(lat, lng); } catch { return null; }
-  const cota = facts.find(f => f.layerId === 'cotas-inundacao');
-  const cm = Number(cota?.props?.contourmax);
-  if (!cota || !Number.isFinite(cm) || cm > GUAIBA_MAY_2024_CM) return null;
+  const cm = guaiba2024CmAt(lat, lng);
+  if (cm == null) return null;
   return {
     pt: `Dentro da área atingida com o Guaíba a ${metresPt(cm)} m`,
     en: `Inside the area reached when the Guaíba is at ${metresEn(cm)} m`,
     source: 'SMAMUS',
   };
+}
+
+/** The lowest SMAMUS Guaíba contour (cm) holding the point, when the May 2024 flood reached it; else null. */
+export function guaiba2024CmAt(lat: number, lng: number): number | null {
+  let facts: ReturnType<typeof siteFacts> = [];
+  try { facts = siteFacts(lat, lng); } catch { return null; }
+  const cota = facts.find(f => f.layerId === 'cotas-inundacao');
+  const cm = Number(cota?.props?.contourmax);
+  return cota && Number.isFinite(cm) && cm <= GUAIBA_MAY_2024_CM ? cm : null;
 }
 
 /** Same, for a site record (`site_lat`/`_site_lat`…); [] when no point is marked. */
