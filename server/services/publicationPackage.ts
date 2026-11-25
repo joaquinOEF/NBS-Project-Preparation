@@ -299,7 +299,10 @@ export function solutionFiles(): Record<string, string | Buffer> {
 }
 
 // ── the maps ───────────────────────────────────────────────────────────────
-export const MAPS_LINE = 'Ameaça de inundação, de ondas de calor e de deslizamentos (PLAC/ARVC, dados oficiais), cada uma no período atual (1995–2014) e em 2050, na mesma escala; PNG e PDF com legenda, e PNG sem legenda para a diagramação.';
+// Landslide and flood are SGB/CPRM susceptibility since 24 Nov 2026 (Julia, Rede
+// SCbN: the ARVC landslide layer painted most of the city "alta"); heat stays
+// PLAC/ARVC, today and 2050. See docs/sgb-suscetibilidade.md.
+export const MAPS_LINE = 'Suscetibilidade a deslizamentos e a inundação (Serviço Geológico do Brasil, SGB/CPRM) e ameaça de ondas de calor (PLAC/ARVC, no período atual 1995–2014 e em 2050, na mesma escala) — dados oficiais; PNG e PDF com legenda, e PNG sem legenda para a diagramação.';
 
 /** Just the maps, from the last upload — the "Mapas (ZIP)" button. Null when none was uploaded. */
 export async function buildMapsZip(maps: { manifest: MapsManifest; zip: Buffer }, live: PublicationPin[]): Promise<Buffer> {
@@ -308,14 +311,14 @@ export async function buildMapsZip(maps: { manifest: MapsManifest; zip: Buffer }
   for (const [name, f] of Object.entries(inner.files)) if (!f.dir && !/(^|\/)(manifest|numbers)\.json$/.test(name)) out.file(name.replace(/^mapas\//, ''), await f.async('nodebuffer'));
   const drawn = new Date(maps.manifest.renderedAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
   const stale = staleMapReasons(maps.manifest, live);
-  out.file('LEIA-ME.txt', `MAPAS DE AMEAÇA — Rede SCbN POA
+  out.file('LEIA-ME.txt', `MAPAS DE SUSCETIBILIDADE E AMEAÇA — Rede SCbN POA
 ${MAPS_LINE}
 Desenhados em ${drawn}.${stale.length ? ` ⚠️ DESATUALIZADOS: ${stale.join('; ')}. Peça para gerar de novo antes de publicar.` : ' Com os pontos atuais de todas as organizações.'}
 
-- inundacao: inundação fluvial dos arroios (PLAC) + a cota do Guaíba na cheia de maio de 2024 (SMAMUS). Alagamento por chuva (drenagem) não está modelado pelo PLAC.
-- ilhas_de_calor: ameaça de ondas de calor (PLAC).
-- deslizamentos: ameaça de deslizamentos (PLAC) + setores de risco mapeados pelo SGB/CPRM.
-As cores mostram a ameaça relativa dentro do município; atual e 2050 usam a mesma escala, então a diferença de cor entre os dois é a mudança projetada.
+- inundacao: suscetibilidade a inundação pelos arroios e pelo Guaíba numa camada só (SGB/CPRM, carta de 2015) + a linha do nível do Guaíba na cheia de maio de 2024 (5,35 m, SMAMUS). Alagamento por chuva (drenagem) não está mapeado.
+- deslizamentos: suscetibilidade a deslizamentos (SGB/CPRM, carta de 2015; média e alta em cor, o resto é baixa) + setores de risco vistoriados em campo pelo SGB (2022).
+- ilhas_de_calor: ameaça de ondas de calor (PLAC/ARVC). As cores mostram a ameaça relativa dentro do município; atual e 2050 usam a mesma escala, então a diferença de cor entre os dois é a mudança projetada.
+Suscetibilidade = o quanto o terreno favorece o processo; não tem cenário climático.
 `);
   return out.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
