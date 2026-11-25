@@ -253,6 +253,15 @@ test.describe('the cross', () => {
     expect(cell('d', 'landslide')).toMatchObject({ state: 'ok', by: ['solo-grampeado-verde'] });
   });
 
+  test('risk: below the May 2024 Guaíba mark counts even when SGB maps no flood there (level 0)', () => {
+    // Since 24 Nov 2026 every pin in the city has an SGB flood reading, 0 = not mapped.
+    const plat = PLATFORM.map(p => p.memberId === 'b' ? { ...p, hazard: { ...p.hazard, flood: { level: 0, pt: 'não mapeada' } }, guaibaCotaM: 2.9 } : p);
+    const t = proposeSolutionsTable([ORGS, RATINGS], MEMBERS)!;
+    const flood = crossAnalysis(t, plat, { name: 'x.xlsx' }).risk.find(r => r.memberId === 'b')!.cells.find(x => x.hazard === 'flood')!;
+    expect(flood.state).not.toBe('na');
+    expect(flood.sitePt).toBe('não mapeada');
+  });
+
   test('the reading is computed from the counts', () => {
     const wishes = c.orgs.reduce((n, o) => n + o.wants.length, 0);
     expect(c.readingPt[0]).toContain(`Dos ${wishes} desejos`);

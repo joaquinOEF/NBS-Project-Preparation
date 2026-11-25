@@ -105,7 +105,7 @@ function outsideHtml(c: OutsideCross, show: (id: SynergyFocusId) => boolean): st
   const noFlood = c.risk.filter(r => r.cells.find(x => x.hazard === 'flood')?.sitePt == null).length;
   const risk = c.hasRatings && c.risk.length ? `
   <h2 class="pb">O que as listas fazem pelos riscos de cada lugar</h2>
-  <p class="hyp">Em cada par, à esquerda: o nível no lugar do projeto segundo os mapas oficiais de ameaça da cidade (Plano de Ação Climática). À direita: a maior redução entre as soluções que a organização quer, e qual solução a oferece. ▲ ameaça alta ou muito alta e nenhuma solução acima de “fraca”; ◆ redução média, no máximo; ● ao menos uma solução com redução forte.</p>
+  <p class="hyp">Em cada par, à esquerda: o nível no lugar do projeto segundo os mapas oficiais (inundação e deslizamento: suscetibilidade do Serviço Geológico do Brasil; calor: ameaça do Plano de Ação Climática). À direita: a maior redução entre as soluções que a organização quer, e qual solução a oferece. ▲ ameaça alta ou muito alta e nenhuma solução acima de “fraca”; ◆ redução média, no máximo; ● ao menos uma solução com redução forte.</p>
   <table class="rk"><thead><tr><th rowspan="2">Organização</th>${HAZARDS3.map(h => `<th colspan="2">${h.pt}</th>`).join('')}</tr><tr>${'<th>No lugar</th><th>Melhor da lista</th>'.repeat(3)}</tr></thead><tbody>
     ${c.risk.map(r => `<tr><th>${esc(on(r.memberId))}</th>${r.cells.map(x => `
       <td class="site${(x.level ?? 0) >= 3 ? ' hi' : x.sitePt == null ? ' none' : ''}">${esc(x.sitePt ?? 'sem leitura')}${x.notePt ? `<small>${esc(x.notePt)}</small>` : ''}</td>

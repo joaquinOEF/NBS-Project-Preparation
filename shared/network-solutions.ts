@@ -391,7 +391,7 @@ export interface PlatformSide {
   discarded: string[];
   /** The technical visit's recommended solution id. */
   visit: string | null;
-  /** PLAC/ARVC 2050 ameaça class at the site, 0..4, per hazard that has a reading there. */
+  /** Official class at the site, 0..4 (≥ 3 = high): flood + landslide SGB susceptibility, heat PLAC/ARVC 2050 (server/services/sgbPointHazard.ts). */
   hazard: Partial<Record<Hazard3, { level: number; pt: string }>>;
   /** The Guaíba flood mark (cota, m) the city's maps place the site inside. */
   guaibaCotaM: number | null;
@@ -527,7 +527,9 @@ export function crossAnalysis(table: SolutionsTable, platform: PlatformSide[], f
         const best = Math.max(0, ...o.wants.map(x => R(x, key))) as Strength;
         const by = best > 0 ? o.wants.filter(x => R(x, key) === best) : [];
         const cota = key === 'flood' ? p.guaibaCotaM : null;
-        const high = hz ? hz.level >= 3 : (cota != null && cota <= GUAIBA_2024_M);
+        // A flood reading always exists inside the city now (SGB; 0 = not mapped), so
+        // the May 2024 Guaíba mark counts on its own, not only as a fallback.
+        const high = (hz ? hz.level >= 3 : false) || (cota != null && cota <= GUAIBA_2024_M);
         return {
           hazard: key, sitePt: hz?.pt ?? null, level: hz?.level ?? null,
           notePt: cota != null ? `dentro da mancha da cota de ${cota.toFixed(2).replace('.', ',')} m do Guaíba` : null,
