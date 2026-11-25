@@ -115,17 +115,17 @@ function tractsAround(L: Loaded, lat: number, lng: number): string[] {
  * e2e/record-defects.spec.ts); this is the count inside the circle.
  */
 const CELL_M = 20;
-function weightsAround(L: Loaded, points: Array<{ lat: number; lng: number }>): Map<string, number> {
+function weightsAround(L: Loaded, points: Array<{ lat: number; lng: number }>, radiusM = RADIUS_M): Map<string, number> {
   const kx = 111_320 * Math.cos((-30.05 * Math.PI) / 180), ky = 110_540;
   const cells = new Set<string>();
   for (const p of points) {
-    const gx0 = Math.round((p.lng * kx) / CELL_M), gy0 = Math.round((p.lat * ky) / CELL_M), n = Math.ceil(RADIUS_M / CELL_M);
+    const gx0 = Math.round((p.lng * kx) / CELL_M), gy0 = Math.round((p.lat * ky) / CELL_M), n = Math.ceil(radiusM / CELL_M);
     for (let dx = -n; dx <= n; dx++) for (let dy = -n; dy <= n; dy++) {
       const cx = (gx0 + dx) * CELL_M, cy = (gy0 + dy) * CELL_M;
-      if (Math.hypot(cx - p.lng * kx, cy - p.lat * ky) <= RADIUS_M) cells.add(`${gx0 + dx}:${gy0 + dy}`);
+      if (Math.hypot(cx - p.lng * kx, cy - p.lat * ky) <= radiusM) cells.add(`${gx0 + dx}:${gy0 + dy}`);
     }
   }
-  const candidates = L.tracts.filter(t => points.some(p => nearBbox(p.lat, p.lng, t.bbox, RADIUS_M + CELL_M)));
+  const candidates = L.tracts.filter(t => points.some(p => nearBbox(p.lat, p.lng, t.bbox, radiusM + CELL_M)));
   const count = new Map<string, number>();
   for (const key of Array.from(cells)) {
     const [gx, gy] = key.split(':').map(Number);
@@ -164,11 +164,15 @@ function nearbyOf(L: Loaded, lat: number, lng: number): CensusNearby[] {
   return out.sort((a, b) => a.distanceM - b.distanceM);
 }
 
-/** The census around one point; null when the snapshot is absent or the point is outside the city. */
-export function censusAround(lat: number, lng: number): CensusAround | null {
+/**
+ * The census around one point; null when the snapshot is absent or the point is outside the city.
+ * `radiusM` (default 300 m): the publication reads 1 km (Julia, Rede SCbN, 25 Nov 2026 — the
+ * organisations asked for their surroundings, not just the block).
+ */
+export function censusAround(lat: number, lng: number, opts: { radiusM?: number } = {}): CensusAround | null {
   const L = load();
   if (!L || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  const w = weightsAround(L, [{ lat, lng }]);
+  const w = weightsAround(L, [{ lat, lng }], opts.radiusM ?? RADIUS_M);
   if (!w.size) return null;
   return summarise(L, w, nearbyOf(L, lat, lng));
 }

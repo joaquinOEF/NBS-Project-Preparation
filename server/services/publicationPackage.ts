@@ -26,6 +26,7 @@ import JSZip from 'jszip';
 import * as turf from '@turf/turf';
 import { censusAround, censusBairroAt } from './censusContext';
 import { cityMapFor } from './siteContext';
+import { hazardAtPin } from './sgbPointHazard';
 import { cityExposure } from './cityClimateContext';
 import { recordPin } from '@shared/site-of-record';
 import { worryLabel } from '@shared/w3-dossier';
@@ -124,6 +125,15 @@ export const KEYS_300M = ['organizacao', 'bairro', 'localizacao', 'moradores_300
   'mancha_de_inundacao_guaiba', 'ponto_de_alagamento_registrado', 'preocupacao_da_organizacao',
   'bairro_censo', 'bairro_moradores', 'bairro_moradores_abaixo_da_cheia_2024', 'bairro_pct_abaixo_da_cheia_2024',
   'bairro_moradores_em_setor_de_risco_sgb', 'bairro_renda_tipica'];
+/**
+ * The same three indicators at 1 km, plus the official hazard at the pin (Julia,
+ * Rede SCbN, 25 Nov 2026: the organisations asked for their territory, not the
+ * block). 1 km dilutes the street — Sementes da Vida Nova's homes without
+ * adequate sewage read 94% at 300 m and 30% at 1 km — so both tables ship.
+ */
+export const KEYS_1KM = ['organizacao', 'bairro', 'localizacao', 'moradores_1km', 'domicilios_1km', 'pct_domicilios_sem_esgoto_adequado_1km',
+  'pct_domicilios_em_rua_sem_arvores_1km', 'renda_tipica_1km', 'dado_parcial_ibge_1km', 'setores_risco_sgb_1km', 'sgb_tipos_1km', 'sgb_mais_proximo_1km',
+  'inundacao_no_lugar_sgb', 'calor_no_lugar_plac', 'deslizamento_no_lugar_sgb', 'mancha_de_inundacao_guaiba'];
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -140,6 +150,7 @@ export function orgTables(orgs: PublicationOrg[], manifest?: MapsManifest | null
   const bairros = new Map((cityExposure()?.bairros ?? []).map(b => [norm(b.bairro), b]));
   const orgRows: Array<Record<string, unknown>> = [];
   const rows300: Array<Record<string, unknown>> = [];
+  const rows1km: Array<Record<string, unknown>> = [];
   for (const o of [...orgs].sort((a, b) => (num.get(a.memberId) ?? 99) - (num.get(b.memberId) ?? 99))) {
     const p = pins.find(x => x.memberId === o.memberId)!;
     const bairro = p.bairro;
@@ -147,6 +158,7 @@ export function orgTables(orgs: PublicationOrg[], manifest?: MapsManifest | null
     orgRows.push({ numero_no_mapa: num.get(o.memberId), organizacao: o.orgName, bairro, endereco_do_projeto: str(o.site.site_address), nome_do_lugar: str(o.site.site_name),
       latitude: p.lat ?? '', longitude: p.lng ?? '', localizacao: where });
     const r: Record<string, unknown> = { organizacao: o.orgName, bairro, localizacao: where, preocupacao_da_organizacao: str(o.site.site_worry) ? worryLabel(str(o.site.site_worry), true) : '' };
+    const k: Record<string, unknown> = { organizacao: o.orgName, bairro, localizacao: where };
     if (p.lat != null && p.lng != null) {
       const c = censusAround(p.lat, p.lng);
       if (c) Object.assign(r, { moradores_300m: c.people, domicilios_300m: c.homes, pct_domicilios_sem_esgoto_adequado: pct(c.noSewerShare),
@@ -158,6 +170,15 @@ export function orgTables(orgs: PublicationOrg[], manifest?: MapsManifest | null
       const cota = map.find(l => /cota de/.test(l.text));
       r.mancha_de_inundacao_guaiba = cota ? cota.text.split(' (')[0].replace('Fica dentro da mancha da ', '').replace(/\.$/, '') : 'fora das manchas mapeadas';
       r.ponto_de_alagamento_registrado = map.some(l => /Ponto de alagamento/i.test(l.text)) ? 'sim' : '';
+      const c1 = censusAround(p.lat, p.lng, { radiusM: 1000 });
+      if (c1) Object.assign(k, { moradores_1km: c1.people, domicilios_1km: c1.homes, pct_domicilios_sem_esgoto_adequado_1km: pct(c1.noSewerShare),
+        pct_domicilios_em_rua_sem_arvores_1km: pct(c1.noTreesShare), renda_tipica_1km: c1.incomeMedian == null ? '' : Math.round(c1.incomeMedian), dado_parcial_ibge_1km: c1.partial ? 'sim' : '' });
+      const hits1 = sgbWithin(p.lat, p.lng, 1000);
+      const hz = Object.fromEntries(hazardAtPin(p.lat, p.lng).map(h => [h.hazard, h]));
+      Object.assign(k, { setores_risco_sgb_1km: hits1.length, sgb_tipos_1km: Array.from(new Set(hits1.map(h => h.tipo).filter(Boolean))).sort().join(', '),
+        sgb_mais_proximo_1km: hits1[0] ? `${hits1[0].local} (${hits1[0].tipo}, ${hits1[0].d === 0 ? 'no lugar' : `${hits1[0].d} m`})` : '',
+        inundacao_no_lugar_sgb: hz.flood?.pt ?? '', calor_no_lugar_plac: hz.heat?.pt ?? '', deslizamento_no_lugar_sgb: hz.landslide?.pt ?? '',
+        mancha_de_inundacao_guaiba: r.mancha_de_inundacao_guaiba });
       // Their bairro's row, so the reader finds it without opening the other table.
       const cb = censusBairroAt(p.lat, p.lng);
       const b = cb ? bairros.get(norm(cb)) : undefined;
@@ -165,8 +186,9 @@ export function orgTables(orgs: PublicationOrg[], manifest?: MapsManifest | null
         bairro_pct_abaixo_da_cheia_2024: b.people ? Math.round(100 * b.cota2024 / b.people) : '', bairro_moradores_em_setor_de_risco_sgb: b.sgb, bairro_renda_tipica: b.incomeMedian ?? '' });
     }
     rows300.push(r);
+    rows1km.push(k);
   }
-  return { pins, orgRows, rows300, orgsCsv: csv(orgRows, ORG_KEYS), csv300: csv(rows300, KEYS_300M) };
+  return { pins, orgRows, rows300, rows1km, orgsCsv: csv(orgRows, ORG_KEYS), csv300: csv(rows300, KEYS_300M), csv1km: csv(rows1km, KEYS_1KM) };
 }
 
 // ── the city's context ─────────────────────────────────────────────────────
@@ -329,9 +351,10 @@ export async function buildPublicationZip(orgs: PublicationOrg[], opts: { cohort
   const stamp = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
   const zip = new JSZip();
   const tables = orgTables(orgs, opts.maps?.manifest);
-  const { pins, orgsCsv, csv300 } = tables;
+  const { pins, orgsCsv, csv300, csv1km } = tables;
   zip.file('organizacoes.csv', orgsCsv);
   zip.file('dados_por_organizacao_300m.csv', csv300);
+  zip.file('dados_por_organizacao_1km.csv', csv1km);
   zip.file('dados_da_publicacao.xlsx', await buildPublicationWorkbook(tables, { cohortName: opts.cohortName, stamp }));
   for (const [name, body] of Object.entries(cityContextFiles(stamp))) zip.file(name, body);
   for (const [name, body] of Object.entries(solutionFiles())) zip.file(name, body);
@@ -351,6 +374,7 @@ Gerado pela plataforma em ${stamp}, a partir dos pontos e respostas atuais de ca
 - organizacoes.csv — as ${orgs.length} organizações, numeradas como nos mapas (norte → sul): bairro, endereço e coordenadas do lugar do projeto.
 - dados_da_publicacao.xlsx — as mesmas tabelas numa planilha do Excel, com cabeçalhos por extenso e uma aba explicando cada coluna.
 - dados_por_organizacao_300m.csv — em volta de cada lugar (raio de 300 m): moradores e domicílios (Censo 2022), esgoto, ruas sem árvores, renda típica do responsável pelo domicílio (mediana, entre os setores censitários a até ~300 m, da renda média de cada setor — por isso duas organizações do mesmo bairro têm valores diferentes), setores de risco do SGB, cota do Guaíba, ponto de alagamento, a preocupação da organização; e, nas colunas "bairro_…", os números do bairro onde fica o lugar.
+- dados_por_organizacao_1km.csv — os mesmos indicadores (esgoto, ruas sem árvores, renda típica) a até 1 km, os setores de risco do SGB a até 1 km e as ameaças no lugar: inundação e deslizamento pela suscetibilidade do SGB, calor pelo PLAC/ARVC. Com 1 km o retrato é do território, mas a rua do projeto se dilui; compare com a tabela de 300 m.
 - contexto_porto_alegre/ — desastres já vividos (S2ID), onde a cheia de 2024 chegou, quem mora nas áreas de risco (injustiça climática), e a tabela por bairro.
 - solucoes_SbN/ — as ${NBS_SOLUTIONS.length} soluções: página para imprimir (abra o .html no navegador → Imprimir → Salvar como PDF), textos em CSV, fotos e croquis antes/depois.
 - ${mapsLine}
