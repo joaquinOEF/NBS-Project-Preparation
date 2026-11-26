@@ -88,6 +88,40 @@ test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
     await page.waitForTimeout(1000);
   });
 
+  test('"Organizations only": no hazard, no 2024 flood, bairros say only their name', async ({ page }) => {
+    const api = new TestApi(page.request);
+    await api.createCoordinator({ email: `map-orgs-${randomUUID()}@e2e.test`, password: 'map-pass-123', name: 'Orgs' });
+    await page.goto('/orchestrator');
+    await showMap(page);
+    await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 20_000 });
+
+    const orgs = page.getByTestId('risk-view-orgs');
+    const flood = page.getByTestId('risk-view-flood');
+    const flood2024 = page.getByTestId('risk-view-flood2024');
+    await expect(orgs).toHaveText(/Organizations only/);
+    await expect(orgs).toHaveAttribute('aria-pressed', 'false');
+
+    await flood2024.click();
+    await expect(flood2024).toHaveAttribute('aria-pressed', 'true');
+    await orgs.click();
+    await expect(orgs).toHaveAttribute('aria-pressed', 'true');
+    await expect(flood).toHaveAttribute('aria-pressed', 'false');
+    await expect(flood2024).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('hazard-source')).toHaveCount(0);
+    await expect(page.locator('.leaflet-tile-pane img[src*="sgb-susc"], .leaflet-tile-pane img[src*="/arvc/"]')).toHaveCount(0);
+
+    // A bairro's tooltip carries its name and no OEF priority.
+    await expect.poll(() => page.locator('.leaflet-overlay-pane path.leaflet-interactive').count(), { timeout: 15_000 }).toBeGreaterThan(10);
+    await page.locator('.leaflet-overlay-pane path.leaflet-interactive').nth(5).hover({ force: true });
+    const tip = page.locator('.orch-marker-tip').first();
+    await expect(tip).toBeVisible();
+    await expect(tip).not.toContainText(/priority|prioridade/i);
+
+    // Choosing a hazard leaves the view.
+    await flood.click();
+    await expect(orgs).toHaveAttribute('aria-pressed', 'false');
+  });
+
   test('pt: hazard toggles name their source, the bairro view reads "estimativa OEF"', async ({ page }) => {
     await page.addInitScript(() => { try { localStorage.setItem('i18nextLng', 'pt'); } catch {} });
     const api = new TestApi(page.request);

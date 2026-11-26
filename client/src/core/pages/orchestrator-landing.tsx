@@ -990,6 +990,9 @@ function MapPanel({
           // (estimativa OEF)" and never "risco". See docs/arvc-official.md.
           const tipHtml = () => {
             const tt = tRef.current;
+            // "Organizations only" is the map without risk: the bairro says its
+            // name and nothing about priority.
+            if (activeRiskRef.current === null) return `<b>${name}</b>`;
             const hazardWord = hazard
               ? tt(`orchestrator.map.hazard.${hazard.toLowerCase()}`, { defaultValue: hazard.toLowerCase().replace(/_/g, ' + ') })
               : '';
@@ -1112,6 +1115,8 @@ function MapPanel({
 // composite Risk-by-neighborhood choropleth. One at a time; click the active to
 // turn it off. Legend adapts to the active view.
 // ---------------------------------------------------------------------------
+const ORGS_VIEW_COLOR = '#0f766e';
+
 function MapLayerControls({
   active,
   onChange,
@@ -1137,6 +1142,33 @@ function MapLayerControls({
         {t('orchestrator.map.riskView', { defaultValue: 'Map view' })}
       </div>
       <div className="space-y-1">
+        {/* The map with no risk on it: outlines + the organisations' pins (name
+            on hover). Asked for by the coordination on 26 Nov 2026 — clicking
+            the active view off did the same, but nobody would guess that. */}
+        {(() => {
+          const on = active === null && !flood2024;
+          return (
+            <button
+              type="button"
+              onClick={() => { onChange(null); onFlood2024Change(false); }}
+              aria-pressed={on}
+              data-testid="risk-view-orgs"
+              style={on ? { backgroundColor: ORGS_VIEW_COLOR, borderColor: ORGS_VIEW_COLOR } : undefined}
+              className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all ${
+                on
+                  ? 'text-white font-semibold shadow-md'
+                  : 'border-foreground/10 text-foreground/75 hover:bg-foreground/[0.05]'
+              }`}
+            >
+              <span
+                className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${on ? 'ring-2 ring-white/70' : ''}`}
+                style={{ background: on ? '#ffffff' : ORGS_VIEW_COLOR }}
+              />
+              <span className="leading-tight">{t('orchestrator.map.orgsOnly', { defaultValue: 'Organizations only' })}</span>
+              {on && <Check className="w-3.5 h-3.5 ml-auto shrink-0" strokeWidth={3} />}
+            </button>
+          );
+        })()}
         {VIEWS.map(v => {
           const on = active === v.id;
           return (

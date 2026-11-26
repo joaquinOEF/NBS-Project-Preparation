@@ -265,6 +265,7 @@
       "recruitFrom": "Recrutar em {{name}}",
       "riskByBairro": "Prioridade por bairro (estimativa OEF)",
       "riskView": "Visão no mapa",
+      "orgsOnly": "Só as organizações (sem riscos)",
       "zonePriority": "Prioridade (estimativa OEF, a partir do PLAC)",
       "landslideProne": "Terreno propenso a deslizamentos",
       "hazardIntensity": "Intensidade da ameaça",
