@@ -1,4 +1,5 @@
 import { isPhotoCaption } from '@shared/photo-caption';
+import { testCopyName } from '@shared/test-copy';
 import { createHash } from 'node:crypto';
 import { cityMapFor, siteGroupsFor, sitePoint } from '../services/siteContext';
 import { cityContextFor } from '../services/cityClimateContext';
@@ -2318,7 +2319,7 @@ export function registerCohortRoutes(app: Express): void {
   ) {
     let snap = opts.asOf === 'end-of-e2' ? trimToEndOfE2(raw) : raw;
     if (!opts.keepContacts) snap = stripContacts(snap);
-    const orgName = (opts.orgName || '').trim() || (opts.member ? snap.orgName : `${snap.orgName} (teste)`);
+    const orgName = (opts.orgName || '').trim() || (opts.member ? snap.orgName : testCopyName(snap.orgName));
 
     const state = createEmptyCboState('porto-alegre');
     state.orgName = orgName;

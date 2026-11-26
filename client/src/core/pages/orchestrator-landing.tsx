@@ -49,6 +49,7 @@ import type { CohortMember, CohortProject, WorkshopConfig } from '@shared/cohort
 import { TYPOLOGY_COLORS, zoneRiskOpacity } from '@shared/risk-display';
 import { HAZARD_TILE_RAMP } from '@shared/arvc-official';
 import { getSolution } from '@shared/nbs-catalog';
+import { isTestCopyName } from '@shared/test-copy';
 import { SGB_SUSC_URL, sgbLegendColors } from '@shared/sgb-susceptibility';
 import {
   InviteCboDialog,
@@ -920,7 +921,9 @@ function MapPanel({
       maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom,
     }).addTo(map);
 
-    const mapped = projects.filter(p => p.coords);
+    // Test copies get no pin: they sit on the original's site ("Vila Flores
+    // (teste)" was stacked under Vila Flores on prod, 26 Nov 2026).
+    const mapped = projects.filter(p => p.coords && !isTestCopyName(p.name.pt));
     if (mapped.length > 0) {
       const bounds = L.latLngBounds(mapped.map(p => p.coords!));
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 13 });
