@@ -48,6 +48,7 @@ import { useLocation } from 'wouter';
 import type { CohortMember, CohortProject, WorkshopConfig } from '@shared/cohort-schema';
 import { TYPOLOGY_COLORS, zoneRiskOpacity } from '@shared/risk-display';
 import { HAZARD_TILE_RAMP } from '@shared/arvc-official';
+import { getSolution } from '@shared/nbs-catalog';
 import { SGB_SUSC_URL, sgbLegendColors } from '@shared/sgb-susceptibility';
 import {
   InviteCboDialog,
@@ -822,6 +823,17 @@ function bairroStyle(feat: any, view: RiskView | null, range: RiskRange): L.Path
   return { color: '#475569', weight: 1, opacity: 0.85, fillOpacity: 0 };
 }
 
+const escHtml = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+/** A pin's tooltip: the rich label on hover, or the bare name kept on screen. */
+function bindPinTip(marker: L.Marker, p: CboDemoProject, permanent: boolean, rich: () => string) {
+  marker.unbindTooltip();
+  marker.bindTooltip(permanent ? escHtml(p.name.en) : rich, {
+    direction: 'top', offset: [0, -14], permanent,
+    className: permanent ? 'orch-marker-tip orch-marker-name' : 'orch-marker-tip',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Map panel — CartoDB Positron base + CBO markers + toggleable risk overlays
 // (composite hotspot raster, bairro choropleth). Selected state synced with
@@ -835,10 +847,19 @@ function MapPanel({
   showFlood2024 = false,
   onBairroClick,
   compact = false,
+  onOpen,
+  pinTip,
+  showNames = false,
 }: {
   projects: CboDemoProject[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** A click on a pin opens the organisation (on touch: the second tap). */
+  onOpen: (id: string) => void;
+  /** The pin's hover label, as HTML (escaped by the caller). */
+  pinTip: (p: CboDemoProject) => string;
+  /** Names always on screen (only offered in "Organizations only"). */
+  showNames?: boolean;
   activeRisk: RiskView | null;
   /** Observed May 2024 flood extent (the Guaíba) over whatever view is active. */
   showFlood2024?: boolean;
@@ -871,6 +892,14 @@ function MapPanel({
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
   const onBairroClickRef = useRef(onBairroClick);
   useEffect(() => { onBairroClickRef.current = onBairroClick; }, [onBairroClick]);
+  const onOpenRef = useRef(onOpen);
+  useEffect(() => { onOpenRef.current = onOpen; }, [onOpen]);
+  const pinTipRef = useRef(pinTip);
+  useEffect(() => { pinTipRef.current = pinTip; }, [pinTip]);
+  // Touch: the first tap on a pin shows its label (there is no hover), the
+  // second opens the organisation. Holds the pin that was tapped once.
+  const armedPinRef = useRef<string | null>(null);
+  const pinProjectsRef = useRef<Map<string, CboDemoProject>>(new Map());
 
   // Mount the map once.
   useEffect(() => {
@@ -910,22 +939,34 @@ function MapPanel({
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
-      const marker = L.marker(p.coords!, { icon })
-        .bindTooltip(p.name.en, { direction: 'top', offset: [0, -14], className: 'orch-marker-tip' })
-        .addTo(map);
+      const marker = L.marker(p.coords!, { icon }).addTo(map);
+      bindPinTip(marker, p, false, () => pinTipRef.current(p));
 
       // Defer handlers to refs so identity is stable.
-      marker.on('click',     () => onSelectRef.current(p.id));
+      marker.on('click', () => {
+        const touch = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none)').matches;
+        if (touch && armedPinRef.current !== p.id) {
+          armedPinRef.current = p.id;
+          onSelectRef.current(p.id);
+          marker.openTooltip();
+          return;
+        }
+        armedPinRef.current = null;
+        onOpenRef.current(p.id);
+      });
       marker.on('mouseover', () => onSelectRef.current(p.id));
       marker.on('mouseout',  () => onSelectRef.current(null));
 
       markersRef.current.set(p.id, marker);
+      pinProjectsRef.current.set(p.id, p);
     }
+    map.on('click', () => { armedPinRef.current = null; });
 
     return () => {
       map.remove();
       mapInstanceRef.current = null;
       markersRef.current.clear();
+      pinProjectsRef.current.clear();
       rasterLayerRef.current = null;
       recruitLayerRef.current = null;
       flood2024LayerRef.current = null;
@@ -961,6 +1002,18 @@ function MapPanel({
       el.classList.toggle('orch-marker-selected', id === selectedId);
     });
   }, [selectedId]);
+
+  // "Show names": every pin's name stays on screen (name only — the full
+  // label would cover the Centro). Off → back to the hover label.
+  const namesShownRef = useRef(false);
+  useEffect(() => {
+    if (namesShownRef.current === showNames) return;
+    namesShownRef.current = showNames;
+    markersRef.current.forEach((marker, id) => {
+      const p = pinProjectsRef.current.get(id);
+      if (p) bindPinTip(marker, p, showNames, () => pinTipRef.current(p));
+    });
+  }, [showNames]);
 
   // Neighborhoods are ALWAYS shown — outlined bairro polygons under the markers.
   // Built once from the zones JSON (cached). Styling reacts to activeRisk in a
@@ -1122,11 +1175,15 @@ function MapLayerControls({
   onChange,
   flood2024,
   onFlood2024Change,
+  showNames,
+  onShowNamesChange,
 }: {
   active: RiskView | null;
   onChange: (next: RiskView | null) => void;
   flood2024: boolean;
   onFlood2024Change: (next: boolean) => void;
+  showNames: boolean;
+  onShowNamesChange: (next: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
@@ -1169,6 +1226,17 @@ function MapLayerControls({
             </button>
           );
         })()}
+        {active === null && !flood2024 && (
+          <label className="flex items-center gap-2 px-2 py-1 text-foreground/75 cursor-pointer select-none" data-testid="map-show-names">
+            <input
+              type="checkbox"
+              checked={showNames}
+              onChange={e => onShowNamesChange(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[#0f766e]"
+            />
+            {t('orchestrator.map.showNames', { defaultValue: 'Show names' })}
+          </label>
+        )}
         {VIEWS.map(v => {
           const on = active === v.id;
           return (
@@ -1313,6 +1381,8 @@ export default function OrchestratorLandingPage() {
   const [activeRisk, setActiveRisk] = useState<RiskView | null>('flood');
   // Observed May 2024 flood extent — an overlay, not one of the exclusive views.
   const [showFlood2024, setShowFlood2024] = useState(false);
+  // Pin names kept on screen — only in "Organizations only".
+  const [showNames, setShowNames] = useState(false);
 
   // Phase 3c-ii — require a coordinator session. On 401, bounce to login.
   // `authed`: null = checking, false = redirecting, true = render the dashboard.
@@ -1582,6 +1652,27 @@ export default function OrchestratorLandingPage() {
   // panel's Convite tab, so clicking a CBO card opens here (not the share modal).
   // The share modal is kept only for the just-created new-invite moment.
   const [skipPrompt, setSkipPrompt] = useState(false);
+  // The pin's hover label (coordinator map): who, where, which encontro, what
+  // they are working on, and whether they asked for help. No risk on it — the
+  // layers and the organisation's panel carry that.
+  const pinTip = (p: CboDemoProject): string => {
+    const m = memberById.get(p.id);
+    const encontro = Number(m?.snapshotPhase ?? 1) || 1;
+    const w3 = (p.w3 ?? null) as JourneyCardData['w3'] | null;
+    const solLabel = (id: string) => { const s = getSolution(id); return s ? (locale === 'pt' ? s.pt.label : s.en.label) : id.replace(/-/g, ' '); };
+    const liked = (w3?.tests ?? []).filter(x => x.reaction === 'faz-sentido').map(x => x.id);
+    const sols = w3?.visit?.solutionId ? [w3.visit.solutionId] : liked;
+    const solLine = sols.length ? sols.slice(0, 2).map(solLabel).join(', ') + (sols.length > 2 ? ` +${sols.length - 2}` : '') : '';
+    const lines = [
+      `<b>${escHtml(p.name[locale])}</b>`,
+      escHtml([p.neighborhood, t('orchestrator.map.pinEncontro', { defaultValue: 'Encontro {{n}}', n: encontro })].filter(Boolean).join(' · ')),
+    ];
+    if (solLine) lines.push(escHtml(solLine));
+    if (p.supportPendingCount > 0) lines.push(`<span style="color:#fcd34d">${escHtml(t('orchestrator.map.pinSupport', { defaultValue: '{{count}} open support request(s)', count: p.supportPendingCount }))}</span>`);
+    return lines.join('<br/>');
+  };
+  const openPin = (id: string) => { const p = projectById.get(id); if (p) openCbo(p, 'perfil'); };
+
   const openCbo = (p: CboDemoProject, tab: CboDrawerTab, opts?: { skipPrompt?: boolean }) => {
     setSkipPrompt(!!opts?.skipPrompt);
     const member = memberById.get(p.id);
@@ -2163,6 +2254,9 @@ export default function OrchestratorLandingPage() {
                   showFlood2024={showFlood2024}
                   onBairroClick={handleBairroClick}
                   compact={!mapOpen}
+                  onOpen={openPin}
+                  pinTip={pinTip}
+                  showNames={showNames && activeRisk === null && !showFlood2024 && mapOpen}
                 />
                 {mapOpen && (
                   <MapLayerControls
@@ -2170,6 +2264,8 @@ export default function OrchestratorLandingPage() {
                     onChange={setActiveRisk}
                     flood2024={showFlood2024}
                     onFlood2024Change={setShowFlood2024}
+                    showNames={showNames}
+                    onShowNamesChange={setShowNames}
                   />
                 )}
               </div>

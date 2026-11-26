@@ -309,6 +309,8 @@
   border-radius: 6px !important;
 }
 .orch-marker-tip::before { border-top-color: rgba(15, 23, 42, 0.92) !important; }
+/* "Show names": the bare name kept on screen, smaller so the Centro stays readable. */
+.orch-marker-tip.orch-marker-name { font-size: 10px !important; padding: 2px 6px !important; }
 
 /* Risk tile layers: smooth upscaling to fill gaps between 250m cells */
 .risk-tile-layer img {
