@@ -52,6 +52,19 @@ test.describe('coordinator map pins', () => {
   });
 });
 
+test('a test copy ("… (teste)") gets no pin; the original keeps its own', async ({ page, request }) => {
+  const name = `Org Original ${randomUUID().slice(0, 5)}`;
+  const original = await placedMember(page, request, name, [-30.16, -51.10]);
+  const mine = await (await page.request.get('/api/cohort/mine')).json();
+  const copy = (await new TestApi(request).inviteMember(mine.cohort.id, { orgName: `${name} (teste)` })).member;
+  const put = await page.request.put(`/api/cbo-member/${copy.memberSlug}/site`, { data: { name: 'Ponto', coordinates: [-30.16, -51.10] } });
+  expect(put.ok()).toBeTruthy();
+  await page.goto('/orchestrator');
+  await showMap(page);
+  await expect(page.locator(`.orch-marker-inner[data-id="${original.id}"]`)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(`.orch-marker-inner[data-id="${copy.id}"]`)).toHaveCount(0);
+});
+
 test.describe('coordinator map pins — touch', () => {
   test.use({ hasTouch: true, isMobile: false, viewport: { width: 1180, height: 820 } });
   test('first tap shows the label, second opens', async ({ page, request }) => {
