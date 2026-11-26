@@ -435,6 +435,7 @@
       "landslide": "Landslide susceptibility (SGB)",
       "riskByBairro": "Priority by neighborhood (OEF estimate)",
       "riskView": "Map view",
+      "orgsOnly": "Organizations only (no risk)",
       "zonePriority": "Priority (OEF estimate, from the PLAC)",
       "multiHazard": "Flood + heat",
       "landslideProne": "Landslide-prone terrain",
