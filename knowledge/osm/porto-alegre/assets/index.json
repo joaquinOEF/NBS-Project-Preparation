@@ -1,0 +1,276 @@
+{
+ "generatedAt": "2026-11-27T19:13:20.194Z",
+ "source": "OpenStreetMap via Overpass API (ODbL)",
+ "sourceBbox": "-30.27,-51.32,-29.93,-51.01",
+ "totalCount": 35384,
+ "totalBytes": 2390160,
+ "types": {
+  "amenity=hospital": {
+   "count": 50,
+   "bytes": 6675,
+   "rawBytes": 52707,
+   "file": "amenity__hospital.json",
+   "generatedAt": "2026-11-27T19:02:36.218Z"
+  },
+  "amenity=marketplace": {
+   "count": 26,
+   "bytes": 1975,
+   "rawBytes": 12667,
+   "file": "amenity__marketplace.json",
+   "generatedAt": "2026-11-27T19:05:29.656Z"
+  },
+  "amenity=school": {
+   "count": 434,
+   "bytes": 46009,
+   "rawBytes": 430315,
+   "file": "amenity__school.json",
+   "generatedAt": "2026-11-27T19:05:42.947Z"
+  },
+  "amenity=university": {
+   "count": 36,
+   "bytes": 4024,
+   "rawBytes": 29228,
+   "file": "amenity__university.json",
+   "generatedAt": "2026-11-27T19:05:54.465Z"
+  },
+  "building=commercial": {
+   "count": 275,
+   "bytes": 25922,
+   "rawBytes": 235752,
+   "file": "building__commercial.json",
+   "generatedAt": "2026-11-27T19:06:07.109Z"
+  },
+  "building=public": {
+   "count": 21,
+   "bytes": 2228,
+   "rawBytes": 28958,
+   "file": "building__public.json",
+   "generatedAt": "2026-11-27T19:06:18.917Z"
+  },
+  "building=residential": {
+   "count": 397,
+   "bytes": 34771,
+   "rawBytes": 323161,
+   "file": "building__residential.json",
+   "generatedAt": "2026-11-27T19:06:32.198Z"
+  },
+  "geological=landslide_scar": {
+   "count": 0,
+   "bytes": 99,
+   "rawBytes": 247,
+   "file": "geological__landslide_scar.json",
+   "generatedAt": "2026-11-27T19:06:43.689Z"
+  },
+  "highway=pedestrian": {
+   "count": 130,
+   "bytes": 10834,
+   "rawBytes": 83784,
+   "file": "highway__pedestrian.json",
+   "generatedAt": "2026-11-27T19:06:56.142Z"
+  },
+  "highway=primary": {
+   "count": 1169,
+   "bytes": 84805,
+   "rawBytes": 1003431,
+   "file": "highway__primary.json",
+   "generatedAt": "2026-11-27T19:07:09.392Z"
+  },
+  "highway=residential": {
+   "count": 9329,
+   "bytes": 598291,
+   "rawBytes": 6327166,
+   "file": "highway__residential.json",
+   "generatedAt": "2026-11-27T19:07:25.752Z"
+  },
+  "highway=secondary": {
+   "count": 3287,
+   "bytes": 238273,
+   "rawBytes": 2551339,
+   "file": "highway__secondary.json",
+   "generatedAt": "2026-11-27T19:07:41.085Z"
+  },
+  "highway=service": {
+   "count": 12668,
+   "bytes": 636837,
+   "rawBytes": 6104210,
+   "file": "highway__service.json",
+   "generatedAt": "2026-11-27T19:07:57.531Z"
+  },
+  "highway=tertiary": {
+   "count": 3237,
+   "bytes": 230343,
+   "rawBytes": 2186746,
+   "file": "highway__tertiary.json",
+   "generatedAt": "2026-11-27T19:08:11.588Z"
+  },
+  "landuse=farmland": {
+   "count": 38,
+   "bytes": 5054,
+   "rawBytes": 57787,
+   "file": "landuse__farmland.json",
+   "generatedAt": "2026-11-27T19:08:24.265Z"
+  },
+  "landuse=grass": {
+   "count": 478,
+   "bytes": 51972,
+   "rawBytes": 393992,
+   "file": "landuse__grass.json",
+   "generatedAt": "2026-11-27T19:08:37.518Z"
+  },
+  "landuse=meadow": {
+   "count": 10,
+   "bytes": 1310,
+   "rawBytes": 9891,
+   "file": "landuse__meadow.json",
+   "generatedAt": "2026-11-27T19:08:56.560Z"
+  },
+  "landuse=recreation_ground": {
+   "count": 70,
+   "bytes": 8567,
+   "rawBytes": 68982,
+   "file": "landuse__recreation_ground.json",
+   "generatedAt": "2026-11-27T19:09:08.340Z"
+  },
+  "leisure=common": {
+   "count": 9,
+   "bytes": 807,
+   "rawBytes": 5875,
+   "file": "leisure__common.json",
+   "generatedAt": "2026-11-27T19:09:20.629Z"
+  },
+  "leisure=garden": {
+   "count": 113,
+   "bytes": 9734,
+   "rawBytes": 63351,
+   "file": "leisure__garden.json",
+   "generatedAt": "2026-11-27T19:09:33.122Z"
+  },
+  "leisure=park": {
+   "count": 749,
+   "bytes": 71853,
+   "rawBytes": 490766,
+   "file": "leisure__park.json",
+   "generatedAt": "2026-11-27T19:09:46.470Z"
+  },
+  "leisure=playground": {
+   "count": 284,
+   "bytes": 14453,
+   "rawBytes": 82526,
+   "file": "leisure__playground.json",
+   "generatedAt": "2026-11-27T19:09:58.958Z"
+  },
+  "leisure=sports_centre": {
+   "count": 106,
+   "bytes": 10889,
+   "rawBytes": 86375,
+   "file": "leisure__sports_centre.json",
+   "generatedAt": "2026-11-27T19:10:11.068Z"
+  },
+  "leisure=sports_pitch": {
+   "count": 0,
+   "bytes": 94,
+   "rawBytes": 247,
+   "file": "leisure__sports_pitch.json",
+   "generatedAt": "2026-11-27T19:10:22.260Z"
+  },
+  "leisure=stadium": {
+   "count": 5,
+   "bytes": 831,
+   "rawBytes": 5402,
+   "file": "leisure__stadium.json",
+   "generatedAt": "2026-11-27T19:10:33.784Z"
+  },
+  "man_made=drainage": {
+   "count": 0,
+   "bytes": 91,
+   "rawBytes": 247,
+   "file": "man_made__drainage.json",
+   "generatedAt": "2026-11-27T19:10:49.092Z"
+  },
+  "natural=bare_rock": {
+   "count": 2,
+   "bytes": 312,
+   "rawBytes": 4253,
+   "file": "natural__bare_rock.json",
+   "generatedAt": "2026-11-27T19:11:00.930Z"
+  },
+  "natural=cliff": {
+   "count": 8,
+   "bytes": 591,
+   "rawBytes": 3521,
+   "file": "natural__cliff.json",
+   "generatedAt": "2026-11-27T19:11:12.402Z"
+  },
+  "natural=grassland": {
+   "count": 56,
+   "bytes": 9277,
+   "rawBytes": 61837,
+   "file": "natural__grassland.json",
+   "generatedAt": "2026-11-27T19:11:24.732Z"
+  },
+  "natural=scree": {
+   "count": 0,
+   "bytes": 87,
+   "rawBytes": 247,
+   "file": "natural__scree.json",
+   "generatedAt": "2026-11-27T19:11:36.173Z"
+  },
+  "natural=scrub": {
+   "count": 127,
+   "bytes": 16558,
+   "rawBytes": 104387,
+   "file": "natural__scrub.json",
+   "generatedAt": "2026-11-27T19:11:48.973Z"
+  },
+  "natural=water": {
+   "count": 306,
+   "bytes": 37146,
+   "rawBytes": 351550,
+   "file": "natural__water.json",
+   "generatedAt": "2026-11-27T19:12:02.411Z"
+  },
+  "natural=wetland": {
+   "count": 264,
+   "bytes": 95831,
+   "rawBytes": 856519,
+   "file": "natural__wetland.json",
+   "generatedAt": "2026-11-27T19:12:15.604Z"
+  },
+  "place=square": {
+   "count": 4,
+   "bytes": 803,
+   "rawBytes": 6663,
+   "file": "place__square.json",
+   "generatedAt": "2026-11-27T19:12:27.118Z"
+  },
+  "waterway=ditch": {
+   "count": 275,
+   "bytes": 16020,
+   "rawBytes": 151675,
+   "file": "waterway__ditch.json",
+   "generatedAt": "2026-11-27T19:12:41.635Z"
+  },
+  "waterway=drain": {
+   "count": 57,
+   "bytes": 2938,
+   "rawBytes": 28644,
+   "file": "waterway__drain.json",
+   "generatedAt": "2026-11-27T19:12:54.146Z"
+  },
+  "waterway=river": {
+   "count": 79,
+   "bytes": 10262,
+   "rawBytes": 109531,
+   "file": "waterway__river.json",
+   "generatedAt": "2026-11-27T19:13:06.500Z"
+  },
+  "waterway=stream": {
+   "count": 1285,
+   "bytes": 103594,
+   "rawBytes": 839050,
+   "file": "waterway__stream.json",
+   "generatedAt": "2026-11-27T19:13:20.193Z"
+  }
+ },
+ "missing": {}
+}
