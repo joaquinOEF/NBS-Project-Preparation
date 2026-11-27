@@ -12,8 +12,11 @@
 //        flood     → what a pin there is told (sgbPointHazard: SGB susceptibility,
 //        landslide   SMAMUS May-2024 fallback) — see `readingOf` for why a
 //                    point inside the place and not "the worst class it touches"
-//   2. keep the places in the top classes (level ≥ 3). Fewer than `top`? Say
-//      so, and fill with the next class down, each one flagged.
+//   2. keep the HIGHEST class that can fill the list: if at least `top` places
+//      are "muito alta" (level 4), only those; otherwise level ≥ 3. Fewer than
+//      `top` even so? Say so, and fill with the next class down, each flagged.
+//      (With plain level ≥ 3, 252 of 316 parks qualified on heat and the list
+//      was simply "most people nearby".)
 //   3. order by the people living within `radiusM` (Censo 2022), most first.
 //      Ties: the hazard's raw value, then area, then OSM id.
 //
@@ -36,6 +39,8 @@ export const RANK_HAZARDS: RankHazard[] = ['heat', 'flood', 'landslide'];
 
 /** The level from which a place is "in the top classes" — the same ≥ 3 = high every card reads. */
 export const HIGH_LEVEL = 3;
+/** "Muito alta" — when enough places reach it, only they qualify (see `applyRule`). */
+export const TOP_LEVEL = 4;
 export const DEFAULT_TOP = 5;
 export const MAX_TOP = 25;
 export const DEFAULT_RADIUS_M = 300;
@@ -55,6 +60,8 @@ export interface PlaceKind {
   load: () => Promise<{ features: any[] } | null>;
   /** Default `minAreaHa`: a pocket square is not "a park" for this question. */
   defaultMinAreaHa: number;
+  /** Which of the snapshot's features are this kind at all (by their OSM tags). Default: every one. */
+  keep?: (tags: Record<string, any>) => boolean;
   source: string;
 }
 
@@ -62,7 +69,9 @@ const osmSnapshot = (layerId: string) => () => readSnapshot(layerId);
 const OSM_SOURCE = 'OpenStreetMap contributors (ODbL) — snapshot in knowledge/osm/porto-alegre';
 
 export const PLACE_KINDS: Record<string, PlaceKind> = {
-  parks: { label: { pt: 'parques e praças', en: 'parks and squares' }, load: osmSnapshot('parks'), defaultMinAreaHa: 0.5, source: OSM_SOURCE },
+  // Parks and recreation grounds only. The snapshot also holds leisure=garden (105), and one
+  // recreation_ground that is a museum's fenced yard (tourism=museum) — it topped "parks" by flood.
+  parks: { label: { pt: 'parques e praças', en: 'parks and squares' }, load: osmSnapshot('parks'), defaultMinAreaHa: 0.5, keep: t => t.leisure !== 'garden' && t.tourism !== 'museum', source: `${OSM_SOURCE} (leisure=park, landuse=recreation_ground; sem leisure=garden nem tourism=museum)` },
   schools: { label: { pt: 'escolas', en: 'schools' }, load: osmSnapshot('schools'), defaultMinAreaHa: 0, source: OSM_SOURCE },
   hospitals: { label: { pt: 'hospitais e unidades de saúde', en: 'hospitals and health units' }, load: osmSnapshot('hospitals'), defaultMinAreaHa: 0, source: OSM_SOURCE },
   wetlands: { label: { pt: 'áreas úmidas', en: 'wetlands' }, load: osmSnapshot('wetlands'), defaultMinAreaHa: 0, source: OSM_SOURCE },
@@ -127,8 +136,10 @@ export interface RankPlacesResponse {
   radiusM: number;
   /** Places of this kind in the city after the name, area, bairro filters and de-duplication. */
   considered: number;
-  /** Of those, how many are in the top hazard classes (level ≥ 3). */
+  /** Of those, how many are in the qualifying class or above. */
   qualified: number;
+  /** The class threshold used: 4 when at least `top` places are "muito alta", else 3. */
+  qualifyingLevel: number;
   /** How many of `places` come from the next class down (0 when enough qualified). */
   filledFromNextClass: number;
   places: RankedPlace[];
@@ -220,7 +231,7 @@ const prepared = new Map<string, Promise<Prepared[]>>();
 function placesOf(kind: string): Promise<Prepared[]> {
   if (!prepared.has(kind)) {
     prepared.set(kind, PLACE_KINDS[kind].load().then(fc =>
-      mergeSamePlaces((fc?.features ?? []).map(prepare).filter((p: Prepared | null): p is Prepared => !!p))));
+      mergeSamePlaces((fc?.features ?? []).filter((f: any) => !PLACE_KINDS[kind].keep || PLACE_KINDS[kind].keep!(f?.properties ?? {})).map(prepare).filter((p: Prepared | null): p is Prepared => !!p))));
   }
   return prepared.get(kind)!;
 }
@@ -273,16 +284,21 @@ export interface RankCandidate { osmId: string; level: number; raw: number; resi
 
 /**
  * Steps 2 and 3 of the rule, on their own so they can be tested without a map:
- * the top classes ordered by residents; when fewer than `top`, the next class
- * down (only that one) fills the rest, after them, flagged by the caller.
+ * the hottest class first, then people. If at least `top` places are at level 4
+ * ("muito alta") only those qualify; otherwise level ≥ 3 does, and when even
+ * that is fewer than `top`, the next class down (only that one) fills the rest,
+ * after them, flagged by the caller. Within the set: residents, most first.
  * `residents` is read lazily, so only the classes that can appear pay for it.
  */
 export function applyRule<T extends { osmId: string; level: number; raw: number; areaHa: number }>(
   items: T[], top: number, residentsOf: (x: T) => number,
-): { picked: Array<{ item: T; residents: number; belowTopClass: boolean }>; qualified: number; filled: number } {
+): { picked: Array<{ item: T; residents: number; belowTopClass: boolean }>; qualified: number; filled: number; qualifyingLevel: number } {
   const order = (xs: T[]) => xs.map(item => ({ item, residents: residentsOf(item) }))
     .sort((a, b) => b.residents - a.residents || b.item.raw - a.item.raw || b.item.areaHa - a.item.areaHa || (a.item.osmId < b.item.osmId ? -1 : a.item.osmId > b.item.osmId ? 1 : 0));
-  const high = items.filter(x => x.level >= HIGH_LEVEL);
+  // The highest class that can fill the list on its own: with `top` places at
+  // "muito alta", an "alta" place with more neighbours must not push one out.
+  const qualifyingLevel = items.filter(x => x.level >= TOP_LEVEL).length >= top ? TOP_LEVEL : HIGH_LEVEL;
+  const high = items.filter(x => x.level >= qualifyingLevel);
   const picked = order(high).slice(0, top).map(x => ({ ...x, belowTopClass: false }));
   let filled = 0;
   if (picked.length < top) {
@@ -291,7 +307,7 @@ export function applyRule<T extends { osmId: string; level: number; raw: number;
     filled = fill.length;
     picked.push(...fill.map(x => ({ ...x, belowTopClass: true })));
   }
-  return { picked, qualified: high.length, filled };
+  return { picked, qualified: high.length, filled, qualifyingLevel };
 }
 
 const HAZARD_WORDS: Record<RankHazard, { pt: string; en: string; srcPt: string; srcEn: string; source: string }> = {
@@ -341,7 +357,7 @@ export async function rankPlaces(req: RankPlacesRequest): Promise<RankPlacesResp
     .map(p => ({ p, r: readingOf(p, by, radiusM) }))
     .filter((x): x is { p: Prepared; r: Reading } => !!x.r)
     .map(({ p, r }) => ({ p, r, osmId: p.osmId, level: r.level, raw: r.raw, areaHa: p.areaHa }));
-  const { picked, qualified, filled } = applyRule(read, top, x => residentsOf(x.p, radiusM));
+  const { picked, qualified, filled, qualifyingLevel } = applyRule(read, top, x => residentsOf(x.p, radiusM));
 
   const places: RankedPlace[] = picked.map(({ item: { p, r }, residents: n, belowTopClass }, i) => ({
     rank: i + 1,
@@ -364,11 +380,11 @@ export async function rankPlaces(req: RankPlacesRequest): Promise<RankPlacesResp
   const where = req.bairro?.trim() ? { pt: ` no bairro ${req.bairro.trim()}`, en: ` in ${req.bairro.trim()}` } : { pt: '', en: '' };
   const short = qualified < top;
   const rule = {
-    pt: `${cap(kindDef.label.pt)}${where.pt} onde a ${w.srcPt} é alta ou muito alta${by === 'heat' ? ` (média a até ${radiusM} m)` : ''}, `
+    pt: `${cap(kindDef.label.pt)}${where.pt} onde a ${w.srcPt} é ${qualifyingLevel >= TOP_LEVEL ? 'muito alta' : 'alta ou muito alta'}${by === 'heat' ? ` (média a até ${radiusM} m)` : ''}, `
       + `em ordem de quantas pessoas moram a até ${radiusM} m (estimativa do Censo 2022). Sem nota combinada: dois dados oficiais e uma regra.`
       + (short ? ` Só ${qualified} de ${read.length} ${qualified === 1 ? 'está' : 'estão'} nessas classes`
         + (filled ? `; ${filled === 1 ? 'o outro vem' : `os outros ${filled} vêm`} da classe logo abaixo e ${filled === 1 ? 'está marcado' : 'estão marcados'}.` : '.') : ''),
-    en: `${cap(kindDef.label.en)}${where.en} where ${w.srcEn} is high or very high${by === 'heat' ? ` (mean within ${radiusM} m)` : ''}, `
+    en: `${cap(kindDef.label.en)}${where.en} where ${w.srcEn} is ${qualifyingLevel >= TOP_LEVEL ? 'very high' : 'high or very high'}${by === 'heat' ? ` (mean within ${radiusM} m)` : ''}, `
       + `ordered by how many people live within ${radiusM} m (2022 Census estimate). No combined score: two official figures and one rule.`
       + (short ? ` Only ${qualified} of ${read.length} ${qualified === 1 ? 'is' : 'are'} in those classes`
         + (filled ? `; the other ${filled === 1 ? 'one comes' : `${filled} come`} from the next class down and ${filled === 1 ? 'is' : 'are'} flagged.` : '.') : ''),
@@ -378,6 +394,7 @@ export async function rankPlaces(req: RankPlacesRequest): Promise<RankPlacesResp
     rule, kind, by, radiusM,
     considered: pool.length,
     qualified,
+    qualifyingLevel,
     filledFromNextClass: filled,
     places,
     sources: [w.source, residentsSource(radiusM), kindDef.source],

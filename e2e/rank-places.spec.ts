@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { rankPlaces, applyRule, mergeSamePlaces, RankPlacesInputError, HIGH_LEVEL, PLACE_KINDS, SAME_PLACE_M } from '../server/services/rankPlaces';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { rankPlaces, applyRule, mergeSamePlaces, RankPlacesInputError, HIGH_LEVEL, TOP_LEVEL, PLACE_KINDS, SAME_PLACE_M } from '../server/services/rankPlaces';
 import { arvcHazardAround, arvcHazardAtPin } from '../server/services/arvcPointHazard';
 import { hazardAtPin, sgbHazardAtPin } from '../server/services/sgbPointHazard';
 import { censusAround } from '../server/services/censusContext';
@@ -11,13 +13,24 @@ import { censusAround } from '../server/services/censusContext';
 const item = (osmId: string, level: number, residents: number, raw = level, areaHa = 1) => ({ osmId, level, raw, areaHa, residents });
 
 test.describe('the rule, on its own', () => {
-  test('only the top classes are kept, ordered by residents — never by the hazard value', () => {
+  test('fewer than `top` at "muito alta": level ≥ 3 qualifies, ordered by residents — never by the hazard value', () => {
     const xs = [item('a', 4, 100), item('b', 3, 900), item('c', 2, 5000), item('d', 3, 400), item('e', 1, 9000)];
     const r = applyRule(xs, 3, x => x.residents);
     expect(r.picked.map(p => p.item.osmId)).toEqual(['b', 'd', 'a']);
-    expect(r.qualified).toBe(3);
-    expect(r.filled).toBe(0);
+    expect(r).toMatchObject({ qualified: 3, filled: 0, qualifyingLevel: HIGH_LEVEL });
     expect(r.picked.every(p => !p.belowTopClass)).toBe(true);
+  });
+
+  test('at least `top` at "muito alta": only they qualify — an "alta" place with more neighbours does NOT appear', () => {
+    const xs = [item('a', 4, 100), item('b', 3, 9000), item('c', 4, 300), item('d', 4, 200), item('e', 3, 8000), item('f', 2, 99999)];
+    const r = applyRule(xs, 3, x => x.residents);
+    expect(r.picked.map(p => p.item.osmId)).toEqual(['c', 'd', 'a']);
+    expect(r).toMatchObject({ qualified: 3, filled: 0, qualifyingLevel: TOP_LEVEL });
+    // One short of `top` at level 4 → back to level ≥ 3, and the busy "alta" places lead.
+    const r2 = applyRule(xs, 4, x => x.residents);
+    expect(r2.qualifyingLevel).toBe(HIGH_LEVEL);
+    expect(r2.picked.map(p => p.item.osmId)).toEqual(['b', 'e', 'c', 'd']);
+    expect(r2.qualified).toBe(5);
   });
 
   test('ties: the hazard\'s raw value, then area, then id', () => {
@@ -29,7 +42,7 @@ test.describe('the rule, on its own', () => {
     const xs = [item('a', 3, 10), item('b', 2, 900), item('c', 2, 800), item('d', 1, 99999)];
     const r = applyRule(xs, 5, x => x.residents);
     expect(r.picked.map(p => [p.item.osmId, p.belowTopClass])).toEqual([['a', false], ['b', true], ['c', true]]);
-    expect(r).toMatchObject({ qualified: 1, filled: 2 });
+    expect(r).toMatchObject({ qualified: 1, filled: 2, qualifyingLevel: HIGH_LEVEL });
   });
 
   test('residents are only counted for the classes that can appear', () => {
@@ -96,11 +109,15 @@ test.describe('the readings are the official ones', () => {
 });
 
 test.describe('the real city', () => {
-  test('parks by heat: every place high or very high, most people first', async () => {
+  test('parks by heat: enough parks are "muito alta", so only those — most people first', async () => {
     const r = await rankPlaces({ kind: 'parks', by: 'heat' });
     expect(r.places).toHaveLength(5);
     expect(r.places.map(p => p.rank)).toEqual([1, 2, 3, 4, 5]);
-    expect(r.places.every(p => p.hazard.level >= HIGH_LEVEL && p.hazard.source === 'PLAC' && !p.belowTopClass)).toBe(true);
+    expect(r.qualifyingLevel).toBe(TOP_LEVEL);
+    expect(r.places.every(p => p.hazard.level === TOP_LEVEL && p.hazard.label.pt === 'muito alta' && p.hazard.source === 'PLAC' && !p.belowTopClass)).toBe(true);
+    expect(r.rule.pt).toMatch(/é muito alta \(média a até 300 m\)/);
+    expect(r.rule.en).toMatch(/is very high \(mean within 300 m\)/);
+    expect(r.rule.pt).not.toMatch(/alta ou muito alta/);
     const n = r.places.map(p => p.residentsNearby);
     expect(n).toEqual([...n].sort((a, b) => b - a));
     expect(r.places.every(p => p.name && p.areaHa >= 0.5 && p.bairro && p.geometry?.coordinates)).toBe(true);
@@ -117,6 +134,9 @@ test.describe('the real city', () => {
     expect(r.filledFromNextClass).toBe(5 - r.qualified);
     expect(r.places.filter(p => p.belowTopClass).map(p => p.hazard.level)).toEqual(Array(r.filledFromNextClass).fill(2));
     expect(r.places.filter(p => !p.belowTopClass).every(p => p.hazard.level >= 3)).toBe(true);
+    expect(r.qualifyingLevel).toBe(HIGH_LEVEL);
+    expect(r.rule.pt).toMatch(/é alta ou muito alta/);
+    expect(r.rule.en).toMatch(/is high or very high/);
     expect(r.rule.pt).toMatch(/Só \d+ de \d+ est(á|ão) nessas classes; .* classe logo abaixo/);
     expect(r.rule.en).toMatch(/Only \d+ of \d+ (is|are) in those classes; .* next class down/);
   });
@@ -129,6 +149,17 @@ test.describe('the real city', () => {
     expect(r.places.every(p => p.bairro === name)).toBe(true);
     expect(r.considered).toBeLessThan(all.considered);
     expect((await rankPlaces({ kind: 'parks', by: 'heat', bairro: 'Bairro Que Não Existe' }))).toMatchObject({ considered: 0, qualified: 0, places: [] });
+  });
+
+  test('a garden is not a park: leisure=garden and a museum\'s yard stay out of `parks`', async () => {
+    const r = await rankPlaces({ kind: 'parks', by: 'flood', top: 25, minAreaHa: 0, namedOnly: false });
+    expect(r.places.map(p => p.name)).not.toContain('Museu Joaquim José Felizardo');
+    const snap = JSON.parse(readFileSync(path.join(process.cwd(), 'knowledge/osm/porto-alegre/parks.json'), 'utf8'));
+    const gardens = new Set(snap.features.filter((f: any) => f.properties?.leisure === 'garden' || f.properties?.tourism === 'museum').map((f: any) => `${f.properties.osm_type}/${f.properties.osm_id}`));
+    expect(gardens.size).toBeGreaterThan(0);
+    for (const by of ['heat', 'flood'] as const)
+      for (const p of (await rankPlaces({ kind: 'parks', by, top: 25, minAreaHa: 0, namedOnly: false })).places) expect(gardens.has(p.osmId), p.osmId).toBe(false);
+    expect(r.sources.join(' ')).toMatch(/sem leisure=garden/);
   });
 
   test('nothing outside Porto Alegre: the OSM box takes in Canoas and Viamão', async () => {
