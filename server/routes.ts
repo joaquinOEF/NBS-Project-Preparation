@@ -11,6 +11,7 @@ import { registerOverpassRoutes } from './routes/overpassRoutes';
 import { registerOfficialRiskRoutes } from './routes/officialRiskRoutes';
 import { registerArvcTileRoutes } from './routes/arvcTileRoutes';
 import { registerSgbSuscTileRoutes } from './routes/sgbSuscTileRoutes';
+import { registerRankPlacesRoutes } from './routes/rankPlacesRoutes';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Legacy city-prototype surface (OAuth, sample mode, city/project CRUD,
@@ -113,6 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerOfficialRiskRoutes(app);
   registerArvcTileRoutes(app);
   registerSgbSuscTileRoutes(app);
+  registerRankPlacesRoutes(app);
 
   // Test-only seeding API — CONDITIONALLY registered so the routes literally do
   // not exist in production (the gate is registration, not a runtime check).

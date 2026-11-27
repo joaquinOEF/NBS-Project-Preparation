@@ -103,15 +103,29 @@ function sectorsOf(types: Set<string>): any[] {
   const key = `sectors:${Array.from(types).join("|")}`;
   if (!memo.has(key)) {
     const gj = readJson(path.join(DIR(), 'sgb-setorizacao.json'));
-    memo.set(key, (gj?.features ?? []).filter((f: any) => f?.geometry && /Polygon/.test(f.geometry.type) && types.has(f.properties?.tipolo_g1)));
+    memo.set(key, (gj?.features ?? [])
+      .filter((f: any) => f?.geometry && /Polygon/.test(f.geometry.type) && types.has(f.properties?.tipolo_g1))
+      .map((f: any) => ({ f, bbox: turf.bbox(f) })));
   }
   return memo.get(key);
+}
+/**
+ * A floor for the metres from a point to anything inside a bbox (0 inside it).
+ * 1% short on purpose, so the skip below can never drop the true nearest.
+ */
+function bboxFloorM(lat: number, lng: number, [w, s, e, n]: number[]): number {
+  const dx = Math.max(w - lng, 0, lng - e) * 111_320 * Math.cos((lat * Math.PI) / 180);
+  const dy = Math.max(s - lat, 0, lat - n) * 110_540;
+  return Math.hypot(dx, dy) * 0.99;
 }
 /** The nearest SGB risk sector of these types: metres (0 = inside) and its typology. */
 function nearestSector(types: Set<string>, lat: number, lng: number): { m: number; tipo: string } | null {
   const pt = turf.point([lng, lat]);
   let best: { m: number; tipo: string } | null = null;
-  for (const f of sectorsOf(types)) {
+  for (const { f, bbox } of sectorsOf(types)) {
+    // A sector whose box is already farther than the best cannot win: the exact
+    // distance (22 ms a point over all 145 sectors) is only paid for the near ones.
+    if (best && bboxFloorM(lat, lng, bbox) >= best.m) continue;
     const m = turf.booleanPointInPolygon(pt, f) ? 0 : turf.pointToPolygonDistance(pt, f, { units: 'meters' });
     if (!best || m < best.m) best = { m, tipo: f.properties.tipolo_g1 };
     if (m === 0) break;
@@ -160,23 +174,33 @@ function sectorNote(m: number | null): Pick<PinHazard, 'notePt' | 'noteEn'> {
   return { notePt: `setor de risco do SGB mais próximo a ${distPt(m)}`, noteEn: `nearest SGB risk sector ${distEn(m)} away` };
 }
 
+/**
+ * One SGB hazard at a point — the same entry `hazardAtPin` gives; null outside the city.
+ * On its own because the flood fallback (the May-2024 contours) costs ~7 ms a point,
+ * which a list of 300 places asked about landslide should not pay (rankPlaces.ts).
+ */
+export function sgbHazardAtPin(hazard: 'flood' | 'landslide', lat: number, lng: number): PinHazard | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !inCity(lng, lat)) return null;
+  if (hazard === 'flood') {
+    const f = classAt('inundacao', lng, lat);
+    return f == null
+      ? floodOutsideSgb(lat, lng)
+      : { hazard: 'flood', level: f, pt: WORDS[f][0], en: WORDS[f][1], source: 'SGB' };
+  }
+  // SGB classes the whole municipality; outside Média/Alta it is Baixa.
+  const l = classAt('movimento-de-massa', lng, lat) ?? 1;
+  return { hazard: 'landslide', level: l, pt: WORDS[l][0], en: WORDS[l][1], source: 'SGB', ...sectorNote(nearestLandslideSectorM(lat, lng)) };
+}
+
 /** Flood and landslide from SGB, heat from PLAC/ARVC — one entry per hazard with a reading. */
 export function hazardAtPin(lat: number, lng: number): PinHazard[] {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
   const out: PinHazard[] = [];
-  const city = inCity(lng, lat);
-  if (city) {
-    const f = classAt('inundacao', lng, lat);
-    out.push(f == null
-      ? floodOutsideSgb(lat, lng)
-      : { hazard: 'flood', level: f, pt: WORDS[f][0], en: WORDS[f][1], source: 'SGB' });
-  }
+  const flood = sgbHazardAtPin('flood', lat, lng);
+  if (flood) out.push(flood);
   const heat = arvcHazardAtPin(lat, lng).find((h: ArvcLevel) => h.hazard === 'heat');
   if (heat) out.push({ hazard: 'heat', level: heat.level, pt: heat.pt, en: heat.en, source: 'PLAC' });
-  if (city) {
-    // SGB classes the whole municipality; outside Média/Alta it is Baixa.
-    const l = classAt('movimento-de-massa', lng, lat) ?? 1;
-    out.push({ hazard: 'landslide', level: l, pt: WORDS[l][0], en: WORDS[l][1], source: 'SGB', ...sectorNote(nearestLandslideSectorM(lat, lng)) });
-  }
+  const landslide = sgbHazardAtPin('landslide', lat, lng);
+  if (landslide) out.push(landslide);
   return out;
 }
