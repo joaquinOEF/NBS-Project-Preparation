@@ -1,5 +1,11 @@
 import type { Express, Request, Response } from "express";
-import { streamAgentResponse, getAgentResponse, type AgentContext } from "../services/agentService";
+import { streamAgentResponse, getAgentResponse, executeAgentTool, narrateExplorerResult, type AgentContext } from "../services/agentService";
+import { runExplorerRecipe, warmExplorerRecipes, legacyInterventionBy, asLang, ExplorerRecipeInputError } from "../services/explorerRecipes";
+import { RankPlacesInputError } from "../services/rankPlaces";
+import { applyInterventionSite } from "../services/interventionSitePatch";
+import { zoneAt } from "../services/explorerSite";
+import { parseInterventionSitePath } from "@shared/explorer-site";
+import { SAMPLE_PROJECT_ID } from "@shared/sample-constants";
 // Conversation storage for the legacy project agent (moved from the deleted
 // replit_integrations tree - audit DS-4; only this file ever imported it).
 import { chatStorage } from "../services/agentChatStorage";
@@ -21,6 +27,108 @@ function getPageGoal(currentPage?: string): string | undefined {
 }
 
 export function registerAgentRoutes(app: Express): void {
+  // After boot has settled: the chips' rankings are read once here, not on a first click.
+  setTimeout(() => { warmExplorerRecipes().catch(() => {}); }, 4000).unref?.();
+
+  // POST /api/sample/reset-explorer — a clean slate for a demo or a recording
+  // (the Site Explorer's ?reset=1 on the sample route). The sample project is
+  // ONE shared record, so sites added in one run are there in the next. This
+  // empties its explorer sites and drops its pending site proposals. It names
+  // the sample project itself: no id is taken from the request, so no real
+  // project can be reached through it.
+  app.post("/api/sample/reset-explorer", async (_req: Request, res: Response) => {
+    try {
+      const block = await storage.getInfoBlock(SAMPLE_PROJECT_ID, "site_explorer");
+      let sites = 0;
+      if (block) {
+        const state: any = JSON.parse(JSON.stringify(block.blockStateJson || {}));
+        for (const z of Array.isArray(state.selectedZones) ? state.selectedZones : []) sites += z?.interventionPortfolio?.length ?? 0;
+        state.selectedZones = [];
+        delete state.interventionSite;
+        await storage.updateInfoBlock(block.id, { blockStateJson: state, updatedBy: "user", version: (block.version || 1) + 1 });
+      }
+      let proposals = 0;
+      for (const p of await storage.getPendingPatches(SAMPLE_PROJECT_ID)) {
+        if (p.blockType === "site_explorer" && parseInterventionSitePath(p.fieldPath)) {
+          await storage.updatePatch(p.id, { status: "rejected" });
+          proposals++;
+        }
+      }
+      res.json({ ok: true, sitesCleared: sites, proposalsCleared: proposals });
+    } catch (err) {
+      console.error("[sample-reset-explorer]", err);
+      res.status(500).json({ error: "Reset failed" });
+    }
+  });
+
+  // ── Site Explorer chat: the chips' path (shared/explorer-chat.ts) ──────────
+  // POST /api/agent/explorer-recipe { recipe, …, lang } — a chip runs the tool
+  // WITHOUT the model: the structured result, the mapCommands the page applies
+  // and a template narration built from the data alone. Committed files only,
+  // like /api/geospatial/rank-places, so no session.
+  app.post("/api/agent/explorer-recipe", async (req: Request, res: Response) => {
+    const started = Date.now();
+    try {
+      const { lang, ...request } = req.body ?? {};
+      const result = await runExplorerRecipe(request, asLang(lang));
+      res.json({ ...result, tookMs: Date.now() - started });
+    } catch (err) {
+      if (err instanceof ExplorerRecipeInputError || err instanceof RankPlacesInputError) return res.status(400).json({ error: err.message });
+      console.error("[explorer-recipe]", err);
+      res.status(500).json({ error: "Recipe failed" });
+    }
+  });
+
+  // POST /api/agent/explorer-narrate { request, lang, question? } → { text } —
+  // the model's one or two sentences about a recipe result, asked for AFTER the
+  // result is on screen. The request is re-run here (the model is never handed
+  // text a browser wrote). 204 when the model has nothing or is not there; the
+  // chat shows nothing in that case.
+  app.post("/api/agent/explorer-narrate", async (req: Request, res: Response) => {
+    try {
+      const lang = asLang(req.body?.lang);
+      const result = await runExplorerRecipe(req.body?.request ?? {}, lang);
+      const question = typeof req.body?.question === "string" ? req.body.question.slice(0, 200) : undefined;
+      const text = await narrateExplorerResult(result, lang, question);
+      if (!text) return res.status(204).end();
+      res.json({ text });
+    } catch (err) {
+      if (err instanceof ExplorerRecipeInputError || err instanceof RankPlacesInputError) return res.status(400).json({ error: err.message });
+      res.status(204).end();
+    }
+  });
+
+  // POST /api/projects/:projectId/agent/explorer-add-site — the proposal card's
+  // "Add" button. It only PROPOSES: the same pending patch add_intervention_site
+  // creates for the model, which the chat then applies through the ordinary
+  // approval route below. The press is the approval; nothing is saved without it.
+  app.post("/api/projects/:projectId/agent/explorer-add-site", async (req: Request, res: Response) => {
+    try {
+      const { projectId } = req.params;
+      const { siteName, lat, lng, areaHa, interventionId } = req.body ?? {};
+      const intervention = legacyInterventionBy(interventionId);
+      const zone = typeof lat === "number" && typeof lng === "number" ? zoneAt(lat, lng) : null;
+      if (!intervention || !zone || typeof siteName !== "string" || !siteName.trim()) {
+        return res.status(400).json({ error: "siteName, lat, lng (inside a neighbourhood) and a known interventionId are required" });
+      }
+      const project = await storage.getProject(projectId);
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      const out = await executeAgentTool({ projectId, conversationHistory: [] }, {
+        name: "add_intervention_site",
+        arguments: {
+          zoneId: zone.zoneId, siteName: siteName.trim().slice(0, 120), interventionType: intervention.name, interventionId: intervention.id,
+          category: intervention.category, lat, lng, areaHa: typeof areaHa === "number" && areaHa > 0 ? areaHa : 1, osmId: "",
+        },
+      });
+      const r = out.result as any;
+      if (out.error || !r?.patchId) return res.status(500).json({ error: out.error || "Could not propose the site" });
+      res.json({ patchId: r.patchId, zoneId: zone.zoneId, zoneName: zone.name, intervention: r.intervention });
+    } catch (err) {
+      console.error("[explorer-add-site]", err);
+      res.status(500).json({ error: "Could not propose the site" });
+    }
+  });
+
   app.post("/api/projects/:projectId/agent/chat", async (req: Request, res: Response) => {
     try {
       const { projectId } = req.params;
@@ -156,7 +264,15 @@ export function registerAgentRoutes(app: Express): void {
         return res.status(400).json({ error: "Patch is not pending" });
       }
 
-      if (patch.blockType && patch.value !== null) {
+      const sitePath = patch.blockType === "site_explorer" ? parseInterventionSitePath(patch.fieldPath) : null;
+      if (sitePath && patch.value !== null) {
+        // A proposed site joins the zone's portfolio — where the Site Explorer
+        // reads sites from — and never replaces another site in the zone
+        // (server/services/interventionSitePatch.ts).
+        let value: any = patch.value;
+        if (typeof value === "string") { try { value = JSON.parse(value); } catch { /* keep */ } }
+        await applyInterventionSite(patch.projectId, sitePath.zoneId, value, { actor: "user" });
+      } else if (patch.blockType && patch.value !== null) {
         const block = await storage.getInfoBlock(patch.projectId, patch.blockType);
         if (block) {
           const currentState = { ...block.blockStateJson };

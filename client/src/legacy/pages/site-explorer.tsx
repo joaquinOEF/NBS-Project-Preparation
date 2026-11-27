@@ -54,7 +54,10 @@ import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
 import { EXPLORER_KEY_MAPS, explorerKeyMap, isExplorerKeyMapId, CENSUS_POVERTY_CLASSES, CENSUS_POVERTY_FIELD, CENSUS_NO_DATA_COLOR, censusPovertyColor, type ExplorerKeyMapId } from '@shared/explorer-key-maps';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
-import { onExplorerMapCommand, EXPLORER_PIN_CLICKED_EVENT, type ExplorerMapCommand, type ExplorerMapContext, type ExplorerPinnedPlace } from '@/legacy/lib/explorerMapCommands';
+import { onExplorerMapCommand, EXPLORER_PIN_CLICKED_EVENT, EXPLORER_SITE_DROPPED_EVENT, type ExplorerMapCommand, type ExplorerMapContext, type ExplorerPinnedPlace, type ExplorerSiteDropped } from '@/legacy/lib/explorerMapCommands';
+import { AddSiteHereCard, explorerLang } from '@/legacy/components/explorer/AddSiteHereCard';
+import { becauseFor } from '@shared/solution-because';
+import type { ExplorerSiteReading } from '@shared/explorer-site';
 import ValueTooltip from '@/core/components/maps/ValueTooltip';
 import { BASEMAPS } from '@/core/lib/basemaps';
 
@@ -391,6 +394,25 @@ function formatZoneName(zoneId: string): string {
   return zoneId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/**
+ * What the OFFICIAL maps say of a neighbourhood: the share of its area in SGB's
+ * high flood class, in SGB's medium or high landslide classes, and in the
+ * climate plan's two top heat classes (scripts/generate-neighborhood-zones.ts).
+ * Shown before — and apart from — the percentile bands, which are our estimate.
+ * Empty for zone files that predate the shares.
+ */
+function officialShares(p: any): Array<{ hazard: HazardKey; share: number; flagged: boolean }> {
+  if (!p || p.sgbFloodAltaShare == null) return [];
+  return ([
+    ['flood', p.sgbFloodAltaShare, p.floodSusceptible],
+    ['heat', p.heatHighShare, p.heatHigh],
+    ['landslide', p.sgbLandslideShare, p.landslideSusceptible],
+  ] as Array<[HazardKey, number | null | undefined, unknown]>)
+    .filter((x): x is [HazardKey, number, unknown] => typeof x[1] === 'number')
+    .map(([hazard, share, flagged]) => ({ hazard, share, flagged: !!flagged }));
+}
+const OFFICIAL_SHARE_COLOR: Record<HazardKey, string> = { flood: TYPOLOGY_COLORS.FLOOD, heat: TYPOLOGY_COLORS.HEAT, landslide: TYPOLOGY_COLORS.LANDSLIDE };
+
 // ── Map stacking on the light basemap ────────────────────────────────────────
 // ground (tilePane 200) < city-clipped rasters < official rasters < vectors
 // (overlayPane 400) < place names. Tile layers cannot be polygon-clipped in
@@ -401,6 +423,10 @@ function formatZoneName(zoneId: string): string {
 // against ours, so no official pixel is shaved off by a boundary mismatch.
 const PANE_RASTER_CITY = 'explorerRasterCity';
 const PANE_RASTER = 'explorerRaster';
+// Vectors published for a wider area than the city (the May 2024 flood extent
+// covers the whole Guaíba basin): same municipal clip-path as the city rasters,
+// drawn above the bairros.
+const PANE_VECTOR_CITY = 'explorerVectorCity';
 const PANE_LABELS = 'explorerLabels';
 const OFFICIAL_RASTER_GROUPS: readonly LayerGroupId[] = ['official_risk', 'arvc_official'];
 
@@ -409,6 +435,14 @@ const paintsTheCity = (l: { id: string; enabled: boolean; source: LayerSource; g
   l.enabled && (l.source === 'tiles' || l.source === 'image' || l.group === 'arvc' || l.id === 'ibge_census');
 
 const DEFAULT_TILE_OPACITY = 0.7;
+// At street level a key map's raster stops being a map and becomes a wash of
+// one colour over the streets (the heat grid is 29 m; SGB's chart is 1:70.000).
+// From this zoom on it steps back so the ground — the square, the street
+// names — reads through it; below, it is the preset's own opacity again.
+const CLOSE_UP_ZOOM = 15;
+const CLOSE_UP_OPACITY = 0.32;
+/** Width of the zone panel the map runs under, on its right. */
+const MAP_RIGHT_INSET = 320;
 
 // Legends for the explorer's own vector layers, which generate-legends.ts (tile
 // layers only) does not know. Merged under the fetched index.
@@ -487,7 +521,7 @@ function parseExplorerDeepLink(search: string): { map: ExplorerKeyMapId | null; 
 
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { isSampleMode, setSampleMode, sampleCity, sampleActions, initiatedProjects, initiateProject } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
@@ -520,6 +554,10 @@ export default function SiteExplorerPage() {
   // Opacity and stacking a key map asked for, per tile layer. Read when the
   // tile layer is created; a layer toggled by hand goes back to the default.
   const layerLookRef = useRef<Map<string, { opacity?: number; zIndex?: number }>>(new Map());
+  /** A raster's opacity right now: its key map's, faded when the map is at street level. */
+  const rasterOpacityRef = useRef((_id: string): number => DEFAULT_TILE_OPACITY);
+  // The outline of the one place being proposed for (`show_place`).
+  const placeOutlineRef = useRef<L.Layer | null>(null);
   const layerDataCache = useRef<Map<string, any>>(new Map());
   const [loadingLayers, setLoadingLayers] = useState<Set<string>>(new Set());
   // Per-layer legend specs (generate-legends.ts → layer-legends.json), loaded once.
@@ -661,12 +699,31 @@ export default function SiteExplorerPage() {
   const [manualAssetCoords, setManualAssetCoords] = useState('');
   const [manualAssetArea, setManualAssetArea] = useState('');
   const [manualAssetType, setManualAssetType] = useState('');
+  // "Add a site here": click the map, read the point, pick what fits.
+  const [addSiteMode, setAddSiteMode] = useState(false);
+  const [dropPoint, setDropPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropReading, setDropReading] = useState<ExplorerSiteReading | null>(null);
+  const [dropState, setDropState] = useState<'idle' | 'loading' | 'failed'>('idle');
+  const [dropCardPos, setDropCardPos] = useState<{ left: number; top: number } | null>(null);
+  const dropMarkerRef = useRef<L.Marker | null>(null);
+  const dropCardRef = useRef<HTMLDivElement>(null);
+  // The official readings at the asset picked through the list flow, for its because lines.
+  const [assetReadings, setAssetReadings] = useState<ExplorerSiteReading['readings'] | null>(null);
+  const zonePortfoliosRef = useRef(zonePortfolios);
+  zonePortfoliosRef.current = zonePortfolios;
   const highlightLayerRef = useRef<L.Layer | null>(null);
   const osmLayerRef = useRef<L.Layer | null>(null);
   const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
   const interventionMarkersRef = useRef<Map<string, L.Marker>>(new Map());
-  const { updateModule, context, loadContext } = useProjectContext();
-  const { setPageContext } = useChatState();
+  const { updateModule, context, loadContext, migrateExistingData } = useProjectContext();
+  const { setPageContext, isChatOpen } = useChatState();
+  // The chat drawer takes 400 px off the page (App.tsx). With the zone panel
+  // also up, 720 px of map would be left at 1440: while the chat is open the
+  // panel steps aside and the map — where the chat's answers land — gets the room.
+  const showZonePanel = !isChatOpen;
+  const mapRightInset = showZonePanel ? MAP_RIGHT_INSET : 0;
+  const mapRightInsetRef = useRef(mapRightInset);
+  mapRightInsetRef.current = mapRightInset;
   
   // Separate navigation persistence from domain data
   const { 
@@ -688,7 +745,8 @@ export default function SiteExplorerPage() {
       activeLayerIds: activeLayerIdsKey ? activeLayerIdsKey.split(',') : [],
       mapCenter: mapView ? { lat: mapView.lat, lng: mapView.lng } : null,
       mapZoom: mapView ? mapView.zoom : null,
-      pinnedPlaces: pinnedPlaces.map(p => ({ rank: p.rank, name: p.name })),
+      pinnedPlaces: pinnedPlaces.map(p => ({ rank: p.rank, name: p.name, lat: p.lat, lng: p.lng })),
+      language: explorerLang(i18n.language),
     };
     
     setPageContext({
@@ -707,7 +765,7 @@ export default function SiteExplorerPage() {
         ...mapContext,
       }
     });
-  }, [selectedZone, selectedCategory, zonePortfolios, setPageContext, activeKeyMap, activeLayerIdsKey, mapView, pinnedPlaces]);
+  }, [selectedZone, selectedCategory, zonePortfolios, setPageContext, activeKeyMap, activeLayerIdsKey, mapView, pinnedPlaces, i18n.language]);
 
   useEffect(() => {
     return () => setPageContext(null);
@@ -723,11 +781,61 @@ export default function SiteExplorerPage() {
   const portfolioHydratedRef = useRef(false);
   
   // Load context on mount to ensure portfolios can be hydrated on page reload
+  // ?reset=1 on the SAMPLE route: a clean slate for a recording or a demo. The
+  // sample project's sites live in one shared record, so a second run would
+  // open on the first run's sites. Cleared on the server and in this browser
+  // BEFORE anything is loaded; the parameter is then taken out of the address.
+  const [resetAsked] = useState(() => isSampleRoute && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('reset'));
+  const [resetDone, setResetDone] = useState(!resetAsked);
+  const resetStartedRef = useRef(false);
+  const clearLocalSites = useCallback(() => {
+    if (!projectId) return;
+    const key = `nbs_project_context_${projectId}`;
+    try {
+      const stored = JSON.parse(localStorage.getItem(key) || 'null');
+      if (stored?.siteExplorer) {
+        stored.siteExplorer = { ...stored.siteExplorer, selectedZones: [] };
+        localStorage.setItem(key, JSON.stringify(stored));
+      }
+    } catch { /* nothing stored that can be read: nothing to clear */ }
+  }, [projectId]);
   useEffect(() => {
-    if (projectId) {
+    if (!resetAsked || resetStartedRef.current) return;
+    resetStartedRef.current = true;
+    (async () => {
+      try { await fetch('/api/sample/reset-explorer', { method: 'POST' }); } catch { /* the local half still happens */ }
+      clearLocalSites();
+      localStorage.removeItem('nbs_chat_conversation_id');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reset');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search.replace(/%2C/gi, ',')}${url.hash}`);
+      setResetDone(true);
+    })();
+  }, [resetAsked, clearLocalSites]);
+
+  useEffect(() => {
+    if (projectId && resetDone) {
       console.log('🔄 Loading context for project:', projectId);
-      const loaded = loadContext(projectId);
+      let loaded = loadContext(projectId);
       console.log('📦 Context loaded:', loaded?.siteExplorer?.selectedZones?.length, 'zones');
+      // A /sample/… link opened cold lands here before the project page ever
+      // ran, so there is no project context yet — and without one nothing added
+      // on this page can be saved. Seed it the way the project page does.
+      if (!loaded && isSampleModeActive && sampleAction) {
+        migrateExistingData(projectId, {
+          name: sampleAction.name,
+          description: sampleAction.description,
+          actionType: sampleAction.type,
+          cityId: sampleAction.cityId,
+          cityName: sampleCity?.name || 'Porto Alegre',
+          cityLocode: sampleCity?.locode || 'BR POA',
+        });
+        // After a reset the seed's own sample sites go too: a clean slate is empty.
+        if (resetAsked) {
+          clearLocalSites();
+          loaded = loadContext(projectId, { skipDbSync: true });
+        }
+      }
       
       // Hydrate portfolios immediately from loaded context
       if (loaded?.siteExplorer?.selectedZones && !portfolioHydratedRef.current) {
@@ -748,7 +856,7 @@ export default function SiteExplorerPage() {
         setDataHydrated(true);
       }
     }
-  }, [projectId, loadContext]);
+  }, [projectId, loadContext, resetDone]);
   
   // Fallback hydration from context state (for navigation from other pages)
   useEffect(() => {
@@ -768,26 +876,23 @@ export default function SiteExplorerPage() {
     }
   }, [context]);
 
-  // Listen for intervention site additions from chat drawer
+  // A site approved in the chat (ChatDrawer / explorerChat.tsx): it joins the
+  // zone's portfolio here — on the map at once, beside whatever the zone already
+  // holds — and the page saves, exactly as it does for a site added by hand.
+  // `handled` tells the chat not to re-read the whole block over this page's state.
+  const saveAddedSiteRef = useRef<(portfolios: Record<string, SelectedIntervention[]>) => void>(() => {});
   useEffect(() => {
-    const handleInterventionAdded = (event: CustomEvent<{ zoneId: string; value: any }>) => {
+    const handleInterventionAdded = (event: CustomEvent<{ zoneId: string; value: any; handled?: boolean }>) => {
       const { zoneId, value } = event.detail;
-      console.log('🔔 Intervention site added event received:', zoneId, value);
-      
-      setZonePortfolios(prev => {
-        const updated = { ...prev };
-        if (!updated[zoneId]) {
-          updated[zoneId] = [];
-        }
-        // Check if already exists
-        const existingIndex = updated[zoneId].findIndex(i => i.assetId === value.assetId);
-        if (existingIndex >= 0) {
-          updated[zoneId][existingIndex] = value;
-        } else {
-          updated[zoneId] = [...updated[zoneId], value];
-        }
-        return updated;
-      });
+      if (!zoneId || !value || typeof value !== 'object') return;
+      event.detail.handled = true;
+      const prev = zonePortfoliosRef.current;
+      const existing = prev[zoneId] || [];
+      const at = value.assetId ? existing.findIndex(i => i.assetId === value.assetId) : -1;
+      const next = { ...prev, [zoneId]: at >= 0 ? existing.map((i, n) => (n === at ? value : i)) : [...existing, value] };
+      zonePortfoliosRef.current = next;
+      setZonePortfolios(next);
+      saveAddedSiteRef.current(next);
     };
     
     window.addEventListener('intervention-site-added', handleInterventionAdded as EventListener);
@@ -1103,7 +1208,10 @@ export default function SiteExplorerPage() {
         case 'flood_storage':
           return { color: '#3b82f6', icon: '💧' }; // blue - water/flood
         case 'erosion':
+        case 'slope_stability':
           return { color: '#a16207', icon: '🏔️' }; // brown - slope
+        case 'multi_benefit':
+          return { color: '#10b981', icon: '🌿' }; // teal - several hazards
         default:
           return { color: '#8b5cf6', icon: '📍' }; // purple - default
       }
@@ -1187,6 +1295,9 @@ export default function SiteExplorerPage() {
     const basemap = BASEMAPS.light;
     const cityRasterPane = map.createPane(PANE_RASTER_CITY);
     cityRasterPane.style.zIndex = '240';
+    const cityVectorPane = map.createPane(PANE_VECTOR_CITY);
+    cityVectorPane.style.zIndex = '410';
+    cityVectorPane.style.pointerEvents = 'none';
     map.createPane(PANE_RASTER).style.zIndex = '250';
     const labelsPane = map.createPane(PANE_LABELS);
     labelsPane.style.zIndex = '450';
@@ -1246,8 +1357,10 @@ export default function SiteExplorerPage() {
           const pt = project(ll);
           return `${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
         }).join('L') + 'Z').join('');
-        cityRasterPane.style.transition = animate ? 'clip-path 0.25s cubic-bezier(0,0,0.25,1)' : 'none';
-        cityRasterPane.style.clipPath = `path(evenodd, "${d}")`;
+        for (const pane of [cityRasterPane, cityVectorPane]) {
+          pane.style.transition = animate ? 'clip-path 0.25s cubic-bezier(0,0,0.25,1)' : 'none';
+          pane.style.clipPath = `path(evenodd, "${d}")`;
+        }
       };
       const clipNow = () => clipTo(ll => map.latLngToLayerPoint(ll), false);
       map.on('viewreset zoom zoomend', clipNow);
@@ -1456,7 +1569,7 @@ export default function SiteExplorerPage() {
     });
   }, []);
 
-  const addAssetInterventionToPortfolio = useCallback((zoneId: string, asset: any, intervention: InterventionType) => {
+  const buildAssetIntervention = useCallback((asset: any, intervention: InterventionType): SelectedIntervention => {
     const areaM2 = asset.area || 10000;
     const areaHa = areaM2 / 10000;
     const lengthM = asset.length || 0;
@@ -1502,13 +1615,17 @@ export default function SiteExplorerPage() {
       osmId: asset.osmId,
       centroid: asset.centroid,
     };
+    return newIntervention;
+  }, []);
 
+  const addAssetInterventionToPortfolio = useCallback((zoneId: string, asset: any, intervention: InterventionType) => {
+    const newIntervention = buildAssetIntervention(asset, intervention);
     setZonePortfolios(prev => {
       const existing = prev[zoneId] || [];
       const filtered = existing.filter(i => i.assetId !== asset.id);
       return { ...prev, [zoneId]: [...filtered, newIntervention] };
     });
-  }, []);
+  }, [buildAssetIntervention]);
 
   const searchOsmByName = useCallback(async () => {
     if (!osmSearchQuery.trim() || !selectedZoneFeature || !selectedCategory) return;
@@ -1619,8 +1736,9 @@ export default function SiteExplorerPage() {
 
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   
-  const savePortfolioToContext = useCallback(() => {
+  const savePortfolioToContext = useCallback((opts?: { portfolios?: Record<string, SelectedIntervention[]>; quiet?: boolean }) => {
     if (!projectId) return;
+    const zonePortfolios = opts?.portfolios ?? zonePortfoliosRef.current;
     
     const zonesLayer = layers.find(l => l.id === 'intervention_zones');
     const zonesData = zonesLayer?.data?.geoJson?.features || [];
@@ -1632,10 +1750,12 @@ export default function SiteExplorerPage() {
         const props = zoneFeature?.properties || {};
         return {
           zoneId,
-          zoneName: props.zoneName || (zoneId.startsWith('zone_') ? `Zone ${zoneId.replace('zone_', '')}` : zoneId),
+          zoneName: props.zoneName || props.neighbourhoodName || (zoneId.startsWith('zone_') ? `Zone ${zoneId.replace('zone_', '')}` : zoneId),
           hazardType: props.typologyLabel || 'LOW',
-          primaryHazard: props.primaryHazard,
-          secondaryHazard: props.secondaryHazard,
+          primaryHazard: props.primaryHazard ?? undefined,
+          // null in the zones file for single-hazard bairros; the block schema
+          // takes a string or nothing, and a null made the whole save a 400.
+          secondaryHazard: props.secondaryHazard ?? undefined,
           riskScore: Math.max(props.meanFlood || 0, props.meanHeat || 0, props.meanLandslide || 0),
           meanFlood: props.meanFlood,
           meanHeat: props.meanHeat,
@@ -1659,6 +1779,7 @@ export default function SiteExplorerPage() {
       hazardSummary: { floodCells, heatCells, landslideCells, totalCells },
     });
     
+    if (opts?.quiet) return;
     const zoneId = selectedZone?.zoneId;
     const interventionCount = zoneId ? zonePortfolios[zoneId]?.length || 0 : 0;
     
@@ -1669,7 +1790,165 @@ export default function SiteExplorerPage() {
     });
     
     setTimeout(() => setSaveSuccess(null), 2000);
-  }, [projectId, zonePortfolios, layers, updateModule, selectedZone, toast, t]);
+  }, [projectId, layers, updateModule, selectedZone, toast, t]);
+
+  // ── "Add a site here": click the map → the official readings at the point →
+  // the solutions that answer what is high there → saved to the zone's portfolio.
+  const dropSeqRef = useRef(0);
+  const mapInsetRef = useRef({ right: 320, bottom: 48 });
+  mapInsetRef.current = { right: mapRightInset, bottom: drawerHeight };
+  const readDropPoint = useCallback((lat: number, lng: number) => {
+    const seq = ++dropSeqRef.current;
+    setDropPoint({ lat, lng });
+    setDropReading(null);
+    setDropState('loading');
+    fetch(`/api/geospatial/hazard-at?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`)
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((reading: ExplorerSiteReading) => {
+        if (dropSeqRef.current !== seq) return;
+        setDropReading(reading);
+        setDropState('idle');
+      })
+      .catch(() => { if (dropSeqRef.current === seq) setDropState('failed'); });
+  }, []);
+  const closeDrop = useCallback(() => {
+    dropSeqRef.current++;
+    setDropPoint(null);
+    setDropReading(null);
+    setDropState('idle');
+  }, []);
+
+  // In the mode every vector on the map lets the click through (CSS below), so
+  // the click always reaches the map itself, wherever it lands.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!addSiteMode || !mapReady || !map) return;
+    const onClick = (e: L.LeafletMouseEvent) => {
+      setAddSiteMode(false);
+      readDropPoint(e.latlng.lat, e.latlng.lng);
+    };
+    map.on('click', onClick);
+    map.getContainer().classList.add('explorer-adding');
+    return () => {
+      map.off('click', onClick);
+      map.getContainer().classList.remove('explorer-adding');
+    };
+  }, [addSiteMode, mapReady, readDropPoint]);
+
+  useEffect(() => {
+    if (!addSiteMode && !dropPoint) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (addSiteMode) setAddSiteMode(false);
+      else closeDrop();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [addSiteMode, dropPoint, closeDrop]);
+
+  // The pin: draggable, so a click a few metres off is corrected in place.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (!dropPoint) {
+      dropMarkerRef.current?.remove();
+      dropMarkerRef.current = null;
+      return;
+    }
+    if (dropMarkerRef.current) {
+      dropMarkerRef.current.setLatLng([dropPoint.lat, dropPoint.lng]);
+      return;
+    }
+    const marker = L.marker([dropPoint.lat, dropPoint.lng], {
+      draggable: true,
+      keyboard: false,
+      zIndexOffset: 2000,
+      icon: L.divIcon({
+        className: 'explorer-drop-pin',
+        html: `<svg width="30" height="40" viewBox="0 0 30 40" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))"><path d="M15 39C15 39 28 24.5 28 14.5A13 13 0 1 0 2 14.5C2 24.5 15 39 15 39Z" fill="#18181b" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14.5" r="5" fill="#fff"/></svg>`,
+        iconSize: [30, 40],
+        iconAnchor: [15, 39],
+      }),
+    });
+    marker.on('dragend', () => {
+      const ll = marker.getLatLng();
+      readDropPoint(ll.lat, ll.lng);
+    });
+    marker.addTo(map);
+    dropMarkerRef.current = marker;
+  }, [dropPoint, mapReady, readDropPoint]);
+
+  // The card rides beside the pin: to its right when there is room, else to its
+  // left, and never off the map. Re-placed as the map moves or the card grows.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !dropPoint) { setDropCardPos(null); return; }
+    const place = () => {
+      const pt = map.latLngToContainerPoint([dropPoint.lat, dropPoint.lng]);
+      // The map runs under the zone panel and the layer drawer: what can be
+      // seen of it ends where they begin.
+      const size = map.getSize();
+      const right = size.x - mapInsetRef.current.right - 12;
+      const bottom = size.y - mapInsetRef.current.bottom - 12;
+      const w = dropCardRef.current?.offsetWidth || 348;
+      const h = dropCardRef.current?.offsetHeight || 260;
+      const left = pt.x + 22 + w <= right ? pt.x + 22 : Math.max(8, pt.x - 22 - w);
+      const top = Math.max(8, Math.min(pt.y - 64, bottom - h));
+      setDropCardPos(prev => (prev && Math.abs(prev.left - left) < 0.5 && Math.abs(prev.top - top) < 0.5 ? prev : { left, top }));
+    };
+    place();
+    // The card grows when the reading arrives and when a choice is made.
+    const grown = dropCardRef.current ? new ResizeObserver(place) : null;
+    if (dropCardRef.current) grown!.observe(dropCardRef.current);
+    map.on('move zoom resize', place);
+    return () => { grown?.disconnect(); map.off('move zoom resize', place); };
+  }, [dropPoint, dropReading, dropState, mapReady, mapRightInset]);
+
+  const addDroppedSite = useCallback((choice: { name: string; areaHa: number; interventionId: string }) => {
+    const intervention = interventionsData?.interventions.find(i => i.id === choice.interventionId);
+    const zone = dropReading?.zone;
+    if (!intervention || !zone || !dropPoint) return;
+    const asset = {
+      id: `site_${Date.now().toString(36)}`,
+      name: choice.name,
+      assetType: 'manual=site',
+      centroid: [dropPoint.lat, dropPoint.lng] as [number, number],
+      area: choice.areaHa * 10000,
+      length: 0,
+    };
+    const item: SelectedIntervention = { ...buildAssetIntervention(asset, intervention), source: 'manual' };
+    const prev = zonePortfoliosRef.current;
+    const next = { ...prev, [zone.zoneId]: [...(prev[zone.zoneId] || []), item] };
+    setZonePortfolios(next);
+    // Saved at once, like "Save Interventions" in the zone card: it survives a reload.
+    savePortfolioToContext({ portfolios: next, quiet: true });
+    toast({
+      title: t('siteExplorer.addSite.addedTitle'),
+      description: t('siteExplorer.addSite.addedDescription', { name: choice.name, zone: zone.name }),
+    });
+    // The chat, when it is open, says so too and offers what to ask next.
+    window.dispatchEvent(new CustomEvent<ExplorerSiteDropped>(EXPLORER_SITE_DROPPED_EVENT, {
+      detail: { name: choice.name, zone: zone.name, interventionId: intervention.id, interventionName: intervention.name },
+    }));
+    closeDrop();
+  }, [interventionsData, dropReading, dropPoint, buildAssetIntervention, savePortfolioToContext, toast, t, closeDrop]);
+
+  // The list flow (zone → category → asset → intervention) gets the same because
+  // line: the official readings at the asset picked.
+  const selectedAssetLat = selectedAsset?.centroid?.[0];
+  const selectedAssetLng = selectedAsset?.centroid?.[1];
+  useEffect(() => {
+    setAssetReadings(null);
+    if (typeof selectedAssetLat !== 'number' || typeof selectedAssetLng !== 'number') return;
+    let cancelled = false;
+    fetch(`/api/geospatial/hazard-at?lat=${selectedAssetLat.toFixed(6)}&lng=${selectedAssetLng.toFixed(6)}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then((reading: ExplorerSiteReading | null) => { if (!cancelled && reading?.inCity) setAssetReadings(reading.readings); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedAssetLat, selectedAssetLng]);
+
+  saveAddedSiteRef.current = portfolios => savePortfolioToContext({ portfolios, quiet: true });
 
   const formatCost = (min: number, max: number): string => {
     const formatNum = (n: number) => {
@@ -1754,11 +2033,24 @@ export default function SiteExplorerPage() {
               const displayName = p.neighbourhoodName || formatZoneName(p.zoneId);
               const povertyLine = p.povertyRate != null ? `${t('interventionZones.metrics.poverty') || 'Poverty'}: ${(p.povertyRate * 100).toFixed(1)}%<br/>` : '';
               const popLine = p.populationTotal ? `${t('interventionZones.metrics.population') || 'Population'}: ${p.populationTotal.toLocaleString()}<br/>` : '';
-              // Per-hazard within-city percentile band + score + absolute anchor (see risk-display.ts)
+              // Official first: the share of the bairro's area each official map
+              // marks (SGB, climate plan). Then, labelled as such, the OEF estimate:
+              // the within-city percentile band of our own index, with the index
+              // value it is read from (see risk-display.ts) — never beside an
+              // official figure as if the two were one scale.
+              const official = officialShares(p);
+              const officialBlock = official.length
+                ? `<strong style="font-size:11px">${t('siteExplorer.official.title')}</strong><br/>` +
+                  official.map(o =>
+                    `<span style="color:${OFFICIAL_SHARE_COLOR[o.hazard]}">${o.flagged ? '●' : '○'}</span> ${t(`siteExplorer.official.${o.hazard}`)}: ` +
+                    `<strong>${Math.round(o.share * 100)}%</strong><br/>`).join('') +
+                  `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>`
+                : '';
               const riskLine = (hz: HazardKey, labelKey: string) => {
                 const pct = hazardPercentile(p, hz);
                 const band = riskBand(pct);
-                const anchor = riskAnchor(p, hz);
+                // Only the index value: the official share now has its own line above.
+                const anchor = riskAnchor(p, hz).split(' · ')[0];
                 return `<span style="color:${band.color}">●</span> ${t(labelKey)}: <strong>${t(`riskBands.${band.key}`) || band.label} (${pct})</strong>` +
                   (anchor ? ` <span style="opacity:0.65;font-size:10px">${anchor}</span>` : '') + `<br/>`;
               };
@@ -1769,15 +2061,16 @@ export default function SiteExplorerPage() {
                 `<em style="font-size: 11px;">${interventionDesc}</em><br/>` +
                 secondaryLine +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
+                officialBlock +
+                `<strong style="font-size:11px">${t('siteExplorer.oefEstimate')}</strong> <span style="opacity:0.55;font-size:10px">· ${t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}</span><br/>` +
                 riskLine('flood', 'interventionZones.metrics.meanFlood') +
                 riskLine('heat', 'interventionZones.metrics.meanHeat') +
-                // Landslide is shown as SUSCEPTIBILITY (terrain), not a risk band — its
-                // risk is structurally tiny (low exposure), so a percentile band would
-                // mislead. Flag the morros from the catalog landslide hazard.
-                (p.landslideSusceptible
+                // Landslide has no percentile band here: our index's landslide risk
+                // is structurally tiny (low exposure), so a band would mislead. The
+                // official line above (SGB, medium or high) is what says "slope".
+                (p.landslideSusceptible && !official.length
                   ? `<span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨</span> ${t('interventionZones.metrics.meanLandslide')}: <strong>${t('siteExplorer.landslideProne') || 'landslide-prone terrain'}</strong><br/>`
                   : '') +
-                `<span style="opacity:0.55;font-size:10px">${t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}</span><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 popLine + povertyLine +
                 `${t('interventionZones.metrics.area')}: ${(p.areaKm2 || 0).toFixed(1)} km²<br/>` +
@@ -1845,17 +2138,15 @@ export default function SiteExplorerPage() {
       case 'flood_2024_extent':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
-            // Dashed outline; the trace of fill only keeps the inside hoverable.
+            // The file is the whole basin's flood (Canoas, Eldorado, the delta):
+            // drawn unclipped it put red dashes all over the region west of the
+            // city. In the clipped pane only Porto Alegre's part shows, so it
+            // reads as the line the water reached along the city's waterfront.
+            // Not interactive: above the bairros it would take their clicks —
+            // the legend says what the dashed line is.
+            pane: PANE_VECTOR_CITY,
+            interactive: false,
             style: { color: FLOOD_2024_OUTLINE, weight: 1.8, dashArray: '5 3', fillColor: FLOOD_2024_OUTLINE, fillOpacity: 0.04, opacity: 1 },
-            onEachFeature: (feature, layer) => {
-              const p = feature.properties || {};
-              layer.bindTooltip(
-                `<strong>May 2024 flood extent (observed)</strong><br/>` +
-                `${p.event_date || 'May 2024'}<br/>` +
-                `<em>${p.data_source || 'Planet SkySat'}</em>`,
-                { sticky: true }
-              );
-            },
           });
         }
         return null;
@@ -2046,7 +2337,7 @@ export default function SiteExplorerPage() {
     const look = layerLookRef.current.get(layerConfig.id);
     return L.tileLayer(tileUrl, {
       pane: OFFICIAL_RASTER_GROUPS.includes(layerConfig.group) ? PANE_RASTER : PANE_RASTER_CITY,
-      opacity: look?.opacity ?? DEFAULT_TILE_OPACITY,
+      opacity: rasterOpacityRef.current(layerConfig.id),
       ...(look?.zIndex != null ? { zIndex: look.zIndex } : {}),
       maxNativeZoom: isLocal ? 14 : 15,
       maxZoom: 19,
@@ -2289,6 +2580,8 @@ export default function SiteExplorerPage() {
     const next = id ? explorerKeyMap(id) : null;
     const leaving = activeKeyMapRef.current ? explorerKeyMap(activeKeyMapRef.current).layers.map(l => l.id) : [];
     const wanted = new Set(next?.layers.map(l => l.id) ?? []);
+    // From here on "the active key map" is the new one (the close-up fade reads it).
+    activeKeyMapRef.current = id;
 
     for (const l of layersRef.current) {
       if (l.id === 'intervention_zones' || !l.enabled || wanted.has(l.id)) continue;
@@ -2300,7 +2593,7 @@ export default function SiteExplorerPage() {
       const onMap = layerRefs.current.get(l.id) as L.TileLayer | undefined;
       if (onMap && layersRef.current.find(s => s.id === l.id)?.enabled) {
         // Already showing (shared with the map being left): restyle in place.
-        onMap.setOpacity?.(l.opacity ?? DEFAULT_TILE_OPACITY);
+        onMap.setOpacity?.(rasterOpacityRef.current(l.id));
         onMap.setZIndex?.(i + 1);
       } else {
         toggleLayer(l.id);
@@ -2318,6 +2611,29 @@ export default function SiteExplorerPage() {
     setActiveKeyMap(null);
     toggleLayer(layerId);
   }, [toggleLayer]);
+
+  // The close-up fade. Only a key map's rasters: layers switched on by hand in
+  // the drawer keep the opacity they were given.
+  rasterOpacityRef.current = (id: string) => {
+    const base = layerLookRef.current.get(id)?.opacity ?? DEFAULT_TILE_OPACITY;
+    const close = !!activeKeyMapRef.current && !!mapRef.current && mapRef.current.getZoom() >= CLOSE_UP_ZOOM;
+    // The light basemap stays under it: satellite was tried here (27 Nov) and
+    // read worse — busy, tinted by the raster, and without street names.
+    return close ? Math.min(base, CLOSE_UP_OPACITY) : base;
+  };
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    const restyle = () => {
+      const active = activeKeyMapRef.current;
+      if (!active) return;
+      for (const l of explorerKeyMap(active).layers) {
+        (layerRefs.current.get(l.id) as L.TileLayer | undefined)?.setOpacity?.(rasterOpacityRef.current(l.id));
+      }
+    };
+    map.on('zoomend', restyle);
+    return () => { map.off('zoomend', restyle); };
+  }, [mapReady]);
 
   // ← / → step through the key maps, for presenting. Caught in the capture
   // phase so Leaflet does not also pan the map; left alone while typing or
@@ -2364,7 +2680,10 @@ export default function SiteExplorerPage() {
     const map = mapRef.current;
     if (!map) return;
     viewTouchedRef.current = true;
-    map.flyTo([lat, lng], zoom ?? Math.max(map.getZoom(), 14), { duration: 0.8 });
+    // Centre of what can be SEEN, not of the map: half the right-hand panel to the left.
+    const z = zoom ?? Math.max(map.getZoom(), 14);
+    const target = map.unproject(map.project([lat, lng], z).add([mapRightInsetRef.current / 2, 0]), z);
+    map.flyTo(target, z, { duration: 0.8 });
   }, []);
 
   // Apply the deep link once: the key map as soon as the map exists, the place
@@ -2483,7 +2802,7 @@ export default function SiteExplorerPage() {
       });
       marker.bindTooltip(
         `<strong>${esc(place.rank)}. ${esc(place.name)}</strong>` + (place.subtitle ? `<br/><span style="opacity:.75">${esc(place.subtitle)}</span>` : ''),
-        { direction: 'top', offset: [0, -14] }
+        { direction: 'top', offset: [0, -14], className: 'explorer-pin-tip' }
       );
       marker.on('click', () => {
         window.dispatchEvent(new CustomEvent<ExplorerPinnedPlace>(EXPLORER_PIN_CLICKED_EVENT, { detail: place }));
@@ -2496,11 +2815,47 @@ export default function SiteExplorerPage() {
     if (fit) {
       viewTouchedRef.current = true;
       // Top padding clears the key maps row.
+      // …and the bottom-right one clears the zone panel (when it is up) and the
+      // layer drawer: the map runs under both.
       map.fitBounds(L.latLngBounds(valid.map(p => [p.lat, p.lng] as [number, number])), {
-        paddingTopLeft: [60, 120], paddingBottomRight: [60, 60], maxZoom: 16,
+        paddingTopLeft: [60, 120], paddingBottomRight: [mapRightInsetRef.current + 50, 110], maxZoom: 16,
       });
     }
   }, []);
+
+  const clearPlaceOutline = useCallback(() => {
+    placeOutlineRef.current?.remove();
+    placeOutlineRef.current = null;
+  }, []);
+  /**
+   * "This square": the place's outline, dark on a light veil, framed with room
+   * around it at zoom 15–17 — close enough to see it, never so close that a
+   * small square fills the map. A place with no outline is simply flown to.
+   */
+  const showPlace = useCallback((lat: number, lng: number, geometry?: any | null) => {
+    const map = mapRef.current;
+    if (!map) return;
+    clearPlaceOutline();
+    let outline: L.GeoJSON | null = null;
+    if (geometry && /Polygon/.test(geometry.type)) {
+      try {
+        outline = L.geoJSON(geometry, {
+          interactive: false,
+          style: { className: 'explorer-place-outline', color: '#18181b', weight: 3, opacity: 1, fillColor: '#ffffff', fillOpacity: 0.45 },
+        });
+      } catch { outline = null; }
+    }
+    if (!outline || !outline.getBounds().isValid()) {
+      flyToPoint(lat, lng, 16);
+      return;
+    }
+    outline.addTo(map);
+    placeOutlineRef.current = outline;
+    const bounds = outline.getBounds();
+    const fit = map.getBoundsZoom(bounds, false, L.point(mapRightInsetRef.current + 260, 300));
+    const c = bounds.getCenter();
+    flyToPoint(c.lat, c.lng, Math.max(CLOSE_UP_ZOOM, Math.min(17, fit)));
+  }, [clearPlaceOutline, flyToPoint]);
 
   const runMapCommand = useCallback((cmd: ExplorerMapCommand) => {
     switch (cmd.type) {
@@ -2514,13 +2869,36 @@ export default function SiteExplorerPage() {
         if (typeof cmd.name === 'string') focusPlaceByName(cmd.name);
         break;
       case 'pin_places':
+        // A new ranking; `fit: false` only re-draws the pins of the one on show.
+        if (cmd.fit !== false) clearPlaceOutline();
         setPins(Array.isArray(cmd.places) ? cmd.places : [], cmd.fit !== false);
         break;
       case 'clear_pins':
         setPins([], false);
+        clearPlaceOutline();
+        break;
+      case 'show_place':
+        if (Number.isFinite(cmd.lat) && Number.isFinite(cmd.lng)) showPlace(cmd.lat, cmd.lng, cmd.geometry);
+        break;
+      case 'drop_site':
+        if (Number.isFinite(cmd.lat) && Number.isFinite(cmd.lng)) {
+          clearPlaceOutline();
+          setAddSiteMode(false);
+          readDropPoint(cmd.lat, cmd.lng);
+        }
         break;
     }
-  }, [applyKeyMap, flyToPoint, focusPlaceByName, setPins]);
+  }, [applyKeyMap, flyToPoint, focusPlaceByName, setPins, readDropPoint, clearPlaceOutline, showPlace]);
+
+  // While numbered pins or the add-a-site card are up, the neighbourhood hover
+  // card stays out of the way: it is as big as the pins' whole neighbourhood and
+  // opens under a cursor that has just clicked one of them (CSS beside the card).
+  const quietZoneHover = pinnedPlaces.length > 0 || !!dropPoint;
+  useEffect(() => {
+    const el = mapRef.current?.getContainer();
+    if (!el || !mapReady) return;
+    el.classList.toggle('explorer-quiet-hover', quietZoneHover);
+  }, [quietZoneHover, mapReady]);
 
   // Commands that arrive before the map (and, for a place name, the bairros)
   // are held and run in order once it is there.
@@ -2691,7 +3069,7 @@ export default function SiteExplorerPage() {
               on the right; steps aside when the zone card opens. */}
           <div
             className="absolute top-2.5 z-[1001] flex pointer-events-none"
-            style={{ left: `${keyMapsLeft}px`, right: '332px', transition: 'left 0.2s ease' }}
+            style={{ left: `${keyMapsLeft}px`, right: `${mapRightInset + 12}px`, transition: 'left 0.2s ease' }}
           >
             <div
               data-testid="key-maps"
@@ -2749,10 +3127,61 @@ export default function SiteExplorerPage() {
             </div>
           </div>
 
+          {/* "Add a site here": the mode's button, bottom-right of the map, and
+              the card that opens beside the pin. */}
+          <style>{`.explorer-adding, .explorer-adding .leaflet-grab, .explorer-adding .leaflet-interactive { cursor: crosshair !important; } .explorer-adding .leaflet-interactive { pointer-events: none !important; } .explorer-drop-pin { cursor: grab; } .leaflet-explorerRaster-pane .leaflet-layer, .leaflet-explorerRasterCity-pane .leaflet-layer { transition: opacity 0.4s ease; } .explorer-quiet-hover .leaflet-tooltip:not(.explorer-pin-tip) { display: none !important; }`}</style>
+          <div className="absolute z-[1001] flex justify-end pointer-events-none" style={{ right: `${mapRightInset + 12}px`, bottom: `${drawerHeight + 12}px`, transition: 'right 0.3s ease' }}>
+            {addSiteMode ? (
+              <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-zinc-900 pl-4 pr-1.5 py-1.5 text-[13px] text-white shadow-lg ring-2 ring-primary" data-testid="add-site-hint" role="status">
+                <MapPin className="h-4 w-4 text-primary" />
+                <span>{t('siteExplorer.addSite.hint')}</span>
+                <button
+                  type="button"
+                  onClick={() => setAddSiteMode(false)}
+                  className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/20"
+                >
+                  {t('siteExplorer.addSite.cancel')}
+                </button>
+              </div>
+            ) : dropPoint ? null : (
+              <Button
+                type="button"
+                data-testid="add-site-here"
+                disabled={!mapReady}
+                onClick={() => { closeDrop(); setAddSiteMode(true); }}
+                className="pointer-events-auto h-10 rounded-full px-4 text-[13px] font-semibold shadow-lg"
+              >
+                <MapPin className="mr-1.5 h-4 w-4" />
+                {t('siteExplorer.addSite.button')}
+              </Button>
+            )}
+          </div>
+          {dropPoint && (
+            <div
+              ref={dropCardRef}
+              className="absolute z-[1002]"
+              style={{ left: dropCardPos?.left ?? 0, top: dropCardPos?.top ?? 0, visibility: dropCardPos ? 'visible' : 'hidden' }}
+              onWheel={(e) => e.stopPropagation()}
+              onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
+              onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
+            >
+              <AddSiteHereCard
+                reading={dropReading}
+                loading={dropState === 'loading'}
+                failed={dropState === 'failed'}
+                interventions={interventionsData?.interventions ?? []}
+                onCancel={closeDrop}
+                onAdd={addDroppedSite}
+              />
+            </div>
+          )}
+
           {/* Right Panel - Zone Priority List (Frosted Glass) - ends at 30% from bottom */}
           <div 
-            className="absolute top-0 right-0 w-[320px] z-[1001] bg-zinc-900/80 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col rounded-bl-xl"
-            style={{ pointerEvents: 'auto', bottom: '30%' }}
+            className={`absolute top-0 right-0 w-[320px] z-[1001] bg-zinc-900/80 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col rounded-bl-xl transition-transform duration-300 ${showZonePanel ? '' : 'translate-x-full pointer-events-none'}`}
+            aria-hidden={!showZonePanel}
+            data-testid="zone-panel"
+            style={{ pointerEvents: showZonePanel ? 'auto' : 'none', bottom: '30%' }}
             onWheel={(e) => e.stopPropagation()}
             onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
             onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
@@ -2816,6 +3245,7 @@ export default function SiteExplorerPage() {
                   return (
                     <div 
                       key={zone.zoneId}
+                      data-testid={`zone-row-${zone.zoneId}`}
                       className={`rounded-lg border transition-colors cursor-pointer ${isSelected ? 'border-primary bg-primary/20' : 'border-white/5 hover:border-white/20 hover:bg-white/5'}`}
                       onClick={handleZoneClick}
                     >
@@ -3060,7 +3490,7 @@ export default function SiteExplorerPage() {
               {activeLegends.map(l => (
                 <div key={l.id}>
                   <div className="text-[11px] font-medium text-zinc-100 mb-1 leading-tight line-clamp-2">{l.name}</div>
-                  <LayerLegend spec={legends[l.id]} />
+                  <LayerLegend spec={legends[l.id]} lang={explorerLang(i18n.language)} />
                 </div>
               ))}
             </div>
@@ -3101,7 +3531,30 @@ export default function SiteExplorerPage() {
                   </Button>
                 </div>
                 
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                {/* Official first: what share of the bairro each official map marks. */}
+                {officialShares(selectedZone).length > 0 && (
+                  <div className="mt-3" data-testid="zone-official-shares">
+                    <div className="text-[11px] font-semibold text-muted-foreground mb-1">{t('siteExplorer.official.title')}</div>
+                    <ul className="space-y-0.5">
+                      {officialShares(selectedZone).map(o => (
+                        <li key={o.hazard} className="flex items-baseline justify-between gap-2 text-[13px]">
+                          <span className="flex items-baseline gap-1.5 min-w-0">
+                            <i className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={o.flagged ? { backgroundColor: OFFICIAL_SHARE_COLOR[o.hazard] } : { border: `1.5px solid ${OFFICIAL_SHARE_COLOR[o.hazard]}` }} />
+                            <span className="truncate">{t(`siteExplorer.official.${o.hazard}`)}</span>
+                          </span>
+                          <span className="font-semibold tabular-nums">{Math.round(o.share * 100)}%</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Then our own index, said to be ours. */}
+                <div className="mt-3 flex items-baseline gap-1.5 text-[11px] text-muted-foreground" data-testid="zone-oef-estimate-label">
+                  <span className="font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">{t('siteExplorer.oefEstimate')}</span>
+                  <span>· {t('siteExplorer.relativeToCity')}</span>
+                </div>
+                <div className="mt-1 grid grid-cols-3 gap-2 text-center">
                   {([
                     ['flood', 'interventionZones.metrics.meanFlood'],
                     ['heat', 'interventionZones.metrics.meanHeat'],
@@ -3109,7 +3562,8 @@ export default function SiteExplorerPage() {
                   ] as [HazardKey, string][]).map(([hz, labelKey]) => {
                     const pct = hazardPercentile(selectedZone, hz);
                     const band = riskBand(pct);
-                    const anchor = riskAnchor(selectedZone, hz);
+                    // The index value only; the official share has its own line above.
+                    const anchor = riskAnchor(selectedZone, hz).split(' · ')[0];
                     return (
                       <div key={hz} className="p-2 rounded" style={{ backgroundColor: `${band.color}1f` }}>
                         <div className="text-lg font-semibold" style={{ color: band.color }}>{pct}</div>
@@ -3142,6 +3596,7 @@ export default function SiteExplorerPage() {
                         {getApplicableCategories(selectedZone.typologyLabel).map(category => (
                           <button
                             key={category.id}
+                            data-testid={`category-${category.id}`}
                             className="w-full p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-center gap-3"
                             onClick={() => setSelectedCategory(category.id)}
                           >
@@ -3303,6 +3758,8 @@ export default function SiteExplorerPage() {
                               return (
                                 <button
                                   key={asset.id}
+                                  data-testid="asset-row"
+                                  data-asset-id={asset.id}
                                   className={`w-full p-3 rounded-lg border transition-colors text-left flex items-center gap-3 ${
                                     hasIntervention 
                                       ? 'border-green-500 bg-green-50 dark:bg-green-950' 
@@ -3371,6 +3828,14 @@ export default function SiteExplorerPage() {
                                   <div>
                                     <CardTitle className="text-base">{intervention.name}</CardTitle>
                                     <CardDescription className="mt-1">{intervention.description}</CardDescription>
+                                    {(() => {
+                                      const because = assetReadings ? becauseFor(assetReadings, { category: intervention.category }) : null;
+                                      return because ? (
+                                        <p className={`mt-1.5 text-xs leading-snug ${because.fits ? 'font-medium text-foreground' : 'text-muted-foreground'}`} data-testid="list-because-line">
+                                          {because.line[explorerLang(i18n.language)]}
+                                        </p>
+                                      ) : null;
+                                    })()}
                                   </div>
                                   <Button
                                     variant={isSelected ? 'secondary' : 'default'}
@@ -3456,7 +3921,7 @@ export default function SiteExplorerPage() {
                 <div className="p-4 border-t bg-muted/30 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
                   <Button 
                     className={`w-full relative z-10 transition-all ${saveSuccess === selectedZone.zoneId ? 'bg-green-600 hover:bg-green-600' : ''}`}
-                    onClick={savePortfolioToContext} 
+                    onClick={() => savePortfolioToContext()} 
                     style={{ pointerEvents: 'auto' }}
                   >
                     {saveSuccess === selectedZone.zoneId ? (

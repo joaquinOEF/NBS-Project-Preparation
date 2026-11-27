@@ -15,6 +15,7 @@ export interface LegendStop {
   value: number;   // data value at this stop (in `unit`)
   color: string;   // hex
   label?: string;  // for categorical: the class name
+  labelEn?: string; // the class name in English, where `label` is Portuguese (hand-written entries)
   outline?: boolean; // categorical: drawn on the map as a dashed outline, not a fill
 }
 
@@ -22,6 +23,7 @@ export interface LegendSpec {
   layerId: string;
   kind: 'gradient' | 'classes';
   unit?: string;           // e.g. 'm', 'mm', 'index 0–1', '°C·days'
+  unitEn?: string;         // the unit in English, where `unit` is Portuguese
   stops: LegendStop[];     // gradient: ascending by value; classes: one per class
   min?: number;            // actual data min (gradient)
   max?: number;            // actual data max (gradient)

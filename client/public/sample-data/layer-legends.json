@@ -3389,6 +3389,7 @@
     "layerId": "arvc_heat_hazard",
     "kind": "gradient",
     "unit": "índice de ameaça 0–1",
+    "unitEn": "hazard index 0–1",
     "stops": [
       {
         "value": 0.014,
@@ -3455,17 +3456,20 @@
       {
         "value": 1,
         "color": "#c6dbef",
-        "label": "Baixa"
+        "label": "Baixa",
+        "labelEn": "Low"
       },
       {
         "value": 2,
         "color": "#6baed6",
-        "label": "Média"
+        "label": "Média",
+        "labelEn": "Medium"
       },
       {
         "value": 3,
         "color": "#08519c",
-        "label": "Alta"
+        "label": "Alta",
+        "labelEn": "High"
       }
     ],
     "source": "official",
@@ -3479,17 +3483,20 @@
       {
         "value": 1,
         "color": "#f3f3f1",
-        "label": "Baixa"
+        "label": "Baixa",
+        "labelEn": "Low"
       },
       {
         "value": 2,
         "color": "#fd8d3c",
-        "label": "Média"
+        "label": "Média",
+        "labelEn": "Medium"
       },
       {
         "value": 3,
         "color": "#bd0026",
-        "label": "Alta"
+        "label": "Alta",
+        "labelEn": "High"
       }
     ],
     "source": "official",
@@ -3503,17 +3510,20 @@
       {
         "value": 1,
         "color": "#6a1b9a",
-        "label": "Inunda e esquenta"
+        "label": "Inunda e esquenta",
+        "labelEn": "Floods and heats up"
       },
       {
         "value": 2,
         "color": "#bd0026",
-        "label": "Desliza e esquenta"
+        "label": "Desliza e esquenta",
+        "labelEn": "Slides and heats up"
       },
       {
         "value": 3,
         "color": "#00695c",
-        "label": "Inunda e desliza (ou os três)"
+        "label": "Inunda e desliza (ou os três)",
+        "labelEn": "Floods and slides (or all three)"
       }
     ],
     "source": "official",

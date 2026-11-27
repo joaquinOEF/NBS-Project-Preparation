@@ -1075,6 +1075,28 @@
     "high": "High",
     "very_high": "Very High"
   },
+  "explorerChat": {
+    "storiesShort": "Stories",
+    "stories": "Demo stories",
+    "startOver": "Start a new conversation",
+    "emptyTitle": "Ask the map",
+    "emptyHint": "Each question below reads official data and shows the answer on the map. You can also type your own.",
+    "reading": "Reading the map…",
+    "failed": "That did not come through. Try again, or pick one of these.",
+    "modelUnavailable": "I cannot answer free questions right now. These still work, straight from the data:",
+    "sources": "Sources",
+    "tapHint": "Tap a place, or its number on the map, to see what fits there.",
+    "residents": "{{n}} residents within {{radius}} m",
+    "residentsShort": "residents within {{radius}} m",
+    "nextClassDown": "next class down",
+    "added": "Added: {{solution}}",
+    "addFailed": "It was not saved. Try again.",
+    "orElse": "Or:",
+    "chooseAnother": "another solution…",
+    "size": "Assumed size: {{area}} ha. You can change it later in the neighbourhood's card.",
+    "addedConfirm": "Done. {{name}} is on the map with “{{solution}}”, saved in {{zone}}'s portfolio.",
+    "siteSaved": "Saved. {{name}} is on the map."
+  },
   "siteExplorer": {
     "saveInterventions": "Save Interventions",
     "saved": "Saved!",
@@ -1130,6 +1152,63 @@
       "floodReached": "Reached by the water, May 2024",
       "sectorHigh": "High risk",
       "sectorVeryHigh": "Very high risk"
+    },
+    "official": {
+      "title": "Official maps · share of the neighbourhood's area",
+      "flood": "Flood · SGB, high class",
+      "heat": "Heat · climate plan 2050, two top classes",
+      "landslide": "Landslide · SGB, medium or high"
+    },
+    "addSite": {
+      "button": "Add a site here",
+      "hint": "Click the map where the site is",
+      "cancel": "Cancel (Esc)",
+      "title": "New site",
+      "reading": "Reading this point…",
+      "failed": "Could not read this point. Try again.",
+      "outside": "This point is outside Porto Alegre. Click inside the city boundary.",
+      "officialHere": "Official data at this point",
+      "whatFits": "What fits here",
+      "more": "{{count}} more",
+      "noZone": "This point is in no neighbourhood of the map, so it cannot be saved.",
+      "name": "Site name",
+      "area": "Area (ha)",
+      "add": "Add this site",
+      "addNamed": "Add “{{solution}}” here",
+      "addedTitle": "Site added",
+      "addedDescription": "{{name}} is now in {{zone}}'s portfolio.",
+      "hazard": {
+        "flood": "Flooding",
+        "heat": "Heat",
+        "landslide": "Landslide"
+      },
+      "source": {
+        "SGB": "SGB",
+        "PLAC": "climate plan, 2050",
+        "SMAMUS": "SMAMUS, May 2024 flood"
+      }
+    },
+    "interventionNames": {
+      "floodable_park": "Floodable Park / Detention Basin",
+      "sponge_square": "Sponge Square / Plaza",
+      "retention_yard": "Multi-use Retention Yard",
+      "detention_field": "Detention & Infiltration Field",
+      "constructed_wetland": "Constructed Wetland",
+      "permeable_street": "Permeable Street Retrofit",
+      "tree_corridor": "Tree Canopy Corridor",
+      "shade_plaza": "Shade & Cooling Retrofit",
+      "cooling_campus": "Cooling Campus",
+      "pocket_park": "Pocket Park",
+      "green_roof": "Green / Cool Roofs",
+      "reforestation": "Hillside Reforestation",
+      "vegetated_terrace": "Vegetated Terraces",
+      "riparian_buffer": "Riparian Buffer Stabilization",
+      "controlled_drainage": "Controlled Drainage System",
+      "interceptor_drain": "Surface Runoff Diversion",
+      "floodable_shaded_park": "Floodable Shaded Park",
+      "sponge_cooling_campus": "Sponge & Cooling Campus",
+      "terraced_retention": "Terraced Retention System",
+      "green_blue_corridor": "Green-Blue Corridor"
     },
     "keyMaps": {
       "ariaLabel": "Key maps",
