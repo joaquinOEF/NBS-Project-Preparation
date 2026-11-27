@@ -1189,6 +1189,7 @@
     "official": {
       "title": "Mapas oficiais · parcela da área do bairro",
       "flood": "Inundação · SGB, classe alta",
+      "flood2024": "Inundação · Guaíba, maio de 2024 (SMAMUS)",
       "heat": "Calor · plano climático 2050, duas classes mais altas",
       "landslide": "Deslizamento · SGB, média ou alta"
     },

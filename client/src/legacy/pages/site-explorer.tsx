@@ -401,15 +401,19 @@ function formatZoneName(zoneId: string): string {
  * Shown before — and apart from — the percentile bands, which are our estimate.
  * Empty for zone files that predate the shares.
  */
-function officialShares(p: any): Array<{ hazard: HazardKey; share: number; flagged: boolean }> {
+function officialShares(p: any): Array<{ key: string; hazard: HazardKey; share: number; flagged: boolean }> {
   if (!p || p.sgbFloodAltaShare == null) return [];
+  // Flood has two official lines: SGB's high class, and the area the Guaíba
+  // reached in May 2024 (SMAMUS). Each is marked when it is what sets the flag.
+  const basis = String(p.floodFlagBasis ?? (p.floodSusceptible ? 'sgb' : ''));
   return ([
-    ['flood', p.sgbFloodAltaShare, p.floodSusceptible],
-    ['heat', p.heatHighShare, p.heatHigh],
-    ['landslide', p.sgbLandslideShare, p.landslideSusceptible],
-  ] as Array<[HazardKey, number | null | undefined, unknown]>)
-    .filter((x): x is [HazardKey, number, unknown] => typeof x[1] === 'number')
-    .map(([hazard, share, flagged]) => ({ hazard, share, flagged: !!flagged }));
+    ['flood', 'flood', p.sgbFloodAltaShare, basis.includes('sgb')],
+    ['flood2024', 'flood', p.guaiba2024Share, basis.includes('guaiba2024')],
+    ['heat', 'heat', p.heatHighShare, p.heatHigh],
+    ['landslide', 'landslide', p.sgbLandslideShare, p.landslideSusceptible],
+  ] as Array<[string, HazardKey, number | null | undefined, unknown]>)
+    .filter((x): x is [string, HazardKey, number, unknown] => typeof x[2] === 'number')
+    .map(([key, hazard, share, flagged]) => ({ key, hazard, share, flagged: !!flagged }));
 }
 const OFFICIAL_SHARE_COLOR: Record<HazardKey, string> = { flood: TYPOLOGY_COLORS.FLOOD, heat: TYPOLOGY_COLORS.HEAT, landslide: TYPOLOGY_COLORS.LANDSLIDE };
 
@@ -2044,7 +2048,7 @@ export default function SiteExplorerPage() {
               const officialBlock = official.length
                 ? `<strong style="font-size:11px">${t('siteExplorer.official.title')}</strong><br/>` +
                   official.map(o =>
-                    `<span style="color:${OFFICIAL_SHARE_COLOR[o.hazard]}">${o.flagged ? '●' : '○'}</span> ${t(`siteExplorer.official.${o.hazard}`)}: ` +
+                    `<span style="color:${OFFICIAL_SHARE_COLOR[o.hazard]}">${o.flagged ? '●' : '○'}</span> ${t(`siteExplorer.official.${o.key}`)}: ` +
                     `<strong>${Math.round(o.share * 100)}%</strong><br/>`).join('') +
                   `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>`
                 : '';
@@ -3546,10 +3550,10 @@ export default function SiteExplorerPage() {
                     <div className="text-[11px] font-semibold text-muted-foreground mb-1">{t('siteExplorer.official.title')}</div>
                     <ul className="space-y-0.5">
                       {officialShares(selectedZone).map(o => (
-                        <li key={o.hazard} className="flex items-baseline justify-between gap-2 text-[13px]">
+                        <li key={o.key} className="flex items-baseline justify-between gap-2 text-[13px]">
                           <span className="flex items-baseline gap-1.5 min-w-0">
                             <i className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={o.flagged ? { backgroundColor: OFFICIAL_SHARE_COLOR[o.hazard] } : { border: `1.5px solid ${OFFICIAL_SHARE_COLOR[o.hazard]}` }} />
-                            <span className="truncate">{t(`siteExplorer.official.${o.hazard}`)}</span>
+                            <span className="truncate">{t(`siteExplorer.official.${o.key}`)}</span>
                           </span>
                           <span className="font-semibold tabular-nums">{Math.round(o.share * 100)}%</span>
                         </li>

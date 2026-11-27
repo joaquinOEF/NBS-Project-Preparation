@@ -1156,6 +1156,7 @@
     "official": {
       "title": "Official maps · share of the neighbourhood's area",
       "flood": "Flood · SGB, high class",
+      "flood2024": "Flood · Guaíba, May 2024 (SMAMUS)",
       "heat": "Heat · climate plan 2050, two top classes",
       "landslide": "Landslide · SGB, medium or high"
     },
