@@ -36,7 +36,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, SGB_SUSC_TILE_LAYERS, OFFICIAL_VECTOR_LAYERS, HAZARD_OVERLAP_LAYERS, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, SGB_SUSC_TILE_LAYERS, ARVC_HAZARD_TILE_LAYERS, OFFICIAL_VECTOR_LAYERS, HAZARD_OVERLAP_LAYERS, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
 import { sectorColors, sectorPopupHtml, SECTOR_POPUP_LABELS_EN as SECTOR_POPUP_LABELS } from '@shared/official-risk';
 import {
   ARVC_OFFICIAL_LAYERS,
@@ -52,7 +52,9 @@ import {
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
+import { EXPLORER_KEY_MAPS, explorerKeyMap, isExplorerKeyMapId, CENSUS_POVERTY_CLASSES, CENSUS_POVERTY_FIELD, CENSUS_NO_DATA_COLOR, censusPovertyColor, type ExplorerKeyMapId } from '@shared/explorer-key-maps';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
+import { onExplorerMapCommand, EXPLORER_PIN_CLICKED_EVENT, type ExplorerMapCommand, type ExplorerMapContext, type ExplorerPinnedPlace } from '@/legacy/lib/explorerMapCommands';
 import ValueTooltip from '@/core/components/maps/ValueTooltip';
 import { BASEMAPS } from '@/core/lib/basemaps';
 
@@ -131,6 +133,11 @@ const OFFICIAL_GROUP_NAMES: Record<string, string> = {
   flood_2024_extent: 'May 2024 flood extent · observed',
   sgb_landslide_susc: 'Landslide susceptibility · SGB/CPRM 2015',
   sgb_setores_risco: 'Surveyed risk sectors · SGB 2022',
+  // The climate plan's 2050 hazard as tiles on the app's hazard ramp — what the
+  // org tour shows. The same surfaces in the plan's own palette follow below.
+  arvc_flood_hazard: 'River-flood hazard 2050 · climate plan (PLAC)',
+  arvc_heat_hazard: 'Heat-wave hazard 2050 · climate plan (PLAC)',
+  arvc_landslide_hazard: 'Landslide hazard 2050 · climate plan (PLAC)',
 };
 // Same red as the org tour's outline (MapMicroapp FLOOD_2024_STYLE): the event
 // must read as a line over SGB's blue classes, not as one more step of them.
@@ -138,8 +145,8 @@ const FLOOD_2024_OUTLINE = '#d7301f';
 
 const LAYER_CONFIGS: LayerConfig[] = [
   { id: 'intervention_zones', name: 'Neighborhood Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
-  { id: 'ibge_census', name: 'Census / Poverty', icon: Users, color: '#a855f7', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
-  { id: 'ibge_settlements', name: 'Informal Settlements', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
+  { id: 'ibge_census', name: 'Households in poverty · IBGE Census', icon: Users, color: '#a855f7', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
+  { id: 'ibge_settlements', name: 'Informal settlements · IBGE', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c', source: 'geojson', group: 'environment', available: true },
   { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80', source: 'geojson', group: 'environment', available: true },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6', source: 'geojson', group: 'environment', available: true },
@@ -242,6 +249,19 @@ const LAYER_CONFIGS: LayerConfig[] = [
       : OFFICIAL_VECTOR_LAYERS.map(v => ({ id: v.id, name: OFFICIAL_GROUP_NAMES[v.id] ?? v.name, icon: AlertTriangle, color: v.color }));
     return [tiles, ...companions.map(c => ({ ...c, source: 'geojson' as LayerSource, group: 'official_risk' as LayerGroupId, available: true }))];
   }),
+  // The climate plan's three 2050 hazards as XYZ tiles (YlOrRd, contrast-
+  // stretched — server/routes/arvcTileRoutes.ts), first in the plan's group.
+  ...ARVC_HAZARD_TILE_LAYERS.map(l => ({
+    id: l.id,
+    name: OFFICIAL_GROUP_NAMES[l.id] ?? l.name,
+    icon: l.id === 'arvc_heat_hazard' ? Flame : l.id === 'arvc_flood_hazard' ? CloudRain : Mountain,
+    color: '#f03b20',
+    source: 'tiles' as LayerSource,
+    group: 'arvc_official' as LayerGroupId,
+    available: true,
+    tileLayerId: l.tileLayerId,
+    hasValueTiles: l.hasValueTiles,
+  })),
   // ARVC official rasters — the real 29 m surfaces SMAMUS supplied, one PNG
   // overlay each. Reference layers only: nothing here feeds the CBO flow or the
   // orchestrator view. See shared/arvc-official.ts.
@@ -385,8 +405,45 @@ const PANE_LABELS = 'explorerLabels';
 const OFFICIAL_RASTER_GROUPS: readonly LayerGroupId[] = ['official_risk', 'arvc_official'];
 
 /** A layer that paints the city: while one is on, zones step back to outlines. */
-const paintsTheCity = (l: { enabled: boolean; source: LayerSource; group: LayerGroupId }) =>
-  l.enabled && (l.source === 'tiles' || l.source === 'image' || l.group === 'arvc');
+const paintsTheCity = (l: { id: string; enabled: boolean; source: LayerSource; group: LayerGroupId }) =>
+  l.enabled && (l.source === 'tiles' || l.source === 'image' || l.group === 'arvc' || l.id === 'ibge_census');
+
+const DEFAULT_TILE_OPACITY = 0.7;
+
+// Legends for the explorer's own vector layers, which generate-legends.ts (tile
+// layers only) does not know. Merged under the fetched index.
+const vectorLegends = (t: (key: string) => string): LegendIndex => ({
+  ibge_census: {
+    layerId: 'ibge_census',
+    kind: 'classes',
+    source: 'code',
+    stops: [
+      ...CENSUS_POVERTY_CLASSES.map((c, i) => ({ value: i, color: c.color, label: c.label })),
+      { value: -1, color: CENSUS_NO_DATA_COLOR, label: t('siteExplorer.legendLabels.noData') },
+    ],
+  },
+  ibge_settlements: {
+    layerId: 'ibge_settlements',
+    kind: 'classes',
+    source: 'code',
+    stops: [{ value: 1, color: '#e11d48', label: t('siteExplorer.legendLabels.informalSettlement') }],
+  },
+  flood_2024_extent: {
+    layerId: 'flood_2024_extent',
+    kind: 'classes',
+    source: 'code',
+    stops: [{ value: 1, color: FLOOD_2024_OUTLINE, label: t('siteExplorer.legendLabels.floodReached'), outline: true }],
+  },
+  sgb_setores_risco: {
+    layerId: 'sgb_setores_risco',
+    kind: 'classes',
+    source: 'code',
+    stops: [
+      { value: 1, color: sectorColors('Alto').fill, label: t('siteExplorer.legendLabels.sectorHigh') },
+      { value: 2, color: sectorColors('Muito alto').fill, label: t('siteExplorer.legendLabels.sectorVeryHigh') },
+    ],
+  },
+});
 
 // Zones over a raster: a thin neutral line. The fill stays in the DOM at zero
 // opacity so the whole bairro still takes hover and click.
@@ -398,11 +455,41 @@ function flattenRings(latlngs: any): L.LatLng[][] {
   return Array.isArray(latlngs[0]) ? latlngs.flatMap(flattenRings) : [latlngs as L.LatLng[]];
 }
 
+/** Case- and accent-insensitive key for matching a place name. */
+const foldPlaceName = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+type ExplorerDeepLinkPlace = { kind: 'point'; lat: number; lng: number } | { kind: 'name'; name: string };
+
+/** ?map=<key map id>&place=<bairro name | lat,lng>&z=<zoom> — each part optional, bad parts dropped. */
+function parseExplorerDeepLink(search: string): { map: ExplorerKeyMapId | null; place: ExplorerDeepLinkPlace | null; zoom: number | null } {
+  const q = new URLSearchParams(search);
+  const mapParam = q.get('map');
+  const placeParam = (q.get('place') || '').trim();
+  const zParam = q.get('z');
+  const z = zParam != null && zParam.trim() !== '' ? Number(zParam) : NaN;
+
+  let place: ExplorerDeepLinkPlace | null = null;
+  const point = placeParam.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+  if (point) {
+    const lat = Number(point[1]);
+    const lng = Number(point[2]);
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) place = { kind: 'point', lat, lng };
+  } else if (placeParam) {
+    place = { kind: 'name', name: placeParam };
+  }
+
+  return {
+    map: isExplorerKeyMapId(mapParam) ? mapParam : null,
+    place,
+    zoom: Number.isFinite(z) && z >= 3 && z <= 19 ? z : null,
+  };
+}
+
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { isSampleMode, sampleCity, sampleActions, initiatedProjects } = useSampleData();
+  const { isSampleMode, setSampleMode, sampleCity, sampleActions, initiatedProjects, initiateProject } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -430,16 +517,20 @@ export default function SiteExplorerPage() {
     }))
   );
   const layerRefs = useRef<Map<string, L.Layer>>(new Map());
+  // Opacity and stacking a key map asked for, per tile layer. Read when the
+  // tile layer is created; a layer toggled by hand goes back to the default.
+  const layerLookRef = useRef<Map<string, { opacity?: number; zIndex?: number }>>(new Map());
   const layerDataCache = useRef<Map<string, any>>(new Map());
   const [loadingLayers, setLoadingLayers] = useState<Set<string>>(new Set());
   // Per-layer legend specs (generate-legends.ts → layer-legends.json), loaded once.
-  const [legends, setLegends] = useState<LegendIndex>({});
+  const [tileLegends, setTileLegends] = useState<LegendIndex>({});
   useEffect(() => {
     fetch('/sample-data/layer-legends.json')
       .then(r => (r.ok ? r.json() : {}))
-      .then(setLegends)
+      .then(setTileLegends)
       .catch(() => {});
   }, []);
+  const legends = useMemo<LegendIndex>(() => ({ ...vectorLegends(t), ...tileLegends }), [t, tileLegends]);
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
@@ -449,11 +540,44 @@ export default function SiteExplorerPage() {
   const zonesOutlineOnlyRef = useRef(zonesOutlineOnly);
   zonesOutlineOnlyRef.current = zonesOutlineOnly;
 
-  // Legends shown on the map: every enabled layer that has a spec, drawer order.
-  const activeLegends = useMemo(
-    () => layers.filter(l => l.enabled && legends[l.id]),
-    [layers, legends]
-  );
+  // The key map on show (a chip above the map), or null when the layers were
+  // chosen by hand. The ref is for callbacks that must not re-subscribe.
+  const [activeKeyMap, setActiveKeyMap] = useState<ExplorerKeyMapId | null>(null);
+  const activeKeyMapRef = useRef(activeKeyMap);
+  activeKeyMapRef.current = activeKeyMap;
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
+  const [layerSearch, setLayerSearch] = useState('');
+
+  // Deep link, read once at mount: ?map=<key map id>&place=<bairro | lat,lng>&z=<zoom>.
+  // Anything unrecognised is dropped here and never mentioned again.
+  const [deepLink] = useState(() => parseExplorerDeepLink(typeof window !== 'undefined' ? window.location.search : ''));
+  const [deepLinkDone, setDeepLinkDone] = useState(false);
+  // A zoom asked for together with a bairro: the selection effect centres on
+  // the bairro at this zoom instead of fitting it.
+  const pendingZoneZoomRef = useRef<number | null>(null);
+  // True once a person (or a link, or a command) has moved the map: only then
+  // is the view worth writing to the URL. The first fit to the city is not.
+  const viewTouchedRef = useRef(false);
+  const selectedZoneNameRef = useRef<string | null>(null);
+
+  // What the map is showing, for the chat's page context. `mapView` moves only
+  // on moveend and only when the rounded value changed; the pins are the last
+  // `pin_places` command (explorerMapCommands.ts).
+  const [mapView, setMapView] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
+  const [pinnedPlaces, setPinnedPlaces] = useState<ExplorerPinnedPlace[]>([]);
+  const pinsLayerRef = useRef<L.LayerGroup | null>(null);
+  const activeLayerIdsKey = useMemo(() => layers.filter(l => l.enabled).map(l => l.id).join(','), [layers]);
+
+  // Legends shown on the map: every enabled layer that has a spec, drawer order
+  // — or, for a key map that names its own, only those (the hot spots map
+  // carries three faded underlays whose legends would bury the one that matters).
+  const activeLegends = useMemo(() => {
+    const enabled = layers.filter(l => l.enabled && legends[l.id]);
+    const only = activeKeyMap ? explorerKeyMap(activeKeyMap).legendLayers : undefined;
+    if (!only) return enabled;
+    return only.map(id => enabled.find(l => l.id === id)).filter((l): l is LayerState => !!l);
+  }, [layers, legends, activeKeyMap]);
 
   // Enabled tile layers with value encodings for ValueTooltip.
   // Must be ALL_TILE_LAYERS, not TILE_LAYERS: the risk cards and the flood/heat/
@@ -468,7 +592,20 @@ export default function SiteExplorerPage() {
   const sampleAction = isSampleModeActive 
     ? sampleActions.find(a => a.id === projectId)
     : null;
-  const isSampleProjectInitiated = isSampleModeActive && initiatedProjects.includes(projectId || '');
+  // A /sample/… link opened cold (no localStorage) is its own invitation: the
+  // route itself says "sample", so the page renders at once, and the effect
+  // below writes sample mode and the project into storage so Back and the
+  // other module pages find them.
+  const isSampleProjectInitiated = isSampleModeActive && (initiatedProjects.includes(projectId || '') || (isSampleRoute && !!sampleAction));
+  const sampleActionId = sampleAction?.id;
+  const sampleSeededRef = useRef(false);
+  useEffect(() => {
+    if (!isSampleRoute || !sampleActionId || sampleSeededRef.current) return;
+    sampleSeededRef.current = true;
+    if (!isSampleMode) setSampleMode(true);
+    if (!initiatedProjects.includes(sampleActionId)) initiateProject(sampleActionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSampleRoute, sampleActionId]);
 
   const { data: projectData, isLoading: isLoadingProject } = useQuery<{ project: Project }>({
     queryKey: ['/api/project', projectId],
@@ -544,6 +681,15 @@ export default function SiteExplorerPage() {
   useEffect(() => {
     const selectedZoneCount = Object.keys(zonePortfolios).length;
     const totalInterventions = Object.values(zonePortfolios).reduce((sum, p) => sum + p.length, 0);
+    // One-way: this effect only WRITES the context. Nothing here reads the
+    // page context back into the state it depends on, so it cannot swap-loop.
+    const mapContext: ExplorerMapContext = {
+      activePreset: activeKeyMap,
+      activeLayerIds: activeLayerIdsKey ? activeLayerIdsKey.split(',') : [],
+      mapCenter: mapView ? { lat: mapView.lat, lng: mapView.lng } : null,
+      mapZoom: mapView ? mapView.zoom : null,
+      pinnedPlaces: pinnedPlaces.map(p => ({ rank: p.rank, name: p.name })),
+    };
     
     setPageContext({
       moduleName: 'Site Explorer',
@@ -558,9 +704,10 @@ export default function SiteExplorerPage() {
         selectedCategory,
         zonesWithInterventions: selectedZoneCount,
         totalInterventionsSelected: totalInterventions,
+        ...mapContext,
       }
     });
-  }, [selectedZone, selectedCategory, zonePortfolios, setPageContext]);
+  }, [selectedZone, selectedCategory, zonePortfolios, setPageContext, activeKeyMap, activeLayerIdsKey, mapView, pinnedPlaces]);
 
   useEffect(() => {
     return () => setPageContext(null);
@@ -768,7 +915,11 @@ export default function SiteExplorerPage() {
       highlightLayerRef.current = highlightLayer;
       
       const bounds = highlightLayer.getBounds();
-      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      const zoom = pendingZoneZoomRef.current;
+      pendingZoneZoomRef.current = null;
+      viewTouchedRef.current = true;
+      if (zoom != null) mapRef.current.setView(bounds.getCenter(), zoom);
+      else mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     }
   }, [selectedZoneFeature, selectedZone]);
 
@@ -1651,20 +1802,25 @@ export default function SiteExplorerPage() {
       case 'ibge_census':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
+            // One indicator, in classes (shared/explorer-key-maps.ts): share of
+            // households in poverty. Under the zones and the place names, so
+            // the bairros stay clickable and the names stay readable.
+            pane: PANE_RASTER,
             style: (feature) => {
-              const pov = feature?.properties?.poverty_rate ?? 0;
-              const r = Math.min(255, Math.round(100 + pov * 800));
-              const g = Math.max(0, Math.round(50 - pov * 50));
-              const b = Math.max(0, Math.round(180 - pov * 80));
-              const c = `rgb(${r},${g},${b})`;
-              return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.15 + pov * 3, opacity: 0.8 };
+              const rate = feature?.properties?.[CENSUS_POVERTY_FIELD];
+              const noData = typeof rate !== 'number';
+              return { color: '#ffffff', weight: 1, opacity: 0.9, fillColor: censusPovertyColor(rate), fillOpacity: noData ? 0.4 : 0.8 };
             },
             onEachFeature: (feature, layer) => {
               const p = feature.properties || {};
+              if (typeof p[CENSUS_POVERTY_FIELD] !== 'number') {
+                layer.bindTooltip(`<strong>${p.neighbourhood_name || '?'}</strong><br/><em>No household data</em>`, { sticky: true });
+                return;
+              }
               layer.bindTooltip(
                 `<strong>${p.neighbourhood_name || '?'}</strong><br/>` +
                 `Pop: ${p.population_total?.toLocaleString() || '?'}<br/>` +
-                `Poverty: ${((p.poverty_rate || 0) * 100).toFixed(1)}%<br/>` +
+                `Households in poverty: ${((p.poverty_rate || 0) * 100).toFixed(1)}%<br/>` +
                 `Low income: ${((p.pct_low_income || 0) * 100).toFixed(0)}%<br/>` +
                 `Area: ${p.area_km2?.toFixed(1) || '?'} km²`,
                 { sticky: true }
@@ -1677,7 +1833,7 @@ export default function SiteExplorerPage() {
       case 'ibge_settlements':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
-            style: { color: '#f43f5e', weight: 2, fillColor: '#f43f5e', fillOpacity: 0.4, opacity: 0.9 },
+            style: { color: '#9f1239', weight: 1.2, fillColor: '#e11d48', fillOpacity: 0.75, opacity: 1 },
             onEachFeature: (feature, layer) => {
               const name = feature.properties?.settlement_name || 'Informal Settlement';
               layer.bindTooltip(`<strong>${name}</strong><br/><em>Informal settlement</em>`, { sticky: true });
@@ -1887,9 +2043,11 @@ export default function SiteExplorerPage() {
         : `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
     // SGB serves its WMS from a regional cache; asking past z15 just upscales.
     const isWms = tileUrl.startsWith('/api/geospatial/wms/');
+    const look = layerLookRef.current.get(layerConfig.id);
     return L.tileLayer(tileUrl, {
       pane: OFFICIAL_RASTER_GROUPS.includes(layerConfig.group) ? PANE_RASTER : PANE_RASTER_CITY,
-      opacity: 0.7,
+      opacity: look?.opacity ?? DEFAULT_TILE_OPACITY,
+      ...(look?.zIndex != null ? { zIndex: look.zIndex } : {}),
       maxNativeZoom: isLocal ? 14 : 15,
       maxZoom: 19,
       minZoom: isLocal ? 10 : 10,
@@ -2122,6 +2280,267 @@ export default function SiteExplorerPage() {
     });
   }, [loadLayerData, createLayerFromData, createTileLayer, createArvcOfficialLayer]);
 
+  // ── Key maps ───────────────────────────────────────────────────────────────
+  // Apply one of the curated maps (shared/explorer-key-maps.ts), or null to
+  // leave the one that is on. A new map replaces whatever layers are showing
+  // (the zones stay, as outlines); leaving a map takes only its own layers off.
+  const applyKeyMap = useCallback((id: ExplorerKeyMapId | null) => {
+    if (!mapRef.current) return;
+    const next = id ? explorerKeyMap(id) : null;
+    const leaving = activeKeyMapRef.current ? explorerKeyMap(activeKeyMapRef.current).layers.map(l => l.id) : [];
+    const wanted = new Set(next?.layers.map(l => l.id) ?? []);
+
+    for (const l of layersRef.current) {
+      if (l.id === 'intervention_zones' || !l.enabled || wanted.has(l.id)) continue;
+      if (next || leaving.includes(l.id)) toggleLayer(l.id);
+    }
+    layerLookRef.current.clear();
+    next?.layers.forEach((l, i) => {
+      layerLookRef.current.set(l.id, { opacity: l.opacity, zIndex: i + 1 });
+      const onMap = layerRefs.current.get(l.id) as L.TileLayer | undefined;
+      if (onMap && layersRef.current.find(s => s.id === l.id)?.enabled) {
+        // Already showing (shared with the map being left): restyle in place.
+        onMap.setOpacity?.(l.opacity ?? DEFAULT_TILE_OPACITY);
+        onMap.setZIndex?.(i + 1);
+      } else {
+        toggleLayer(l.id);
+      }
+    });
+    activeKeyMapRef.current = id;
+    setActiveKeyMap(id);
+  }, [toggleLayer]);
+
+  // A layer switched by hand in the drawer: the layers stay as they are, the
+  // chip simply stops claiming the map is one of the six.
+  const toggleLayerByHand = useCallback((layerId: string) => {
+    layerLookRef.current.delete(layerId);
+    activeKeyMapRef.current = null;
+    setActiveKeyMap(null);
+    toggleLayer(layerId);
+  }, [toggleLayer]);
+
+  // ← / → step through the key maps, for presenting. Caught in the capture
+  // phase so Leaflet does not also pan the map; left alone while typing or
+  // inside a widget that owns the arrows (tabs, menus, sliders, dialogs).
+  useEffect(() => {
+    if (!mapReady) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="tablist"], [role="menu"], [role="listbox"], [role="slider"], [role="radiogroup"], [role="dialog"]')) return;
+      const ids = EXPLORER_KEY_MAPS.map(m => m.id);
+      const at = activeKeyMapRef.current ? ids.indexOf(activeKeyMapRef.current) : -1;
+      const step = e.key === 'ArrowRight' ? 1 : -1;
+      const to = at === -1 ? (step === 1 ? 0 : ids.length - 1) : (at + step + ids.length) % ids.length;
+      e.preventDefault();
+      e.stopPropagation();
+      applyKeyMap(ids[to]);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [mapReady, applyKeyMap]);
+
+  // ── Moving the map from outside (deep link; later, the chat) ───────────────
+  /** Select a bairro by name, as a click on it would. False when no bairro has that name. */
+  const focusPlaceByName = useCallback((name: string, zoom?: number): boolean => {
+    const zonesLayer = layerRefs.current.get('intervention_zones') as L.GeoJSON | undefined;
+    if (!zonesLayer) return false;
+    const wanted = foldPlaceName(name);
+    let hit: any = null;
+    zonesLayer.eachLayer((layer: any) => {
+      const p = layer.feature?.properties;
+      if (!hit && p && (foldPlaceName(p.neighbourhoodName || '') === wanted || foldPlaceName(String(p.zoneId || '').replace(/_/g, ' ')) === wanted)) hit = layer;
+    });
+    if (!hit) return false;
+    pendingZoneZoomRef.current = zoom ?? null;
+    hit.fire('click');
+    // On touch-capable browsers Leaflet opens the bairro's tooltip on click.
+    hit.closeTooltip?.();
+    return true;
+  }, []);
+
+  const flyToPoint = useCallback((lat: number, lng: number, zoom?: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    viewTouchedRef.current = true;
+    map.flyTo([lat, lng], zoom ?? Math.max(map.getZoom(), 14), { duration: 0.8 });
+  }, []);
+
+  // Apply the deep link once: the key map as soon as the map exists, the place
+  // once the bairros are on it (a name needs them). One-shot by construction —
+  // `deepLinkDone` never goes back to false.
+  const zonesOnMap = mapReady && layers.some(l => l.id === 'intervention_zones' && l.loaded);
+  const deepLinkMapApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone || !mapReady) return;
+    if (!deepLinkMapApplied.current) {
+      deepLinkMapApplied.current = true;
+      if (deepLink.map) applyKeyMap(deepLink.map);
+    }
+    const place = deepLink.place;
+    if (!place) {
+      if (deepLink.zoom != null) { viewTouchedRef.current = true; mapRef.current?.setZoom(deepLink.zoom); }
+      setDeepLinkDone(true);
+      return;
+    }
+    if (place.kind === 'point') {
+      viewTouchedRef.current = true;
+      mapRef.current?.setView([place.lat, place.lng], deepLink.zoom ?? 14);
+      setDeepLinkDone(true);
+      return;
+    }
+    // A name: wait for the bairros (sample data); elsewhere there are none to wait for.
+    if (!zonesOnMap && isSampleModeActive) return;
+    focusPlaceByName(place.name, deepLink.zoom ?? undefined);
+    setDeepLinkDone(true);
+  }, [deepLinkDone, mapReady, zonesOnMap, isSampleModeActive, deepLink, applyKeyMap, focusPlaceByName]);
+
+  // Keep the address bar copyable: the key map always, the view once someone
+  // has moved it. replaceState only — no history entries, no navigation.
+  const writeViewToUrl = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (activeKeyMapRef.current) url.searchParams.set('map', activeKeyMapRef.current);
+    else url.searchParams.delete('map');
+    if (viewTouchedRef.current) {
+      // A selected bairro is written by name, so the link reopens it selected.
+      const c = map.getCenter();
+      url.searchParams.set('place', selectedZoneNameRef.current || `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`);
+      url.searchParams.set('z', String(Math.round(map.getZoom() * 10) / 10));
+    } else {
+      // Nothing moved the map: whatever place/z the link carried was not understood.
+      url.searchParams.delete('place');
+      url.searchParams.delete('z');
+    }
+    // Commas stay readable; URLSearchParams would write %2C.
+    const next = `${url.pathname}${url.search.replace(/%2C/gi, ',')}${url.hash}`;
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, '', next);
+    }
+  }, []);
+
+  selectedZoneNameRef.current = selectedZone ? (selectedZone.neighbourhoodName || selectedZone.zoneId) : null;
+  useEffect(() => {
+    if (deepLinkDone) writeViewToUrl();
+  }, [deepLinkDone, activeKeyMap, selectedZone, writeViewToUrl]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!deepLinkDone || !mapReady || !map) return;
+    const el = map.getContainer();
+    const touched = () => { viewTouchedRef.current = true; };
+    const onMoveEnd = () => writeViewToUrl();
+    el.addEventListener('pointerdown', touched);
+    el.addEventListener('wheel', touched, { passive: true });
+    map.on('moveend', onMoveEnd);
+    return () => {
+      el.removeEventListener('pointerdown', touched);
+      el.removeEventListener('wheel', touched);
+      map.off('moveend', onMoveEnd);
+    };
+  }, [deepLinkDone, mapReady, writeViewToUrl]);
+
+  // The view, for the page context: once when the map is ready, then on moveend.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    const read = () => {
+      const c = map.getCenter();
+      const next = { lat: Number(c.lat.toFixed(5)), lng: Number(c.lng.toFixed(5)), zoom: Math.round(map.getZoom() * 10) / 10 };
+      setMapView(prev => (prev && prev.lat === next.lat && prev.lng === next.lng && prev.zoom === next.zoom ? prev : next));
+    };
+    read();
+    map.on('moveend', read);
+    return () => { map.off('moveend', read); };
+  }, [mapReady]);
+
+  // ── Map commands (client/src/legacy/lib/explorerMapCommands.ts) ────────────
+  const setPins = useCallback((places: ExplorerPinnedPlace[], fit: boolean) => {
+    const map = mapRef.current;
+    if (!map) return;
+    pinsLayerRef.current?.remove();
+    pinsLayerRef.current = null;
+    const valid = places.filter(p => p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180);
+    setPinnedPlaces(valid);
+    if (valid.length === 0) return;
+
+    const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]!));
+    const group = L.layerGroup();
+    // Rank 1 is added last, so where pins crowd the best-ranked one is on top.
+    [...valid].sort((a, b) => b.rank - a.rank).forEach(place => {
+      const marker = L.marker([place.lat, place.lng], {
+        icon: L.divIcon({
+          className: 'explorer-pin',
+          html: `<div style="width:26px;height:26px;border-radius:9999px;background:#18181b;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);color:#fff;font:700 12px/22px system-ui,sans-serif;text-align:center">${esc(place.rank)}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        }),
+        title: place.name,
+        keyboard: false,
+        zIndexOffset: 1000 - place.rank,
+      });
+      marker.bindTooltip(
+        `<strong>${esc(place.rank)}. ${esc(place.name)}</strong>` + (place.subtitle ? `<br/><span style="opacity:.75">${esc(place.subtitle)}</span>` : ''),
+        { direction: 'top', offset: [0, -14] }
+      );
+      marker.on('click', () => {
+        window.dispatchEvent(new CustomEvent<ExplorerPinnedPlace>(EXPLORER_PIN_CLICKED_EVENT, { detail: place }));
+      });
+      marker.addTo(group);
+    });
+    group.addTo(map);
+    pinsLayerRef.current = group;
+
+    if (fit) {
+      viewTouchedRef.current = true;
+      // Top padding clears the key maps row.
+      map.fitBounds(L.latLngBounds(valid.map(p => [p.lat, p.lng] as [number, number])), {
+        paddingTopLeft: [60, 120], paddingBottomRight: [60, 60], maxZoom: 16,
+      });
+    }
+  }, []);
+
+  const runMapCommand = useCallback((cmd: ExplorerMapCommand) => {
+    switch (cmd.type) {
+      case 'show_map':
+        if (cmd.preset === null || isExplorerKeyMapId(cmd.preset)) applyKeyMap(cmd.preset);
+        break;
+      case 'fly_to':
+        if (Number.isFinite(cmd.lat) && Number.isFinite(cmd.lng)) flyToPoint(cmd.lat, cmd.lng, cmd.zoom);
+        break;
+      case 'focus_place':
+        if (typeof cmd.name === 'string') focusPlaceByName(cmd.name);
+        break;
+      case 'pin_places':
+        setPins(Array.isArray(cmd.places) ? cmd.places : [], cmd.fit !== false);
+        break;
+      case 'clear_pins':
+        setPins([], false);
+        break;
+    }
+  }, [applyKeyMap, flyToPoint, focusPlaceByName, setPins]);
+
+  // Commands that arrive before the map (and, for a place name, the bairros)
+  // are held and run in order once it is there.
+  const pendingCommandsRef = useRef<ExplorerMapCommand[]>([]);
+  const commandsReady = mapReady && (zonesOnMap || !isSampleModeActive);
+  const commandsReadyRef = useRef(commandsReady);
+  commandsReadyRef.current = commandsReady;
+  const runMapCommandRef = useRef(runMapCommand);
+  runMapCommandRef.current = runMapCommand;
+  useEffect(() => onExplorerMapCommand(cmd => {
+    if (commandsReadyRef.current) runMapCommandRef.current(cmd);
+    else pendingCommandsRef.current.push(cmd);
+  }), []);
+  useEffect(() => {
+    if (!commandsReady) return;
+    const held = pendingCommandsRef.current;
+    pendingCommandsRef.current = [];
+    held.forEach(cmd => runMapCommandRef.current(cmd));
+  }, [commandsReady]);
+
   // Cache elevation data when it arrives (don't auto-add to map)
   useEffect(() => {
     if (elevationData) {
@@ -2168,6 +2587,14 @@ export default function SiteExplorerPage() {
       }
     }
   }, [mapReady, isSampleModeActive, loadLayerData, layers, createLayerFromData]);
+
+  // Drawer search: by layer name, ignoring case and accents.
+  const foldText = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const layerSearchNeedle = foldText(layerSearch.trim());
+  const matchesLayerSearch = (l: { name: string }) => !layerSearchNeedle || foldText(l.name).includes(layerSearchNeedle);
+  const activeKeyMapDef = activeKeyMap ? explorerKeyMap(activeKeyMap) : null;
+  // Beside the zone card when one is open; otherwise just clear of the zoom control.
+  const keyMapsLeft = selectedZone ? 448 : 56;
 
   const isNotFound = isSampleModeActive 
     ? (!sampleAction || !isSampleProjectInitiated)
@@ -2259,6 +2686,69 @@ export default function SiteExplorerPage() {
             </div>
           )}
           
+          {/* Key maps: the six curated maps, always in view over the top of the
+              map. Clear of the zoom control on the left and of the zone panel
+              on the right; steps aside when the zone card opens. */}
+          <div
+            className="absolute top-2.5 z-[1001] flex pointer-events-none"
+            style={{ left: `${keyMapsLeft}px`, right: '332px', transition: 'left 0.2s ease' }}
+          >
+            <div
+              data-testid="key-maps"
+              className="pointer-events-auto max-w-full rounded-xl bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 shadow-lg"
+            >
+              <div role="toolbar" aria-label={t('siteExplorer.keyMaps.ariaLabel')} className="flex flex-wrap items-center gap-1 p-1">
+                {EXPLORER_KEY_MAPS.map(m => {
+                  const isActive = activeKeyMap === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      data-testid={`key-map-${m.id}`}
+                      aria-pressed={isActive}
+                      disabled={!mapReady}
+                      onClick={(e) => { applyKeyMap(isActive ? null : m.id); e.currentTarget.blur(); }}
+                      className={`h-8 px-3 rounded-lg text-[13px] font-medium whitespace-nowrap flex items-center gap-2 transition-colors disabled:opacity-50 ${
+                        isActive
+                          ? 'bg-white text-zinc-900 shadow'
+                          : 'text-zinc-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <i
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'ring-2 ring-zinc-900/15' : ''}`}
+                        style={{ backgroundColor: m.color }}
+                      />
+                      {t(`siteExplorer.keyMaps.${m.id}.label`, { defaultValue: m.label.en })}
+                    </button>
+                  );
+                })}
+                <span
+                  className={`${selectedZone ? 'hidden' : 'hidden xl:inline'} px-1.5 text-[11px] text-zinc-500 select-none whitespace-nowrap`}
+                  title={t('siteExplorer.keyMaps.arrowsHint')}
+                  aria-hidden="true"
+                >
+                  ← →
+                </span>
+              </div>
+              {activeKeyMapDef && (
+                // width:0 + min-width:100% — the caption wraps to the chips'
+                // width instead of stretching the panel across the map.
+                <div
+                  data-testid="key-map-caption"
+                  className="border-t border-white/10 px-3 py-1.5 leading-snug"
+                  style={{ width: 0, minWidth: '100%' }}
+                >
+                  <div className="text-[12.5px] text-zinc-100">
+                    {t(`siteExplorer.keyMaps.${activeKeyMapDef.id}.caption`, { defaultValue: activeKeyMapDef.caption.en })}
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">
+                    {t('siteExplorer.keyMaps.sourceLine', { source: t(`siteExplorer.keyMaps.${activeKeyMapDef.id}.source`, { defaultValue: activeKeyMapDef.source.en }) })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Right Panel - Zone Priority List (Frosted Glass) - ends at 30% from bottom */}
           <div 
             className="absolute top-0 right-0 w-[320px] z-[1001] bg-zinc-900/80 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col rounded-bl-xl"
@@ -2271,6 +2761,19 @@ export default function SiteExplorerPage() {
               <div className="flex items-center gap-2">
                 <MapPinned className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-sm text-white">{t('siteExplorer.zonePriority')}</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      data-testid="zone-priority-oef-estimate"
+                      className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-400/40 text-amber-300 cursor-help"
+                    >
+                      {t('siteExplorer.oefEstimate')}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[240px]">
+                    {t('siteExplorer.oefEstimateHint')}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
@@ -2332,7 +2835,7 @@ export default function SiteExplorerPage() {
                                 <span
                                   className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 font-medium"
                                   style={{ backgroundColor: `${band.color}26`, color: band.color }}
-                                  title={t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}
+                                  title={`${t('siteExplorer.oefEstimate')} · ${t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}`}
                                 >
                                   {t(`riskBands.${band.key}`) || band.label} · {zone.dominantPct}
                                 </span>
@@ -2416,28 +2919,59 @@ export default function SiteExplorerPage() {
             className={`absolute left-0 bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-r border-zinc-700 transition-all duration-300 rounded-tr-xl ${showEvidenceDrawer ? 'max-h-[320px]' : 'h-[48px]'}`}
             style={{ pointerEvents: 'auto', width: '75%' }}
           >
-            <button
-              className="w-full h-[48px] px-4 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
-              onClick={() => setShowEvidenceDrawer(!showEvidenceDrawer)}
-            >
-              <div className="flex items-center gap-3">
-                <Layers className="h-4 w-4 text-zinc-400" />
-                <span className="font-medium text-sm text-white">{t('siteExplorer.evidenceLayers')}</span>
-                <span className="text-xs text-zinc-500">
-                  {evidenceLayers.filter(l => l.enabled).length} active
+            {/* The whole catalogue, one click away; the key maps above the map
+                are what people meet first. */}
+            <div className="h-[48px] flex items-center hover:bg-zinc-800/50 transition-colors rounded-tr-xl">
+              <button
+                className="flex-1 min-w-0 h-full pl-4 pr-2 flex items-center gap-3 text-left"
+                onClick={() => setShowEvidenceDrawer(!showEvidenceDrawer)}
+                aria-expanded={showEvidenceDrawer}
+                data-testid="all-layers-toggle"
+              >
+                <Layers className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                <span className="font-medium text-sm text-white whitespace-nowrap">{t('siteExplorer.allLayers', { count: evidenceLayers.length })}</span>
+                <span className="text-xs text-zinc-500 whitespace-nowrap">
+                  {t('siteExplorer.layersActive', { count: evidenceLayers.filter(l => l.enabled).length })}
                 </span>
-              </div>
-              {showEvidenceDrawer ? (
-                <ChevronDown className="h-5 w-5 text-zinc-400" />
-              ) : (
-                <ChevronUp className="h-5 w-5 text-zinc-400" />
+              </button>
+              {showEvidenceDrawer && (
+                <div className="relative w-[240px] flex-shrink-0">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+                  <input
+                    type="search"
+                    autoFocus
+                    value={layerSearch}
+                    onChange={(e) => setLayerSearch(e.target.value)}
+                    placeholder={t('siteExplorer.searchLayers')}
+                    aria-label={t('siteExplorer.searchLayers')}
+                    data-testid="layer-search"
+                    className="w-full h-8 pl-8 pr-2 rounded-md bg-zinc-800 border border-zinc-700 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+                  />
+                </div>
               )}
-            </button>
+              <button
+                className="h-full px-4 flex items-center"
+                onClick={() => setShowEvidenceDrawer(!showEvidenceDrawer)}
+                aria-label={t('siteExplorer.allLayers', { count: evidenceLayers.length })}
+                tabIndex={-1}
+              >
+                {showEvidenceDrawer ? (
+                  <ChevronDown className="h-5 w-5 text-zinc-400" />
+                ) : (
+                  <ChevronUp className="h-5 w-5 text-zinc-400" />
+                )}
+              </button>
+            </div>
             
             {showEvidenceDrawer && (
               <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: '270px' }}>
+                {layerSearchNeedle && !evidenceLayers.some(matchesLayerSearch) && (
+                  <div className="py-6 text-center text-xs text-zinc-500" data-testid="layer-search-empty">
+                    {t('siteExplorer.noLayersMatch', { query: layerSearch.trim() })}
+                  </div>
+                )}
                 {LAYER_GROUPS.map(group => {
-                  const groupLayers = evidenceLayers.filter(l => l.group === group.id);
+                  const groupLayers = evidenceLayers.filter(l => l.group === group.id && matchesLayerSearch(l));
                   if (groupLayers.length === 0) return null;
                   return (
                     <div key={group.id} className="mb-3">
@@ -2454,6 +2988,7 @@ export default function SiteExplorerPage() {
                             <Tooltip key={layer.id}>
                               <TooltipTrigger asChild>
                                 <button
+                                  data-layer-id={layer.id}
                                   className={`p-1.5 rounded-lg border transition-colors flex flex-col items-center gap-0.5 ${
                                     isUnavailable
                                       ? 'border-zinc-800 opacity-40 cursor-not-allowed'
@@ -2461,7 +2996,7 @@ export default function SiteExplorerPage() {
                                         ? 'border-primary bg-primary/10' 
                                         : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
                                   } ${isLoading ? 'opacity-70' : ''}`}
-                                  onClick={() => !isUnavailable && toggleLayer(layer.id)}
+                                  onClick={() => !isUnavailable && toggleLayerByHand(layer.id)}
                                   disabled={isLoading || isUnavailable}
                                 >
                                   <div 
@@ -2512,7 +3047,7 @@ export default function SiteExplorerPage() {
           {activeLegends.length > 0 && (
             <div
               data-testid="map-legends"
-              className="absolute z-[1001] w-[240px] max-h-[172px] overflow-y-auto rounded-lg bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 shadow-lg px-2.5 py-2 space-y-2"
+              className="absolute z-[1001] w-[264px] max-h-[172px] overflow-y-auto rounded-lg bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 shadow-lg px-2.5 py-2 space-y-2"
               style={{
                 left: selectedZone ? '448px' : '12px',
                 bottom: `${drawerHeight + 12}px`,
@@ -2524,7 +3059,7 @@ export default function SiteExplorerPage() {
             >
               {activeLegends.map(l => (
                 <div key={l.id}>
-                  <div className="text-[10px] text-zinc-200 mb-1 leading-tight line-clamp-2">{l.name}</div>
+                  <div className="text-[11px] font-medium text-zinc-100 mb-1 leading-tight line-clamp-2">{l.name}</div>
                   <LayerLegend spec={legends[l.id]} />
                 </div>
               ))}

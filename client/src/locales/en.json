@@ -1117,7 +1117,55 @@
     "cobenefits": "Co-benefits",
     "addToPortfolio": "Add",
     "added": "Added",
-    "population": "Population"
+    "population": "Population",
+    "allLayers": "All layers ({{count}})",
+    "layersActive": "{{count}} active",
+    "searchLayers": "Search layers…",
+    "noLayersMatch": "No layer matches \"{{query}}\"",
+    "oefEstimate": "OEF estimate",
+    "oefEstimateHint": "The order and the scores in this list are an OEF estimate: our own index, ranking the neighbourhoods against each other. It is not an official risk rating.",
+    "legendLabels": {
+      "noData": "No data",
+      "informalSettlement": "Informal settlement",
+      "floodReached": "Reached by the water, May 2024",
+      "sectorHigh": "High risk",
+      "sectorVeryHigh": "Very high risk"
+    },
+    "keyMaps": {
+      "ariaLabel": "Key maps",
+      "arrowsHint": "Use the left and right arrow keys to step through the maps",
+      "sourceLine": "Source: {{source}}",
+      "flood": {
+        "label": "Flood",
+        "caption": "Where the ground favours flooding, and the area the water reached in May 2024.",
+        "source": "SGB/CPRM susceptibility map, 2015 · observed flood, Planet SkySat, May 2024"
+      },
+      "landslide": {
+        "label": "Landslide",
+        "caption": "Where the slopes favour landslides, and the risk sectors surveyed on the ground.",
+        "source": "SGB/CPRM susceptibility map, 2015 · SGB risk sectors, 2022"
+      },
+      "heat": {
+        "label": "Heat",
+        "caption": "Heat-wave hazard projected for 2050: the darker, the hotter.",
+        "source": "Porto Alegre climate plan (PLAC/ARVC), 2050 scenario"
+      },
+      "hotspots": {
+        "label": "Hot spots",
+        "caption": "Where two official hazard maps say \"high\" at once. Not a score.",
+        "source": "Flood and landslide: SGB/CPRM, 2015 · heat: climate plan (PLAC/ARVC), 2050"
+      },
+      "people": {
+        "label": "Who lives there",
+        "caption": "Share of households in poverty in each neighbourhood, and the informal settlements.",
+        "source": "IBGE Census, neighbourhood indicators and informal settlements"
+      },
+      "green": {
+        "label": "Green cover",
+        "caption": "How green the ground is, seen from satellite: the darker the green, the denser the vegetation.",
+        "source": "NASA MODIS vegetation index (NDVI), 250 m"
+      }
+    }
   },
   "interventionZones": {
     "title": "Intervention Zones",
