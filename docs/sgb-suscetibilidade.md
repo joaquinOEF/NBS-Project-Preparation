@@ -76,7 +76,9 @@ has no climate scenario, so the landslide and flood maps are single maps (no
   (`shared/data-provenance.ts`) and the map-help prompt say SGB.
 - The neighbourhood zones' hazard flags, typology and suggested solution types
   (since 27 Nov 2026) — share of each bairro's area in flood Alta (≥ 30%) and in
-  landslide Média + Alta (≥ 10%); `docs/neighborhood-zones-methodology.md`.
+  landslide Média + Alta (≥ 10%); flood also where ≥ 30% of the bairro is inside
+  the May 2024 Guaíba area (SMAMUS), as at a pin;
+  `docs/neighborhood-zones-methodology.md`.
 - Not changed: our internal bairro ordering (ARVC risco ranks) and the
   publication's bairro table column `moradores_ameaca_inundacao_arroios_alta_2050`
   (city-exposure-stats.py) — both say what they are.

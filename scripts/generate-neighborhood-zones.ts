@@ -156,7 +156,9 @@ interface NeighborhoodZone {
   // The three booleans, the typology and the interventions come from these
   // shares of the bairro's area, never from our index.
   landslideSusceptible: boolean;     // sgbLandslideShare ≥ CUT_LANDSLIDE (SGB Média + Alta)
-  floodSusceptible: boolean;         // sgbFloodAltaShare ≥ CUT_FLOOD (SGB Alta)
+  floodSusceptible: boolean;         // sgbFloodAltaShare ≥ CUT_FLOOD (SGB Alta) OR guaiba2024Share ≥ CUT_FLOOD
+  floodFlagBasis: 'sgb' | 'guaiba2024' | 'sgb+guaiba2024' | null; // which criterion set the flood flag
+  guaiba2024Share: number;           // 0–1 of the area the Guaíba reached in May 2024 (SMAMUS contours ≤ 5,35 m)
   heatHigh: boolean;                 // heatHighShare ≥ CUT_HEAT (PLAC/ARVC 2050, two top classes)
   sgbFloodAltaShare: number;         // 0–1 of the bairro's area
   sgbLandslideShare: number;
@@ -230,18 +232,24 @@ const T_SUSCEPT_CELL = 0.30;       // cell on prone terrain (for the information
 //   heat       ≥ 50% in the two top classes of the 2050 heat hazard → 61 bairros
 //     "Most of the bairro is hot", with the same class definition the site card
 //     and the tour use. Nearest values: 54% above, 49% below.
+// The flood flag has a second way in (since 27 Nov 2026): at least CUT_FLOOD of
+// the bairro inside the area the Guaíba reached in May 2024 — SMAMUS's contours
+// at or below 5,35 m, the same official fact the pin reading uses where SGB
+// draws nothing (hazardAtPin, docs/sgb-suscetibilidade.md). SGB's chart is
+// 1:70.000 and leaves out ground that was under water: Praia de Belas has 0% in
+// SGB Alta. Same cut for both, so there is one number to say.
 const CUT_FLOOD = 0.30;
 const CUT_LANDSLIDE = 0.10;
 const CUT_HEAT = 0.50;
 
 const HAZARD_SOURCE = {
-  flood: 'SGB/CPRM — carta de suscetibilidade a inundação (2015), classe Alta',
+  flood: 'SGB/CPRM — carta de suscetibilidade a inundação (2015), classe Alta; or SMAMUS — cotas de inundação do Guaíba, area reached in May 2024 (≤ 5,35 m)',
   landslide: 'SGB/CPRM — carta de suscetibilidade a movimentos de massa (2015), classes Média + Alta',
   heat: 'Prefeitura de Porto Alegre — Plano de Ação Climática (PLAC/ARVC), ameaça de calor 2050, two top classes',
   priority: 'OEF estimate — priorityScore and the *Rank / mean* / p90* / max* fields are our own index, not official',
 } as const;
 // Carried on every zone, so a feature read on its own still says whose flags these are.
-const HAZARD_SOURCE_NOTE = 'Flags and shares: SGB susceptibility (flood = Alta; landslide = Média + Alta) and PLAC/ARVC heat hazard 2050 (two top classes), as share of the neighbourhood\'s area. priorityScore and ranks: OEF estimate.';
+const HAZARD_SOURCE_NOTE = 'Flags and shares: SGB susceptibility (flood = Alta, or the area the Guaíba reached in May 2024 per SMAMUS — see floodFlagBasis; landslide = Média + Alta) and PLAC/ARVC heat hazard 2050 (two top classes), as share of the neighbourhood\'s area. priorityScore and ranks: OEF estimate.';
 
 // Vulnerability weights — informed by BPJP/C40 climate justice criteria
 // Poverty gets highest weight because income deprivation is the strongest
@@ -660,11 +668,14 @@ async function main() {
 
     // Official flags: share of the bairro's area in the official high class(es).
     const o = a.official;
-    const floodSusceptible = o.sgbFloodAltaShare >= CUT_FLOOD;
+    const bySgb = o.sgbFloodAltaShare >= CUT_FLOOD;
+    const by2024 = o.guaiba2024Share >= CUT_FLOOD;
+    const floodSusceptible = bySgb || by2024;
+    const floodFlagBasis = bySgb && by2024 ? 'sgb+guaiba2024' as const : bySgb ? 'sgb' as const : by2024 ? 'guaiba2024' as const : null;
     const landslideSusceptible = o.sgbLandslideShare >= CUT_LANDSLIDE;
     const heatHigh = o.heatHighShare >= CUT_HEAT;
     const flagged: { hazard: HazardType; rank: number; overCut: number }[] = [];
-    if (floodSusceptible) flagged.push({ hazard: 'FLOOD', rank: floodRank, overCut: o.sgbFloodAltaShare / CUT_FLOOD });
+    if (floodSusceptible) flagged.push({ hazard: 'FLOOD', rank: floodRank, overCut: Math.max(o.sgbFloodAltaShare, o.guaiba2024Share) / CUT_FLOOD });
     if (heatHigh) flagged.push({ hazard: 'HEAT', rank: heatRank, overCut: o.heatHighShare / CUT_HEAT });
     if (landslideSusceptible) flagged.push({ hazard: 'LANDSLIDE', rank: landslideRank, overCut: o.sgbLandslideShare / CUT_LANDSLIDE });
     const { typology, primary, secondary, ordered } = classifyHazards(flagged);
@@ -723,8 +734,10 @@ async function main() {
       landslideSusceptiblePct: a.landslideSusceptiblePct,
       landslideSusceptible,
       floodSusceptible,
+      floodFlagBasis,
       heatHigh,
       sgbFloodAltaShare: o.sgbFloodAltaShare,
+      guaiba2024Share: o.guaiba2024Share,
       sgbLandslideShare: o.sgbLandslideShare,
       sgbLandslideAltaShare: o.sgbLandslideAltaShare,
       heatHighShare: o.heatHighShare,
@@ -755,12 +768,13 @@ async function main() {
   // ── Official flags ───────────────────────────────────────────────────────────
   const flagCounts = {
     flood: zones.filter(z => z.floodSusceptible).length,
+    floodByGuaiba2024Only: zones.filter(z => z.floodFlagBasis === 'guaiba2024').length,
     heat: zones.filter(z => z.heatHigh).length,
     landslide: zones.filter(z => z.landslideSusceptible).length,
     none: zones.filter(z => !z.floodSusceptible && !z.heatHigh && !z.landslideSusceptible).length,
   };
   console.log('\n✓ Official hazard flags (share of the bairro\'s area):');
-  console.log(`  flood     (SGB Alta ≥ ${CUT_FLOOD * 100}%):          ${flagCounts.flood}/${zones.length}`);
+  console.log(`  flood     (SGB Alta or Guaíba 2024 ≥ ${CUT_FLOOD * 100}%): ${flagCounts.flood}/${zones.length} (${flagCounts.floodByGuaiba2024Only} by the 2024 mark alone)`);
   console.log(`  landslide (SGB Média+Alta ≥ ${CUT_LANDSLIDE * 100}%):   ${flagCounts.landslide}/${zones.length}`);
   console.log(`  heat      (PLAC top classes ≥ ${CUT_HEAT * 100}%):  ${flagCounts.heat}/${zones.length}`);
   console.log(`  no flag (LOW):                       ${flagCounts.none}/${zones.length}`);
@@ -801,7 +815,7 @@ async function main() {
       },
       officialFlags: {
         cuts: { flood: CUT_FLOOD, landslide: CUT_LANDSLIDE, heat: CUT_HEAT },
-        rule: 'A flag is set when at least the cut share of the bairro\'s area is in the class(es): floodSusceptible = sgbFloodAltaShare ≥ 0.30 (SGB inundação, Alta); landslideSusceptible = sgbLandslideShare ≥ 0.10 (SGB movimento de massa, Média + Alta); heatHigh = heatHighShare ≥ 0.50 (PLAC/ARVC calor 2050, two top classes).',
+        rule: 'A flag is set when at least the cut share of the bairro\'s area is in the class(es): floodSusceptible = sgbFloodAltaShare ≥ 0.30 (SGB inundação, Alta) OR guaiba2024Share ≥ 0.30 (SMAMUS, area the Guaíba reached in May 2024, contours ≤ 5,35 m) — floodFlagBasis says which; landslideSusceptible = sgbLandslideShare ≥ 0.10 (SGB movimento de massa, Média + Alta); heatHigh = heatHighShare ≥ 0.50 (PLAC/ARVC calor 2050, two top classes).',
         method: 'Regular lattice of points ~25 m apart inside the bairro polygon (scripts/zone-official-shares.ts); denominator = the whole bairro.',
         sources: HAZARD_SOURCE,
         counts: flagCounts,

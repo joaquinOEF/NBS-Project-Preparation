@@ -19,7 +19,7 @@ the share of the neighbourhood's area in the official high class(es):
 
 | Flag | Share field | Source | Cut | Flagged |
 |---|---|---|---|---|
-| `floodSusceptible` | `sgbFloodAltaShare` | SGB flood susceptibility, class Alta | ≥ 30% of the area | 34 of 94 |
+| `floodSusceptible` | `sgbFloodAltaShare` **or** `guaiba2024Share` | SGB flood susceptibility, class Alta — or the area the Guaíba reached in May 2024 (SMAMUS contours ≤ 5,35 m) | ≥ 30% of the area, either one | 37 of 94 (3 by the 2024 mark alone) |
 | `landslideSusceptible` | `sgbLandslideShare` | SGB mass-movement susceptibility, Média + Alta | ≥ 10% of the area | 33 of 94 |
 | `heatHigh` | `heatHighShare` | Climate plan (PLAC/ARVC) heat hazard 2050, two top classes (the site card's "hot") | ≥ 50% of the area | 61 of 94 |
 
@@ -41,10 +41,20 @@ is `LOW` / `multi_benefit` (one today: Tristeza).
 
 Before this, the landslide flag came from the peak of our index (≥ 0.20) and was
 true for all 94 neighbourhoods, river islands included. Before / after per
-neighbourhood: `docs/zones-official-flags-before-after.md`. Known limits: a flag
-is an area share, so small SGB risk sectors (flash flood on the hills) and
-places SGB's 1:70.000 chart leaves out (Praia de Belas, flooded in 2024) do not
-set one. The sections below on rank-based classification describe the index,
+neighbourhood: `docs/zones-official-flags-before-after.md`. Known limit: a flag
+is an area share, so small SGB risk sectors (flash flood on the hills) do not
+set one.
+
+The flood flag's second criterion is the same official fact the pin reading
+uses where SGB draws nothing (`hazardAtPin`, `docs/sgb-suscetibilidade.md`):
+SGB's 1:70.000 chart leaves out ground that was under water in May 2024.
+`guaiba2024Share` is read from the SMAMUS Guaíba contours
+(`knowledge/porto-alegre/city/layers/cotas-inundacao.geojson.gz`, the 5,35 m
+one — the contours are cumulative), not from the Planet satellite extent behind
+the older `flood2024Pct`, so pin and neighbourhood agree. `floodFlagBasis` says
+which criterion set the flag (`sgb`, `guaiba2024`, `sgb+guaiba2024`). Three
+neighbourhoods are flagged by the 2024 mark alone: Praia de Belas (94% reached,
+0% SGB Alta), Centro Histórico (52%, 15%) and Cristal (33%, 24%). The sections below on rank-based classification describe the index,
 not the flags.
 
 ## Why Neighborhoods Instead of Synthetic Zones

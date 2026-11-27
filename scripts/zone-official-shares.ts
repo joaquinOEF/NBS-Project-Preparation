@@ -8,6 +8,14 @@
 // high class(es)?
 //
 //   sgbFloodAltaShare   SGB inundação, classe Alta
+//   guaiba2024Share     inside the area the Guaíba reached in May 2024 — the
+//                       SMAMUS contours at or below 5,35 m, the same fact the pin
+//                       reading uses where SGB draws nothing
+//                       (server/services/officialHazardFacts.ts → guaiba2024CmAt).
+//                       Read here straight from the same file,
+//                       knowledge/porto-alegre/city/layers/cotas-inundacao.geojson.gz:
+//                       that function runs every city layer per point, far too
+//                       slow for the ~800 000 lattice points.
 //   sgbLandslideShare   SGB movimento de massa, classes Média + Alta
 //   heatHighShare       PLAC/ARVC calor 2050, the two top classes (3 and 4) —
 //                       the same "hot" the site card and the tour use
@@ -26,6 +34,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { arvcHazardAtPin } from '../server/services/arvcPointHazard';
+import { gunzipSync } from 'node:zlib';
 
 const STEP_M = 25;
 const M_PER_DEG_LAT = 111_320;
@@ -82,9 +91,28 @@ function loadSgb() {
   return sgb;
 }
 
+/** The Guaíba level of May 2024 in the SMAMUS contours' unit (cm) — as in officialHazardFacts.ts. */
+const GUAIBA_MAY_2024_CM = 535;
+let guaiba2024: Part[] | undefined;
+function loadGuaiba2024(): Part[] {
+  if (guaiba2024) return guaiba2024;
+  const file = path.join(process.cwd(), 'knowledge/porto-alegre/city/layers/cotas-inundacao.geojson.gz');
+  const gj = JSON.parse(gunzipSync(fs.readFileSync(file)).toString('utf8'));
+  // The contours are cumulative (each holds the lower ones, to within 0.4% of
+  // the area after simplification), so the highest one the flood reached is the
+  // whole reached area — one feature instead of 30.
+  const reached = (gj.features as any[])
+    .filter(f => /Polygon/.test(f?.geometry?.type ?? '') && Number(f.properties?.contourmax) <= GUAIBA_MAY_2024_CM)
+    .sort((a, b) => Number(b.properties.contourmax) - Number(a.properties.contourmax));
+  guaiba2024 = reached.length ? toParts(reached[0].geometry) : [];
+  return guaiba2024;
+}
+
 export interface OfficialShares {
   /** Share (0–1) of the bairro's area in SGB flood susceptibility class Alta. */
   sgbFloodAltaShare: number;
+  /** Share inside the area the Guaíba reached in May 2024 (SMAMUS contours ≤ 5,35 m). */
+  guaiba2024Share: number;
   /** Share in SGB mass-movement susceptibility classes Média + Alta. */
   sgbLandslideShare: number;
   /** Share in SGB mass-movement class Alta alone (informational). */
@@ -101,17 +129,19 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export function officialShares(geometry: any): OfficialShares {
   const s = loadSgb();
+  const reached2024 = loadGuaiba2024();
   const parts = toParts(geometry);
   const minY = Math.min(...parts.map(p => p.minY)), maxY = Math.max(...parts.map(p => p.maxY));
   const minX = Math.min(...parts.map(p => p.minX)), maxX = Math.max(...parts.map(p => p.maxX));
   const dLat = STEP_M / M_PER_DEG_LAT;
   const dLng = STEP_M / (M_PER_DEG_LAT * Math.cos(((minY + maxY) / 2) * Math.PI / 180));
-  let n = 0, flood = 0, slide = 0, slideAlta = 0, hot = 0, heatSeen = 0;
+  let n = 0, flood = 0, guaiba = 0, slide = 0, slideAlta = 0, hot = 0, heatSeen = 0;
   for (let lat = minY + dLat / 2; lat < maxY; lat += dLat) {
     for (let lng = minX + dLng / 2; lng < maxX; lng += dLng) {
       if (!inParts(parts, lng, lat)) continue;
       n++;
       if (inParts(s.floodAlta, lng, lat)) flood++;
+      if (inParts(reached2024, lng, lat)) guaiba++;
       if (inParts(s.landslide, lng, lat)) { slide++; if (inParts(s.landslideAlta, lng, lat)) slideAlta++; }
       const heat = arvcHazardAtPin(lat, lng).find(h => h.hazard === 'heat');
       if (heat) { heatSeen++; if (heat.level >= 3) hot++; }
@@ -120,6 +150,7 @@ export function officialShares(geometry: any): OfficialShares {
   const share = (k: number) => (n > 0 ? round3(k / n) : 0);
   return {
     sgbFloodAltaShare: share(flood),
+    guaiba2024Share: share(guaiba),
     sgbLandslideShare: share(slide),
     sgbLandslideAltaShare: share(slideAlta),
     heatHighShare: share(hot),
@@ -136,7 +167,7 @@ if (process.argv[1] && /zone-official-shares\.ts$/.test(process.argv[1])) {
     console.log(JSON.stringify(rows));
   } else {
     for (const r of rows.sort((a, b) => a.name.localeCompare(b.name))) {
-      console.log(`${r.name.padEnd(28)} flood ${String(Math.round(r.sgbFloodAltaShare * 100)).padStart(3)}%  landslide ${String(Math.round(r.sgbLandslideShare * 100)).padStart(3)}% (alta ${String(Math.round(r.sgbLandslideAltaShare * 100)).padStart(2)}%)  heat ${String(Math.round(r.heatHighShare * 100)).padStart(3)}%  n=${r.samples}`);
+      console.log(`${r.name.padEnd(28)} flood ${String(Math.round(r.sgbFloodAltaShare * 100)).padStart(3)}%  guaíba 2024 ${String(Math.round(r.guaiba2024Share * 100)).padStart(3)}%  landslide ${String(Math.round(r.sgbLandslideShare * 100)).padStart(3)}% (alta ${String(Math.round(r.sgbLandslideAltaShare * 100)).padStart(2)}%)  heat ${String(Math.round(r.heatHighShare * 100)).padStart(3)}%  n=${r.samples}`);
     }
   }
 }

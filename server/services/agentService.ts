@@ -1295,7 +1295,7 @@ export async function executeAgentTool(
                   // riskScores / *Breakdown / riskRanks / riskPercentiles is the OEF
                   // estimate and only orders the list.
                   officialHazard: props.sgbFloodAltaShare == null ? undefined : {
-                    flood: { flagged: !!props.floodSusceptible, shareOfArea: props.sgbFloodAltaShare, source: 'SGB flood susceptibility, class Alta' },
+                    flood: { flagged: !!props.floodSusceptible, shareOfArea: props.sgbFloodAltaShare, source: 'SGB flood susceptibility, class Alta', reachedByGuaibaMay2024ShareOfArea: props.guaiba2024Share, flaggedBy: props.floodFlagBasis ?? undefined },
                     landslide: { flagged: !!props.landslideSusceptible, shareOfArea: props.sgbLandslideShare, source: 'SGB mass-movement susceptibility, classes Média + Alta' },
                     heat: { flagged: !!props.heatHigh, shareOfArea: props.heatHighShare, source: 'Climate plan (PLAC/ARVC) heat hazard 2050, two top classes' },
                   },
