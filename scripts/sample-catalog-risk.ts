@@ -147,7 +147,7 @@ async function main() {
 
   fs.writeFileSync(gridPath, JSON.stringify(grid));
   console.log(`\n✓ Wrote ${path.relative(process.cwd(), gridPath)}`);
-  console.log('  Next: re-run generate-neighborhood-zones.ts and generate-risk-tiles.ts');
+  console.log('  Next: re-run generate-neighborhood-zones.ts');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -3,6 +3,8 @@
 // Ported from Geo-Layer-Viewer (joaquinOEF/Geo-Layer-Viewer)
 // ============================================================================
 
+import { HAZARD_OVERLAP_LAYER_ID, HAZARD_OVERLAP_URL } from './hazard-overlap';
+
 // 'image' is a single georeferenced PNG drawn with L.imageOverlay, rather than a
 // tile pyramid. Used by the ARVC official rasters: the city fits in one ~350 KB
 // image at full 29 m detail, so a pyramid would be thousands of files for no gain.
@@ -120,12 +122,6 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
     tileLayerId: 'poa_landslide_risk', available: true, hasValueTiles: true,
     valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_values/{z}/{x}/{y}.png' },
-  },
-  {
-    id: 'risk_composite_hotspot', name: 'OEF estimate — Risk Hotspots (all)',
-    description: OEF_ESTIMATE_DESCRIPTION, group: 'risk_analysis', color: '#8b5cf6',
-    tileLayerId: '_local_composite_hotspot', available: true,
-    visualUrlTemplate: '/tiles/composite_hotspot/{z}/{x}/{y}.png',
   },
 ];
 
@@ -453,6 +449,27 @@ export const SGB_SUSC_TILE_LAYERS: TileLayerDef[] = [
   },
 ];
 
+// ── Hot spots: where official hazards overlap (since 27 Nov 2026) ───────────
+// Replaces the retired `risk_composite_hotspot` (our own H×E×V index, baked
+// tiles). Only the overlaps are drawn, on transparent: SGB flood Alta, SGB
+// landslide Média/Alta, and the climate plan's heat hazard in its two top
+// classes. Drawn by server/routes/hazardOverlapTileRoutes.ts; definitions and
+// colours in shared/hazard-overlap.ts.
+export const HAZARD_OVERLAP_LAYERS: TileLayerDef[] = [
+  {
+    id: HAZARD_OVERLAP_LAYER_ID,
+    name: 'Hot spots · where official hazards overlap',
+    description:
+      'Where two official hazard maps say "high" at once: purple floods and overheats, red slides and overheats, teal floods and slides. Flood and landslide from SGB/CPRM susceptibility, heat from the climate plan (PLAC). Not a score.',
+    group: 'official_risk',
+    color: '#6a1b9a',
+    available: true,
+    tileLayerId: HAZARD_OVERLAP_LAYER_ID,
+    visualUrlTemplate: HAZARD_OVERLAP_URL,
+    hasValueTiles: false,
+  },
+];
+
 export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...TILE_LAYERS,
   ...LOCAL_RISK_LAYERS,
@@ -462,6 +479,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...OFFICIAL_RISK_LAYERS,
   ...ARVC_HAZARD_TILE_LAYERS,
   ...SGB_SUSC_TILE_LAYERS,
+  ...HAZARD_OVERLAP_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,
@@ -575,6 +593,10 @@ export interface SpatialQueryDef {
 export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   {
     id: 'sq_parks_flood',
+    // Catalog poa_flood_risk (H×E×V). Threshold 0.3: catalog risk maxes ~0.585
+    // (p95≈0.55), so 0.3 captures the meaningfully at-risk band. The `_250m`
+    // twins of this and of the hospitals query sampled the same raster with the
+    // same cutoff and are gone; these ids stay because the agents' prompts name them.
     name: 'Parks in Flood Risk > 0.3 (OEF)',
     color: '#ef4444',
     vectorSource: '/api/osm/parks',
@@ -647,20 +669,6 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   },
   // ── Spatial queries using local 250m risk scores (more accurate than FRI) ──
   {
-    id: 'sq_parks_flood_250m',
-    // Catalog poa_flood_risk (H×E×V). Threshold recalibrated 0.4→0.3: catalog risk maxes
-    // ~0.585 (p95≈0.55), so 0.4 was ~p90; 0.3 captures the meaningfully at-risk band.
-    name: 'Parks in Flood Risk > 0.3 (OEF)',
-    color: '#b91c1c',
-    vectorSource: '/api/osm/parks',
-    rasterLayerId: 'risk_flood_250m',
-    threshold: 0.3,
-    comparator: '>',
-    valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk (OEF estimate)',
-    tooltipIcon: '🌊',
-  },
-  {
     id: 'sq_schools_heat_250m',
     // Catalog poa_heat_risk (H×E×V). Threshold recalibrated 0.4→0.3 to match the
     // flood card: an H×E×V geometric mean sits lower than the old single-factor
@@ -674,18 +682,6 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
     valueKey: 'heat_risk_250m',
     tooltipLabel: 'High heat risk (OEF estimate)',
     tooltipIcon: '🔥',
-  },
-  {
-    id: 'sq_hospitals_flood_250m',
-    name: 'Hospitals in Flood Risk > 0.3 (OEF)',
-    color: '#7f1d1d',
-    vectorSource: '/api/osm/hospitals',
-    rasterLayerId: 'risk_flood_250m',
-    threshold: 0.3,
-    comparator: '>',
-    valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk (OEF estimate)',
-    tooltipIcon: '🌊',
   },
   {
     // Landslide parity (catalog poa_landslide_risk). Same 0.3 cutoff as flood/heat.

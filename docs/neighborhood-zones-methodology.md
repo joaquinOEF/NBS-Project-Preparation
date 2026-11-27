@@ -10,6 +10,43 @@ Each neighborhood receives:
 - **Priority score** = hazard × (1 + vulnerability) — equity-weighted ranking
 - **Intervention type** based on dominant hazard (sponge/cooling/slope/multi-benefit)
 
+## Hazard flags come from official data (since 27 Nov 2026)
+
+Which hazards a neighbourhood carries — the flags, the typology (`typologyLabel`,
+`primaryHazard`, `secondaryHazard`) and the suggested solution types
+(`interventionType`, `secondaryInterventions`) — is decided by official data, as
+the share of the neighbourhood's area in the official high class(es):
+
+| Flag | Share field | Source | Cut | Flagged |
+|---|---|---|---|---|
+| `floodSusceptible` | `sgbFloodAltaShare` | SGB flood susceptibility, class Alta | ≥ 30% of the area | 34 of 94 |
+| `landslideSusceptible` | `sgbLandslideShare` | SGB mass-movement susceptibility, Média + Alta | ≥ 10% of the area | 33 of 94 |
+| `heatHigh` | `heatHighShare` | Climate plan (PLAC/ARVC) heat hazard 2050, two top classes (the site card's "hot") | ≥ 50% of the area | 61 of 94 |
+
+Shares are computed by `scripts/zone-official-shares.ts` (a 25 m lattice of
+points inside the polygon; run it alone to print all 94). The cuts were read off
+that distribution: SGB rates 47% of the municipality Alta for flood and 15%
+Média/Alta for landslide, so the cuts sit at about two thirds of each city-wide
+share; the neighbourhoods the Guaíba took in May 2024 that SGB maps are all
+above 60% (Navegantes, Humaitá, Sarandi, Farrapos, Arquipélago); every
+neighbourhood where SGB surveyed a mass-movement risk sector with 400+ residents
+is above 10%, and the floodplain is at 0%. Nearest values either side of each
+cut: flood 29.5% / 32.3% (Aberta dos Morros / Extrema), landslide 9.2% / 10.7%
+(Jardim Isabel / Serraria), heat 49% / 54% (Guarujá / Ipanema).
+
+Our own index is unchanged and is an **OEF estimate**: `priorityScore` and the
+`*Rank` / `mean*` / `p90*` fields still order the list, and decide which flagged
+hazard is named first when there is more than one. A neighbourhood with no flag
+is `LOW` / `multi_benefit` (one today: Tristeza).
+
+Before this, the landslide flag came from the peak of our index (≥ 0.20) and was
+true for all 94 neighbourhoods, river islands included. Before / after per
+neighbourhood: `docs/zones-official-flags-before-after.md`. Known limits: a flag
+is an area share, so small SGB risk sectors (flash flood on the hills) and
+places SGB's 1:70.000 chart leaves out (Praia de Belas, flooded in 2024) do not
+set one. The sections below on rank-based classification describe the index,
+not the flags.
+
 ## Why Neighborhoods Instead of Synthetic Zones
 
 The original zone system used flood-fill clustering on grid cells to create ~15 algorithmically defined zones. While technically sound:

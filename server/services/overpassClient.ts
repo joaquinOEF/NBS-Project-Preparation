@@ -64,6 +64,12 @@ export interface OverpassQueryOptions {
   timeoutMs?: number;
   /** Short label used in log lines, e.g. the layer id. */
   label?: string;
+  /**
+   * Mirrors to try, in order. Default: all of OVERPASS_MIRRORS. The refresh
+   * script passes the mirror that answered last first, so a long run does not
+   * wait on a dead mirror before every single request.
+   */
+  mirrors?: string[];
 }
 
 /**
@@ -78,13 +84,14 @@ export async function overpassQuery(
 ): Promise<any> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const label = opts.label ?? 'query';
+  const mirrors = opts.mirrors?.length ? opts.mirrors : OVERPASS_MIRRORS;
 
   let lastCode: OverpassErrorCode = 'UNKNOWN';
-  let lastMirror = OVERPASS_MIRRORS[0];
+  let lastMirror = mirrors[0];
   let lastReason = 'no mirrors attempted';
 
-  for (let i = 0; i < OVERPASS_MIRRORS.length; i++) {
-    const mirror = OVERPASS_MIRRORS[i];
+  for (let i = 0; i < mirrors.length; i++) {
+    const mirror = mirrors[i];
     lastMirror = mirror;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -109,7 +116,7 @@ export async function overpassQuery(
           `[overpass] ${label} via ${mirror} → ${lastReason} (${lastCode})`
         );
         if (isQueryFault(lastCode)) break;
-        if (i < OVERPASS_MIRRORS.length - 1) await sleep(BACKOFF_MS);
+        if (i < mirrors.length - 1) await sleep(BACKOFF_MS);
         continue;
       }
 
@@ -124,7 +131,7 @@ export async function overpassQuery(
         lastReason = 'non-JSON body (mirror error page)';
         console.warn(`[overpass] ${label} via ${mirror} → ${lastReason}`);
         if (isQueryFault(lastCode)) break;
-        if (i < OVERPASS_MIRRORS.length - 1) await sleep(BACKOFF_MS);
+        if (i < mirrors.length - 1) await sleep(BACKOFF_MS);
         continue;
       }
 
@@ -135,7 +142,7 @@ export async function overpassQuery(
         lastReason = `remark: ${data.remark.slice(0, 120)}`;
         console.warn(`[overpass] ${label} via ${mirror} → ${lastReason}`);
         if (isQueryFault(lastCode)) break;
-        if (i < OVERPASS_MIRRORS.length - 1) await sleep(BACKOFF_MS);
+        if (i < mirrors.length - 1) await sleep(BACKOFF_MS);
         continue;
       }
 
@@ -147,7 +154,7 @@ export async function overpassQuery(
         ? `timeout after ${timeoutMs}ms`
         : err?.message || 'fetch failed';
       console.warn(`[overpass] ${label} via ${mirror} → ${lastReason}`);
-      if (i < OVERPASS_MIRRORS.length - 1) await sleep(BACKOFF_MS);
+      if (i < mirrors.length - 1) await sleep(BACKOFF_MS);
     } finally {
       clearTimeout(timer);
     }

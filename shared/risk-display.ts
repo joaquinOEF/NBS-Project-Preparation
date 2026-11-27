@@ -97,8 +97,10 @@ export function dominantPercentile(zone: any): number {
   return h ? hazardPercentile(zone, h) : 0;
 }
 
-/** Landslide-prone terrain (SUSCEPTIBILITY, from the catalog landslide hazard) —
- *  distinct from landslide RISK. Surfaced as a flag/badge, not a primary color. */
+/** Landslide-prone terrain — OFFICIAL since 27 Nov 2026: at least 10% of the
+ *  bairro's area in SGB's Média or Alta mass-movement susceptibility
+ *  (`sgbLandslideShare`, generate-neighborhood-zones.ts). Until then it came
+ *  from our own index and was true for all 94 bairros. */
 export function isLandslideProne(zone: any): boolean {
   return !!zone?.landslideSusceptible;
 }
@@ -118,7 +120,12 @@ export function riskAnchor(zone: any, hazard: HazardKey): string {
     : zone?.p90Landslide ?? zone?.meanLandslide;
   const parts: string[] = [];
   if (value != null) parts.push(`${Math.round(value * 100)}% risk`);
-  if (hazard === 'flood' && zone?.floodExtentPct != null) {
+  // The area figure is the OFFICIAL one where the zone file carries it (SGB's
+  // high flood class). `floodExtentPct` is our index's footprint — it reads
+  // 100% for most bairros — and is only the fallback for older zone files.
+  if (hazard === 'flood' && zone?.sgbFloodAltaShare != null) {
+    parts.push(`${Math.round(zone.sgbFloodAltaShare * 100)}% of area in SGB high flood class`);
+  } else if (hazard === 'flood' && zone?.floodExtentPct != null) {
     parts.push(`${Math.round(zone.floodExtentPct * 100)}% of area in flood zone`);
   }
   return parts.join(' · ');

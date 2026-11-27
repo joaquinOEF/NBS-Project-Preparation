@@ -112,6 +112,41 @@ export function classOf(v: number, p2: number, p98: number): number {
 }
 
 /**
+ * From this class up a point reads as "alta" / "muito alta" — the tour's and
+ * the site card's "high". The hot spots layer's "overheats" is the heat layer
+ * at this level or above; keep it the ONE definition of hot.
+ */
+export const ARVC_HIGH_LEVEL = 3;
+
+/** A hazard's whole raster already classed 0..4 (255 = no data), in Web Mercator bounds. */
+export interface ArvcLevelGrid {
+  width: number; height: number;
+  west: number; east: number; north: number; south: number;
+  level: Uint8Array;
+}
+
+const grids = new Map<HazardKey, ArvcLevelGrid | null>();
+
+/** The classed raster behind `arvcHazardAtPin`, for callers that read many pixels (tiles). */
+export function arvcLevelGrid(hazard: HazardKey): ArvcLevelGrid | null {
+  if (grids.has(hazard)) return grids.get(hazard)!;
+  const l = load(LAYER_FOR[hazard]);
+  let out: ArvcLevelGrid | null = null;
+  if (l) {
+    const level = new Uint8Array(l.width * l.height).fill(255);
+    for (let row = 0; row < l.height; row++) {
+      for (let col = 0; col < l.width; col++) {
+        const v = valueAt(l, row, col);
+        if (v != null) level[row * l.width + col] = classOf(v, l.p2, l.p98);
+      }
+    }
+    out = { width: l.width, height: l.height, west: l.west, east: l.east, north: l.north, south: l.south, level };
+  }
+  grids.set(hazard, out);
+  return out;
+}
+
+/**
  * PLAC/ARVC 2050 ameaça at a point, one entry per hazard that has data there
  * (a pin over the Guaíba, or outside the analysed area, gets none for that
  * layer). Nearest pixel — the same resampling the tiles use.

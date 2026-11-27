@@ -36,18 +36,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, ARVC_LAYERS, ARVC_ENDPOINT, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, SGB_SUSC_TILE_LAYERS, OFFICIAL_VECTOR_LAYERS, HAZARD_OVERLAP_LAYERS, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
 import { sectorColors, sectorPopupHtml, SECTOR_POPUP_LABELS_EN as SECTOR_POPUP_LABELS } from '@shared/official-risk';
-import {
-  arvcColor,
-  arvcClass,
-  arvcFeatureCollection,
-  ARVC_DERIVED_NOTE,
-  ARVC_INTERPRETATION,
-  ARVC_HAZARDS,
-  type ArvcHazardId,
-  type ArvcPayload,
-} from '@shared/arvc';
 import {
   ARVC_OFFICIAL_LAYERS,
   ARVC_OFFICIAL_MANIFEST,
@@ -134,11 +124,22 @@ interface LayerState {
 
 type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>;
 
+// Names in the official group read "what it shows · source". Local to the
+// explorer: the shared catalogue names are also read by the CBO tour.
+const OFFICIAL_GROUP_NAMES: Record<string, string> = {
+  sgb_flood_susc: 'Flood susceptibility · SGB/CPRM 2015',
+  flood_2024_extent: 'May 2024 flood extent · observed',
+  sgb_landslide_susc: 'Landslide susceptibility · SGB/CPRM 2015',
+  sgb_setores_risco: 'Surveyed risk sectors · SGB 2022',
+};
+// Same red as the org tour's outline (MapMicroapp FLOOD_2024_STYLE): the event
+// must read as a line over SGB's blue classes, not as one more step of them.
+const FLOOD_2024_OUTLINE = '#d7301f';
+
 const LAYER_CONFIGS: LayerConfig[] = [
   { id: 'intervention_zones', name: 'Neighborhood Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
   { id: 'ibge_census', name: 'Census / Poverty', icon: Users, color: '#a855f7', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
   { id: 'ibge_settlements', name: 'Informal Settlements', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
-  { id: 'flood_2024_extent', name: '2024 Flood Extent', icon: CloudRain, color: '#60a5fa', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c', source: 'geojson', group: 'environment', available: true },
   { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80', source: 'geojson', group: 'environment', available: true },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6', source: 'geojson', group: 'environment', available: true },
@@ -217,29 +218,30 @@ const LAYER_CONFIGS: LayerConfig[] = [
     hasValueTiles: l.hasValueTiles,
     valueEncoding: l.valueEncoding,
   })),
-  // Official risk cartography (SGB/CPRM) — the surveyed sector polygons and the
-  // two susceptibility rasters that actually cover Porto Alegre.
-  ...OFFICIAL_VECTOR_LAYERS.map(l => ({
-    id: l.id,
-    name: l.name,
-    icon: AlertTriangle,
-    color: l.color,
-    source: 'geojson' as LayerSource,
-    group: 'official_risk' as LayerGroupId,
-    available: true,
-  })),
-  ...OFFICIAL_RISK_LAYERS.map(l => ({
-    id: l.id,
-    name: l.name,
-    icon: Layers,
-    color: l.color,
-    source: 'tiles' as LayerSource,
-    group: 'official_risk' as LayerGroupId,
-    available: true,
-    tileLayerId: l.tileLayerId,
-    hasValueTiles: l.hasValueTiles,
-    valueEncoding: l.valueEncoding,
-  })),
+  ...HAZARD_OVERLAP_LAYERS.map(l => ({ id: l.id, name: l.name, icon: Layers, color: l.color, source: 'tiles' as LayerSource, group: 'official_risk' as LayerGroupId, available: true, tileLayerId: l.tileLayerId, hasValueTiles: l.hasValueTiles, description: l.description })),
+  // Official risk cartography (SGB/CPRM). The two susceptibility maps are our
+  // own tiles cut from the SGB vectors (server/routes/sgbSuscTileRoutes.ts) —
+  // not SGB's raw WMS, which paints "Baixa" yellow over the whole city and past
+  // its boundary. Each is followed by its companion: the observed May 2024
+  // flood beside flood, the surveyed sectors beside landslide.
+  ...SGB_SUSC_TILE_LAYERS.flatMap(l => {
+    const tiles = {
+      id: l.id,
+      name: OFFICIAL_GROUP_NAMES[l.id] ?? l.name,
+      icon: Layers,
+      color: l.color,
+      source: 'tiles' as LayerSource,
+      group: 'official_risk' as LayerGroupId,
+      available: true,
+      tileLayerId: l.tileLayerId,
+      hasValueTiles: l.hasValueTiles,
+      valueEncoding: l.valueEncoding,
+    };
+    const companions = l.id === 'sgb_flood_susc'
+      ? [{ id: 'flood_2024_extent', name: OFFICIAL_GROUP_NAMES.flood_2024_extent, icon: CloudRain, color: FLOOD_2024_OUTLINE }]
+      : OFFICIAL_VECTOR_LAYERS.map(v => ({ id: v.id, name: OFFICIAL_GROUP_NAMES[v.id] ?? v.name, icon: AlertTriangle, color: v.color }));
+    return [tiles, ...companions.map(c => ({ ...c, source: 'geojson' as LayerSource, group: 'official_risk' as LayerGroupId, available: true }))];
+  }),
   // ARVC official rasters — the real 29 m surfaces SMAMUS supplied, one PNG
   // overlay each. Reference layers only: nothing here feeds the CBO flow or the
   // orchestrator view. See shared/arvc-official.ts.
@@ -251,18 +253,6 @@ const LAYER_CONFIGS: LayerConfig[] = [
     source: 'image' as LayerSource,
     group: 'arvc_official' as LayerGroupId,
     available: true,
-  })),
-  // ARVC climate-risk surfaces, reconstructed from the municipal plan's PDF
-  // figures. All six share one grid and one fetch — see shared/arvc.ts.
-  ...ARVC_LAYERS.map(l => ({
-    id: l.id,
-    name: l.name,
-    icon: AlertTriangle,
-    color: l.color,
-    source: 'geojson' as LayerSource,
-    group: 'arvc' as LayerGroupId,
-    available: true,
-    description: l.description,
   })),
   // OEF tile layers — generated from shared catalog (48 layers)
   ...TILE_LAYERS.filter(l => l.available).map(l => ({
@@ -279,13 +269,9 @@ const LAYER_CONFIGS: LayerConfig[] = [
   })),
 ];
 
-// All six ARVC hazards live in one payload on one shared grid, so toggling them
-// must not mean six downloads of the same ~890 KB. Cached at module scope; a
-// failed attempt clears the cache so the next toggle can retry rather than
-// leaving the layers permanently dead.
 // The official-raster manifest carries per-layer bounds, stats and the published
 // legend. One small fetch shared by all 44 overlays; cached at module scope for
-// the same reason as the reconstruction payload below. A failure is not fatal —
+// so toggling them never re-downloads it. A failure is not fatal —
 // the overlays fall back to the shared constant bounds and simply lose the
 // stats line in the popup.
 let arvcOfficialManifestPromise: Promise<ArvcOfficialManifest | null> | null = null;
@@ -300,20 +286,6 @@ function loadArvcOfficialManifest(): Promise<ArvcOfficialManifest | null> {
       });
   }
   return arvcOfficialManifestPromise;
-}
-
-let arvcPayloadPromise: Promise<ArvcPayload | null> | null = null;
-function loadArvcPayload(): Promise<ArvcPayload | null> {
-  if (!arvcPayloadPromise) {
-    arvcPayloadPromise = fetch(ARVC_ENDPOINT)
-      .then(res => (res.ok ? res.json() : null))
-      .catch(() => null)
-      .then((data: ArvcPayload | null) => {
-        if (!data) arvcPayloadPromise = null;
-        return data;
-      });
-  }
-  return arvcPayloadPromise;
 }
 
 const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
@@ -399,6 +371,33 @@ function formatZoneName(zoneId: string): string {
   return zoneId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// ── Map stacking on the light basemap ────────────────────────────────────────
+// ground (tilePane 200) < city-clipped rasters < official rasters < vectors
+// (overlayPane 400) < place names. Tile layers cannot be polygon-clipped in
+// Leaflet, so our own index rasters — which are cut as a bounding rectangle and
+// spill over Canoas, Viamão and the Guaíba — go in a pane that carries a CSS
+// clip-path of the municipal boundary. The official rasters (SGB, PLAC/ARVC)
+// already end at the boundary they were published with and are NOT re-clipped
+// against ours, so no official pixel is shaved off by a boundary mismatch.
+const PANE_RASTER_CITY = 'explorerRasterCity';
+const PANE_RASTER = 'explorerRaster';
+const PANE_LABELS = 'explorerLabels';
+const OFFICIAL_RASTER_GROUPS: readonly LayerGroupId[] = ['official_risk', 'arvc_official'];
+
+/** A layer that paints the city: while one is on, zones step back to outlines. */
+const paintsTheCity = (l: { enabled: boolean; source: LayerSource; group: LayerGroupId }) =>
+  l.enabled && (l.source === 'tiles' || l.source === 'image' || l.group === 'arvc');
+
+// Zones over a raster: a thin neutral line. The fill stays in the DOM at zero
+// opacity so the whole bairro still takes hover and click.
+const ZONE_OUTLINE_STYLE = { color: '#27272a', weight: 1, opacity: 0.7, fillOpacity: 0 };
+
+/** Every ring of a (multi)polygon layer's latlngs, flattened. */
+function flattenRings(latlngs: any): L.LatLng[][] {
+  if (!Array.isArray(latlngs) || latlngs.length === 0) return [];
+  return Array.isArray(latlngs[0]) ? latlngs.flatMap(flattenRings) : [latlngs as L.LatLng[]];
+}
+
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
@@ -410,6 +409,16 @@ export default function SiteExplorerPage() {
   const [boundaryData, setBoundaryData] = useState<BoundaryData | null>(null);
   const [elevationData, setElevationData] = useState<ElevationData | null>(null);
   const [showEvidenceDrawer, setShowEvidenceDrawer] = useState(false);
+  // The drawer's real height (48 closed, up to 320 open, by content): the
+  // on-map legend card sits just above it.
+  const [drawerHeight, setDrawerHeight] = useState(48);
+  const drawerObserver = useRef<ResizeObserver | null>(null);
+  const drawerRef = useCallback((el: HTMLDivElement | null) => {
+    drawerObserver.current?.disconnect();
+    if (!el) return;
+    drawerObserver.current = new ResizeObserver(() => setDrawerHeight(el.offsetHeight));
+    drawerObserver.current.observe(el);
+  }, []);
   const [mapReady, setMapReady] = useState(false);
   const [layers, setLayers] = useState<LayerState[]>(() => 
     LAYER_CONFIGS.map(config => ({
@@ -433,6 +442,18 @@ export default function SiteExplorerPage() {
   }, []);
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
+
+  // Zones are outlines while any raster/hazard layer is on (see paintsTheCity).
+  // The ref is what the Leaflet style callbacks read; the boolean drives the effect.
+  const zonesOutlineOnly = useMemo(() => layers.some(paintsTheCity), [layers]);
+  const zonesOutlineOnlyRef = useRef(zonesOutlineOnly);
+  zonesOutlineOnlyRef.current = zonesOutlineOnly;
+
+  // Legends shown on the map: every enabled layer that has a spec, drawer order.
+  const activeLegends = useMemo(
+    () => layers.filter(l => l.enabled && legends[l.id]),
+    [layers, legends]
+  );
 
   // Enabled tile layers with value encodings for ValueTooltip.
   // Must be ALL_TILE_LAYERS, not TILE_LAYERS: the risk cards and the flood/heat/
@@ -720,7 +741,7 @@ export default function SiteExplorerPage() {
         const color = TYPOLOGY_COLORS[typology] || '#10b981';
         const isSelected = selectedZone?.zoneId === feature?.properties?.zoneId;
         
-        layer.setStyle({
+        layer.setStyle(zonesOutlineOnlyRef.current ? { ...ZONE_OUTLINE_STYLE, fillColor: color, opacity: isSelected ? 0 : ZONE_OUTLINE_STYLE.opacity } : {
           color: isSelected ? 'transparent' : color,
           weight: isSelected ? 0 : 2,
           fillColor: color,
@@ -733,10 +754,12 @@ export default function SiteExplorerPage() {
     if (selectedZoneFeature && selectedZone) {
       const highlightLayer = L.geoJSON(selectedZoneFeature, {
         style: {
-          color: '#ffffff',
+          // Near-black: the white dash this used on the dark basemap is
+          // invisible on light grey.
+          color: '#18181b',
           weight: 3,
           fillColor: TYPOLOGY_COLORS[selectedZone.typologyLabel] || '#10b981',
-          fillOpacity: 0.25,
+          fillOpacity: zonesOutlineOnlyRef.current ? 0 : 0.25,
           opacity: 1,
           dashArray: '6, 4',
         },
@@ -749,8 +772,24 @@ export default function SiteExplorerPage() {
     }
   }, [selectedZoneFeature, selectedZone]);
 
+  // A raster came on or the last one went off: zones swap fill ⇄ outline in
+  // place. Not folded into the effect above, which also re-fits the map.
+  useEffect(() => {
+    const zonesLayer = layerRefs.current.get('intervention_zones') as L.GeoJSON | undefined;
+    if (!zonesLayer) return;
+    zonesLayer.eachLayer((layer: any) => {
+      const isSelected = selectedZone?.zoneId === layer.feature?.properties?.zoneId;
+      if (zonesOutlineOnly) layer.setStyle({ ...ZONE_OUTLINE_STYLE, opacity: isSelected ? 0 : ZONE_OUTLINE_STYLE.opacity });
+      else if (isSelected) layer.setStyle({ weight: 0, opacity: 0, fillOpacity: 0.15 });
+      else zonesLayer.resetStyle(layer);
+    });
+    (highlightLayerRef.current as L.GeoJSON | null)?.setStyle({ fillOpacity: zonesOutlineOnly ? 0 : 0.25 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zonesOutlineOnly]);
+
   const [osmResultsTruncated, setOsmResultsTruncated] = useState(false);
   const [osmShowAll, setOsmShowAll] = useState(false);
+  const [osmTotalFound, setOsmTotalFound] = useState(0);
   const OSM_RESULT_LIMIT = 50;
   const OSM_EXTENDED_LIMIT = 200;
 
@@ -763,6 +802,7 @@ export default function SiteExplorerPage() {
     setOsmAssets([]);
     setOsmResultsTruncated(false);
     setOsmShowAll(false);
+    setOsmTotalFound(0);
     setOsmError(null);
     
     try {
@@ -807,24 +847,11 @@ export default function SiteExplorerPage() {
         ),
       })).filter((a: any) => a.compatibleInterventions.length > 0);
       
-      assets.sort((a: any, b: any) => {
-        const aHasName = a.tags?.name ? 1 : 0;
-        const bHasName = b.tags?.name ? 1 : 0;
-        if (aHasName !== bHasName) return bHasName - aHasName;
-        const aSize = a.area || a.length || 0;
-        const bSize = b.area || b.length || 0;
-        return bSize - aSize;
-      });
-      
-      if (assets.length > OSM_EXTENDED_LIMIT) {
-        setOsmResultsTruncated(true);
-        setOsmAssets(assets.slice(0, OSM_EXTENDED_LIMIT));
-      } else if (assets.length > OSM_RESULT_LIMIT) {
-        setOsmResultsTruncated(true);
-        setOsmAssets(assets);
-      } else {
-        setOsmAssets(assets);
-      }
+      // The server has already cut the list to the zone outline, ordered it
+      // (named first, then largest) and capped it at OSM_EXTENDED_LIMIT.
+      setOsmTotalFound(Math.max(data.totalFound ?? 0, assets.length));
+      if (assets.length > OSM_RESULT_LIMIT) setOsmResultsTruncated(true);
+      setOsmAssets(assets);
       
       if (data.fromCache) {
         console.log(`📦 Loaded ${assets.length} cached assets`);
@@ -1004,20 +1031,31 @@ export default function SiteExplorerPage() {
       zoom: 11,
     });
 
-    const tileLayer = L.tileLayer(BASEMAPS.dark.url, {
-      attribution: `&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · ${BASEMAPS.dark.attribution}`,
+    // Light ground: every hazard ramp in the drawer was drawn for a light map
+    // (and matches the printed ones); on dark grey the pale classes vanished.
+    const basemap = BASEMAPS.light;
+    const cityRasterPane = map.createPane(PANE_RASTER_CITY);
+    cityRasterPane.style.zIndex = '240';
+    map.createPane(PANE_RASTER).style.zIndex = '250';
+    const labelsPane = map.createPane(PANE_LABELS);
+    labelsPane.style.zIndex = '450';
+    labelsPane.style.pointerEvents = 'none';
+
+    const tileLayer = L.tileLayer(basemap.url, {
+      attribution: `&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · ${basemap.attribution}`,
       maxZoom: 19,
-      maxNativeZoom: BASEMAPS.dark.maxNativeZoom,
+      maxNativeZoom: basemap.maxNativeZoom,
       updateWhenZooming: true,
       updateWhenIdle: false,
       keepBuffer: 4,
     }).addTo(map);
     
-    // Place names, as a second layer: Esri publishes the dark ground and its
-    // labels separately, and a dark grey city with no names is not something a
-    // coordinator can locate a bairro in.
-    L.tileLayer(BASEMAPS.dark.labelsUrl!, {
-      maxZoom: 19, maxNativeZoom: BASEMAPS.dark.maxNativeZoom,
+    // Place names, as a second layer: Esri publishes the ground and its labels
+    // separately, and a grey city with no names is not something a coordinator
+    // can locate a bairro in. In their own pane ABOVE rasters and vectors, so a
+    // hazard layer never paints over the names (and never takes their clicks).
+    L.tileLayer(basemap.labelsUrl!, {
+      maxZoom: 19, maxNativeZoom: basemap.maxNativeZoom, pane: PANE_LABELS,
     }).addTo(map);
 
     tileLayer.on('tileerror', (error: any) => {
@@ -1036,14 +1074,35 @@ export default function SiteExplorerPage() {
     if (boundaryData.boundaryGeoJson) {
       const boundaryLayer = L.geoJSON(boundaryData.boundaryGeoJson, {
         style: {
-          color: '#c9a87c',
+          color: '#52525b',
           weight: 2,
           fillColor: 'transparent',
           fillOpacity: 0,
         },
+        interactive: false,
       }).addTo(map);
 
       map.fitBounds(boundaryLayer.getBounds(), { padding: [20, 20] });
+
+      // The municipal boundary as a clip-path on the city-raster pane, in layer
+      // pixels. Those only change when the zoom does (a pan moves the whole map
+      // pane, clip and all), so it is rebuilt per zoom — and during an animated
+      // zoom it is transitioned to where the boundary WILL be, on Leaflet's own
+      // 250 ms curve, so the edge travels with the tiles instead of snapping.
+      const rings = boundaryLayer.getLayers().flatMap((l: any) => flattenRings(l.getLatLngs?.()));
+      const clipTo = (project: (ll: L.LatLng) => L.Point, animate: boolean) => {
+        const d = rings.map(ring => 'M' + ring.map(ll => {
+          const pt = project(ll);
+          return `${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
+        }).join('L') + 'Z').join('');
+        cityRasterPane.style.transition = animate ? 'clip-path 0.25s cubic-bezier(0,0,0.25,1)' : 'none';
+        cityRasterPane.style.clipPath = `path(evenodd, "${d}")`;
+      };
+      const clipNow = () => clipTo(ll => map.latLngToLayerPoint(ll), false);
+      map.on('viewreset zoom zoomend', clipNow);
+      map.on('zoomanim', (e: L.ZoomAnimEvent) =>
+        clipTo(ll => (map as any)._latLngToNewLayerPoint(ll, e.zoom, e.center), true));
+      clipNow();
     }
 
     mapRef.current = map;
@@ -1111,13 +1170,6 @@ export default function SiteExplorerPage() {
           if (!res.ok) return null;
           const geojson = await res.json();
           return { geoJson: geojson };
-        }
-        // ARVC — one shared payload, sliced per hazard
-        const arvc = ARVC_LAYERS.find(l => l.id === layerId);
-        if (arvc) {
-          const payload = await loadArvcPayload();
-          if (!payload) return null;
-          return { geoJson: arvcFeatureCollection(payload, arvc.hazard as ArvcHazardId) };
         }
         return null;
       }
@@ -1528,6 +1580,7 @@ export default function SiteExplorerPage() {
               // Border weight also scales: 1px (lowest) to 3px (highest)
               const borderWeight = 1 + (normalizedRisk * 2);
               
+              if (zonesOutlineOnlyRef.current) return { ...ZONE_OUTLINE_STYLE, fillColor: color };
               return {
                 color: color,
                 weight: borderWeight,
@@ -1636,11 +1689,12 @@ export default function SiteExplorerPage() {
       case 'flood_2024_extent':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
-            style: { color: '#3b82f6', weight: 1.5, fillColor: '#60a5fa', fillOpacity: 0.35, opacity: 0.7 },
+            // Dashed outline; the trace of fill only keeps the inside hoverable.
+            style: { color: FLOOD_2024_OUTLINE, weight: 1.8, dashArray: '5 3', fillColor: FLOOD_2024_OUTLINE, fillOpacity: 0.04, opacity: 1 },
             onEachFeature: (feature, layer) => {
               const p = feature.properties || {};
               layer.bindTooltip(
-                `<strong>2024 Flood Extent</strong><br/>` +
+                `<strong>May 2024 flood extent (observed)</strong><br/>` +
                 `${p.event_date || 'May 2024'}<br/>` +
                 `<em>${p.data_source || 'Planet SkySat'}</em>`,
                 { sticky: true }
@@ -1784,46 +1838,21 @@ export default function SiteExplorerPage() {
             },
           });
         }
-        // ARVC climate-risk surface — a continuous 0–1 choropleth on the 250 m
-        // grid, drawn with the ARVC's own ColorBrewer Reds ramp so it reads the
-        // same as the printed municipal plan. No border: at 250 m the cell
-        // outlines dominate the fill and turn the layer into a mesh.
-        if (ARVC_LAYERS.some(l => l.id === layerId) && data.geoJson?.features) {
-          const arvcDef = ARVC_LAYERS.find(l => l.id === layerId)!;
-          const hazardMeta = ARVC_HAZARDS.find(h => h.id === arvcDef.hazard);
-          return L.geoJSON(data.geoJson, {
-            style: (feature) => ({
-              color: arvcColor(feature?.properties?.value ?? 0),
-              weight: 0,
-              fillColor: arvcColor(feature?.properties?.value ?? 0),
-              fillOpacity: 0.72,
-            }),
-            onEachFeature: (feature, layer) => {
-              const v = feature.properties?.value ?? 0;
-              layer.bindTooltip(
-                `<div style="font-size:11px;max-width:230px">` +
-                  `<strong>${arvcClass(v)}</strong> — índice ${v.toFixed(2)}<br/>` +
-                  `<span style="color:#888">${hazardMeta?.sourceTitle ?? ''}</span><br/>` +
-                  `<span style="color:#b45309">${ARVC_DERIVED_NOTE.en}</span><br/>` +
-                  `<span style="color:#6b7280">${ARVC_INTERPRETATION.en}</span>` +
-                  `</div>`,
-                { sticky: true }
-              );
-            },
-          });
-        }
         // Official risk sectors (SGB/CPRM) — polygons styled by grau_risco, with
         // the survey record itself in the popup. See shared/official-risk.ts.
         if (OFFICIAL_VECTOR_LAYERS.some(l => l.id === layerId) && data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
             style: (feature) => {
               const c = sectorColors(feature?.properties?.grau_risco);
+              // Near-black outline and a denser fill: the sectors are the
+              // landslide map's companion, and the grade's own dark red line
+              // disappeared into SGB's orange/red susceptibility classes.
               return {
-                color: c.stroke,
-                weight: 1.5,
+                color: '#1c1917',
+                weight: 2,
                 fillColor: c.fill,
-                fillOpacity: 0.45,
-                opacity: 0.9,
+                fillOpacity: 0.6,
+                opacity: 1,
               };
             },
             onEachFeature: (feature, layer) => {
@@ -1859,6 +1888,7 @@ export default function SiteExplorerPage() {
     // SGB serves its WMS from a regional cache; asking past z15 just upscales.
     const isWms = tileUrl.startsWith('/api/geospatial/wms/');
     return L.tileLayer(tileUrl, {
+      pane: OFFICIAL_RASTER_GROUPS.includes(layerConfig.group) ? PANE_RASTER : PANE_RASTER_CITY,
       opacity: 0.7,
       maxNativeZoom: isLocal ? 14 : 15,
       maxZoom: 19,
@@ -1878,6 +1908,7 @@ export default function SiteExplorerPage() {
     if (!def) return null;
 
     const overlay = L.imageOverlay(arvcOfficialPngUrl(layerId), ARVC_OFFICIAL_BOUNDS, {
+      pane: PANE_RASTER,
       opacity: 0.75,
       interactive: true,
       className: 'arvc-official-layer',
@@ -2381,6 +2412,7 @@ export default function SiteExplorerPage() {
 
           {/* Bottom Drawer - Evidence Layers - takes 70% width with rounded top-right */}
           <div 
+            ref={drawerRef}
             className={`absolute left-0 bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-r border-zinc-700 transition-all duration-300 rounded-tr-xl ${showEvidenceDrawer ? 'max-h-[320px]' : 'h-[48px]'}`}
             style={{ pointerEvents: 'auto', width: '75%' }}
           >
@@ -2466,23 +2498,38 @@ export default function SiteExplorerPage() {
                           );
                         })}
                       </div>
-                      {/* Inline legends for the enabled layers in this group (color scale + bounds) */}
-                      {groupLayers.some(l => l.enabled && legends[l.id]) && (
-                        <div className="mt-1.5 space-y-1.5 px-0.5">
-                          {groupLayers.filter(l => l.enabled && legends[l.id]).map(l => (
-                            <div key={l.id}>
-                              <div className="text-[9px] text-zinc-400 mb-0.5 truncate">{l.name}</div>
-                              <LayerLegend spec={legends[l.id]} />
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
+
+          {/* Legends of the active layers, ON the map: bottom-left, just above
+              the drawer whether it is open or closed (so there is one legend,
+              not one in the drawer and one here), and beside the zone card when
+              a zone is open. Roughly three fit; the rest scroll. */}
+          {activeLegends.length > 0 && (
+            <div
+              data-testid="map-legends"
+              className="absolute z-[1001] w-[240px] max-h-[172px] overflow-y-auto rounded-lg bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 shadow-lg px-2.5 py-2 space-y-2"
+              style={{
+                left: selectedZone ? '448px' : '12px',
+                bottom: `${drawerHeight + 12}px`,
+                transition: 'left 0.2s ease',
+              }}
+              onWheel={(e) => e.stopPropagation()}
+              onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
+              onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
+            >
+              {activeLegends.map(l => (
+                <div key={l.id}>
+                  <div className="text-[10px] text-zinc-200 mb-1 leading-tight line-clamp-2">{l.name}</div>
+                  <LayerLegend spec={legends[l.id]} />
+                </div>
+              ))}
+            </div>
+          )}
 
           {selectedZone && (
             <div 
@@ -2681,8 +2728,10 @@ export default function SiteExplorerPage() {
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-sm text-muted-foreground">
                               {osmResultsTruncated && !osmShowAll
-                                ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${osmAssets.length} available).`
-                                : `Found ${osmAssets.length} compatible assets.`
+                                ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${Math.max(osmTotalFound, osmAssets.length)} available).`
+                                : osmTotalFound > osmAssets.length
+                                  ? t('siteExplorer.assetsShowingTop', { shown: osmAssets.length, total: osmTotalFound })
+                                  : `Found ${osmAssets.length} compatible assets.`
                               }
                             </p>
                             <Button
@@ -2705,7 +2754,7 @@ export default function SiteExplorerPage() {
                               Show all {osmAssets.length} assets
                             </Button>
                           )}
-                          {osmAssets.length >= OSM_EXTENDED_LIMIT && (
+                          {osmTotalFound >= OSM_EXTENDED_LIMIT && (
                             <div className="flex items-center gap-2 p-2 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 rounded-lg text-xs">
                               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                               <span>Many assets in this zone. Select a smaller zone or zoom in for more targeted selection.</span>

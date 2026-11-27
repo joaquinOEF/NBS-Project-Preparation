@@ -11,6 +11,7 @@ import { registerOverpassRoutes } from './routes/overpassRoutes';
 import { registerOfficialRiskRoutes } from './routes/officialRiskRoutes';
 import { registerArvcTileRoutes } from './routes/arvcTileRoutes';
 import { registerSgbSuscTileRoutes } from './routes/sgbSuscTileRoutes';
+import { registerHazardOverlapTileRoutes } from './routes/hazardOverlapTileRoutes';
 import { registerRankPlacesRoutes } from './routes/rankPlacesRoutes';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -114,6 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerOfficialRiskRoutes(app);
   registerArvcTileRoutes(app);
   registerSgbSuscTileRoutes(app);
+  registerHazardOverlapTileRoutes(app);
   registerRankPlacesRoutes(app);
 
   // Test-only seeding API — CONDITIONALLY registered so the routes literally do

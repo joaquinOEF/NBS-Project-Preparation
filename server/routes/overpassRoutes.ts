@@ -9,6 +9,7 @@ import {
   readSnapshot,
   logSnapshotStatus,
 } from '../services/osmReferenceLayers';
+import { logAssetSnapshotStatus } from '../services/osmAssetSnapshot';
 
 // ============================================================================
 // OVERPASS API — serves OSM reference features (parks, schools, hospitals,
@@ -90,4 +91,5 @@ export function registerOverpassRoutes(app: Express): void {
     `[osm] Registered ${OSM_REFERENCE_QUERIES.length} Overpass reference layers`
   );
   void logSnapshotStatus();
+  void logAssetSnapshotStatus();
 }
