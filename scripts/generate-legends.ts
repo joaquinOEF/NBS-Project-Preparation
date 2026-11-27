@@ -4,7 +4,7 @@
  * Hybrid color sourcing (see docs/risk-catalog-migration-playbook.md):
  *   - classes  : categorical layers from valueEncoding.classes (Dynamic World)
  *   - file     : the 17 authoritative GDAL color-relief files in geospatial-data
- *   - code     : the local heat/landslide ramps from generate-risk-tiles.ts
+ *   - code     : the local heat/landslide ramps (CODE_RAMPS below)
  *   - sampled  : OEF index layers with no colormap (poa_flood_*, CHIRPS, HWM, FRI)
  *                — recovered by pairing value-tile decode × visual-tile RGB.
  *
@@ -57,7 +57,7 @@ const CLASS_COLORS: Record<string, Record<number, string>> = {
   poa_landslide_mechanism: { 0: '#e0e0e0', 1: '#b2182b', 2: '#2166ac', 3: '#8c510a', 4: '#d8b365', 5: '#4393c3', 6: '#a6611a', 7: '#5e3c99', 8: '#636363', 9: '#8e0152' },
 };
 
-// Local risk ramps — mirror the colorFns in generate-risk-tiles.ts (value → color).
+// Local risk ramps (value → color), once mirrored from the retired generate-risk-tiles.ts.
 const CODE_RAMPS: Record<string, LegendStop[]> = {
   risk_heat_250m: [
     { value: 0.15, color: '#fecdcd' }, { value: 0.3, color: '#fca5a5' },

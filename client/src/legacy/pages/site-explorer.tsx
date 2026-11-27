@@ -36,7 +36,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, ARVC_LAYERS, ARVC_ENDPOINT, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, HAZARD_OVERLAP_LAYERS, ARVC_LAYERS, ARVC_ENDPOINT, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
 import { sectorColors, sectorPopupHtml, SECTOR_POPUP_LABELS_EN as SECTOR_POPUP_LABELS } from '@shared/official-risk';
 import {
   arvcColor,
@@ -217,6 +217,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
     hasValueTiles: l.hasValueTiles,
     valueEncoding: l.valueEncoding,
   })),
+  ...HAZARD_OVERLAP_LAYERS.map(l => ({ id: l.id, name: l.name, icon: Layers, color: l.color, source: 'tiles' as LayerSource, group: 'official_risk' as LayerGroupId, available: true, tileLayerId: l.tileLayerId, hasValueTiles: l.hasValueTiles, description: l.description })),
   // Official risk cartography (SGB/CPRM) — the surveyed sector polygons and the
   // two susceptibility rasters that actually cover Porto Alegre.
   ...OFFICIAL_VECTOR_LAYERS.map(l => ({

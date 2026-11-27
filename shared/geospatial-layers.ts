@@ -3,6 +3,8 @@
 // Ported from Geo-Layer-Viewer (joaquinOEF/Geo-Layer-Viewer)
 // ============================================================================
 
+import { HAZARD_OVERLAP_LAYER_ID, HAZARD_OVERLAP_URL } from './hazard-overlap';
+
 // 'image' is a single georeferenced PNG drawn with L.imageOverlay, rather than a
 // tile pyramid. Used by the ARVC official rasters: the city fits in one ~350 KB
 // image at full 29 m detail, so a pyramid would be thousands of files for no gain.
@@ -120,12 +122,6 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
     tileLayerId: 'poa_landslide_risk', available: true, hasValueTiles: true,
     valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_values/{z}/{x}/{y}.png' },
-  },
-  {
-    id: 'risk_composite_hotspot', name: 'OEF estimate — Risk Hotspots (all)',
-    description: OEF_ESTIMATE_DESCRIPTION, group: 'risk_analysis', color: '#8b5cf6',
-    tileLayerId: '_local_composite_hotspot', available: true,
-    visualUrlTemplate: '/tiles/composite_hotspot/{z}/{x}/{y}.png',
   },
 ];
 
@@ -453,6 +449,27 @@ export const SGB_SUSC_TILE_LAYERS: TileLayerDef[] = [
   },
 ];
 
+// ── Hot spots: where official hazards overlap (since 27 Nov 2026) ───────────
+// Replaces the retired `risk_composite_hotspot` (our own H×E×V index, baked
+// tiles). Only the overlaps are drawn, on transparent: SGB flood Alta, SGB
+// landslide Média/Alta, and the climate plan's heat hazard in its two top
+// classes. Drawn by server/routes/hazardOverlapTileRoutes.ts; definitions and
+// colours in shared/hazard-overlap.ts.
+export const HAZARD_OVERLAP_LAYERS: TileLayerDef[] = [
+  {
+    id: HAZARD_OVERLAP_LAYER_ID,
+    name: 'Hot spots · where official hazards overlap',
+    description:
+      'Where two official hazard maps say "high" at once: purple floods and overheats, red slides and overheats, teal floods and slides. Flood and landslide from SGB/CPRM susceptibility, heat from the climate plan (PLAC). Not a score.',
+    group: 'official_risk',
+    color: '#6a1b9a',
+    available: true,
+    tileLayerId: HAZARD_OVERLAP_LAYER_ID,
+    visualUrlTemplate: HAZARD_OVERLAP_URL,
+    hasValueTiles: false,
+  },
+];
+
 export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...TILE_LAYERS,
   ...LOCAL_RISK_LAYERS,
@@ -462,6 +479,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...OFFICIAL_RISK_LAYERS,
   ...ARVC_HAZARD_TILE_LAYERS,
   ...SGB_SUSC_TILE_LAYERS,
+  ...HAZARD_OVERLAP_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,

@@ -142,48 +142,41 @@ landslide_score = slope_risk > 0 ? clamp(
 | Landslide | 0.038 | 0.76 | 630 |
 | Low risk (<0.25) | — | — | 322 |
 
-## Composite Hotspot Visualization
+## Hot Spots (where official hazards overlap)
 
-### Concept
+Since 27 Nov 2026 the hot spots layer (`hazard_overlap`, "Hot spots · where official
+hazards overlap") is no longer built from the scores above. The old composite
+(`risk_composite_hotspot`: additive RGB glow of our own H×E×V index, pre-baked into
+`client/public/tiles/composite_hotspot/`) was removed together with its generator.
 
-Shows all three risks simultaneously as glowing "islands" against a clean map. Only the TRUE hotspots are visible — medium risk fades to transparent via exponential falloff.
+The layer is not a score. It draws only the places where two official hazard maps
+say "high" at once, on a transparent background:
 
-### Color Encoding
+| Colour | Meaning |
+|--------|---------|
+| Purple `#6a1b9a` | floods **and** overheats |
+| Red `#bd0026` | slides **and** overheats |
+| Teal `#00695c` | floods **and** slides (with or without heat — a sliver of the city) |
 
-| Risk | Channel | Visual |
-|------|---------|--------|
-| Flood | Blue | Blue glow on lakeside/river areas |
-| Heat | Red | Red glow in dense urban core |
-| Landslide | Amber (R+G) | Amber glow on morros |
-| Flood + Heat | Purple | Overlap zones |
-| Heat + Landslide | Orange | Built-up hillsides |
+Definitions:
 
-### Percentile Normalization
+- **floods** — SGB/CPRM flood susceptibility, class Alta
+- **slides** — SGB/CPRM landslide susceptibility, class Média or Alta
+- **overheats** — the climate plan's (PLAC/ARVC) 2050 heat hazard in its two top
+  classes (3 and 4 of the 0..4 scale over the city's p2–p98 range): `ARVC_HIGH_LEVEL`
+  in `server/services/arvcPointHazard.ts`, the same "alta / muito alta" the tour and
+  the site card use
 
-Each risk has a different absolute value range. To ensure equal visual weight:
+Sources: SGB/CPRM, carta de suscetibilidade de Porto Alegre (2015, 1:70.000) —
+`knowledge/official-risk/porto-alegre/sgb-suscetibilidade-*.json`, see
+`docs/sgb-suscetibilidade.md`; PLAC/ARVC heat hazard —
+`client/public/arvc-official/arvc_off_threat_heat_2050.value.png`, see
+`docs/arvc-official.md`.
 
-```
-threshold = percentile(non_water_values, 0.75)  // Top 25% visible
-max = percentile(non_water_values, 0.98)         // Normalization cap
-normalized = (value - threshold) / (max - threshold)
-```
-
-Current thresholds (Porto Alegre):
-- Flood: p75=0.45, p98=0.57
-- Heat: p75=0.53, p98=0.90
-- Landslide: p50=0.23, p98=0.65
-
-### Exponential Alpha
-
-```
-alpha = pow(max_normalized_risk, 2.0) × 255
-```
-
-50% of max → 25% visible. 75% → 56%. 100% → full brightness.
-
-### Water Exclusion
-
-Dynamic World class 0 (Water) cells are transparent in the hotspot layer.
+Tiles are drawn on request by `server/routes/hazardOverlapTileRoutes.ts`
+(`/api/geospatial/hazard-overlap/{z}/{x}/{y}.png`); classes and colours live in
+`shared/hazard-overlap.ts`. `npx tsx scripts/hazard-overlap-shares.ts` prints the
+share of the city in each class and checks the classification at known points.
 
 ## Tile Layers
 
@@ -191,7 +184,7 @@ Dynamic World class 0 (Water) cells are transparent in the hotspot layer.
 |-------|------|-------------|
 | Visual (per risk) | `/tiles/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | Color-coded |
 | Value (per risk) | `/tiles_values/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | RGB-encoded (scale=1000) |
-| Composite hotspot | `/tiles/composite_hotspot/{z}/{x}/{y}.png` | Additive RGB glow |
+| Hot spots | `/api/geospatial/hazard-overlap/{z}/{x}/{y}.png` | Overlaps of official hazards, drawn on request |
 
 Value tile decoding: `value = (R + 256×G) / 1000`
 
@@ -204,13 +197,10 @@ npx tsx scripts/generate-grid-250m.ts
 # 2. Calculate scores + validate against 2024 flood extent
 npx tsx scripts/recalc-scores-v3.ts
 
-# 3. Generate tile pyramids (visual + value + composite hotspot)
-npx tsx scripts/generate-risk-tiles.ts
-
-# 4. Render PNG validation maps
+# 3. Render PNG validation maps
 npx tsx scripts/render-risk-maps-250m.ts
 
-# 5. Analyze false negatives
+# 4. Analyze false negatives
 npx tsx scripts/analyze-fn.ts
 ```
 
