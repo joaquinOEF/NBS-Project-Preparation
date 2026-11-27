@@ -1150,7 +1150,55 @@
     "cobenefits": "Co-benefícios",
     "addToPortfolio": "Adicionar",
     "added": "Adicionado",
-    "population": "População"
+    "population": "População",
+    "allLayers": "Todas as camadas ({{count}})",
+    "layersActive": "{{count}} ativas",
+    "searchLayers": "Buscar camadas…",
+    "noLayersMatch": "Nenhuma camada corresponde a \"{{query}}\"",
+    "oefEstimate": "Estimativa OEF",
+    "oefEstimateHint": "A ordem e as notas desta lista são uma estimativa OEF: um índice nosso, que ordena os bairros entre si. Não é uma classificação oficial de risco.",
+    "legendLabels": {
+      "noData": "Sem dados",
+      "informalSettlement": "Assentamento informal",
+      "floodReached": "Alcançado pela água, maio de 2024",
+      "sectorHigh": "Risco alto",
+      "sectorVeryHigh": "Risco muito alto"
+    },
+    "keyMaps": {
+      "ariaLabel": "Mapas principais",
+      "arrowsHint": "Use as setas esquerda e direita para passar pelos mapas",
+      "sourceLine": "Fonte: {{source}}",
+      "flood": {
+        "label": "Inundação",
+        "caption": "Onde o terreno favorece a inundação, e a área que a água alcançou em maio de 2024.",
+        "source": "Carta de suscetibilidade SGB/CPRM, 2015 · cheia observada, Planet SkySat, maio de 2024"
+      },
+      "landslide": {
+        "label": "Deslizamento",
+        "caption": "Onde as encostas favorecem deslizamentos, e os setores de risco levantados em campo.",
+        "source": "Carta de suscetibilidade SGB/CPRM, 2015 · setorização de risco SGB, 2022"
+      },
+      "heat": {
+        "label": "Calor",
+        "caption": "Ameaça de ondas de calor projetada para 2050: quanto mais escuro, mais quente.",
+        "source": "Plano de Ação Climática de Porto Alegre (PLAC/ARVC), cenário 2050"
+      },
+      "hotspots": {
+        "label": "Pontos críticos",
+        "caption": "Onde dois mapas oficiais de ameaça dizem \"alta\" ao mesmo tempo. Não é uma nota.",
+        "source": "Inundação e deslizamento: SGB/CPRM, 2015 · calor: plano climático (PLAC/ARVC), 2050"
+      },
+      "people": {
+        "label": "Quem mora ali",
+        "caption": "Parcela de domicílios em situação de pobreza em cada bairro, e os assentamentos informais.",
+        "source": "IBGE, Censo: indicadores por bairro e aglomerados subnormais"
+      },
+      "green": {
+        "label": "Cobertura verde",
+        "caption": "O quanto o chão é verde, visto por satélite: quanto mais escuro o verde, mais densa a vegetação.",
+        "source": "Índice de vegetação NASA MODIS (NDVI), 250 m"
+      }
+    }
   },
   "interventionZones": {
     "title": "Zonas de Intervenção",

@@ -15,6 +15,7 @@ export interface LegendStop {
   value: number;   // data value at this stop (in `unit`)
   color: string;   // hex
   label?: string;  // for categorical: the class name
+  outline?: boolean; // categorical: drawn on the map as a dashed outline, not a fill
 }
 
 export interface LegendSpec {

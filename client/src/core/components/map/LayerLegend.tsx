@@ -19,8 +19,11 @@ export function LayerLegend({ spec, name }: { spec?: LegendSpec; name?: string }
     return (
       <div className="flex flex-wrap gap-x-2 gap-y-0.5">
         {spec.stops.map((s) => (
-          <span key={s.value} className="flex items-center gap-1 text-[9px] text-zinc-300">
-            <i className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: s.color }} />
+          <span key={s.value} className="flex items-center gap-1 text-[10px] text-zinc-300">
+            <i
+              className="w-2 h-2 rounded-sm flex-shrink-0"
+              style={s.outline ? { border: `1.5px dashed ${s.color}`, width: 10, height: 10 } : { backgroundColor: s.color }}
+            />
             {s.label ?? s.value}
           </span>
         ))}
@@ -38,7 +41,7 @@ export function LayerLegend({ spec, name }: { spec?: LegendSpec; name?: string }
   return (
     <div>
       <div className="h-2 rounded-sm w-full border border-white/10" style={{ background: gradient }} />
-      <div className="flex justify-between text-[9px] text-zinc-400 mt-0.5 leading-none">
+      <div className="flex justify-between text-[10px] text-zinc-400 mt-0.5 leading-none">
         <span>{fmt(min)}</span>
         <span>{fmt((min + max) / 2)}</span>
         <span>{fmt(max)}{spec.unit ? ` ${spec.unit}` : ''}</span>
