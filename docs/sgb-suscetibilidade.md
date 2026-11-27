@@ -70,6 +70,9 @@ has no climate scenario, so the landslide and flood maps are single maps (no
   ones — `generate-legends.ts` does not write either). The tour's May 2024
   overlay is now red dashed so it reads over the blue classes. "Sobre os dados"
   (`shared/data-provenance.ts`) and the map-help prompt say SGB.
+- The neighbourhood zones' hazard flags, typology and suggested solution types
+  (since 27 Nov 2026) — share of each bairro's area in flood Alta (≥ 30%) and in
+  landslide Média + Alta (≥ 10%); `docs/neighborhood-zones-methodology.md`.
 - Not changed: our internal bairro ordering (ARVC risco ranks) and the
   publication's bairro table column `moradores_ameaca_inundacao_arroios_alta_2050`
   (city-exposure-stats.py) — both say what they are.
