@@ -61,6 +61,10 @@ has no climate scenario, so the landslide and flood maps are single maps (no
   (never "baixa"). Landslide adds the nearest SGB mass-movement sector. Heat is
   still PLAC/ARVC 2050 (`arvcHazardAtPin`). The synergy risk table also counts
   the May 2024 Guaíba mark on its own.
+- A list of places by hazard — `server/services/rankPlaces.ts`,
+  `POST /api/geospatial/rank-places`: the same reading (`sgbHazardAtPin` at a
+  point inside the place; heat = the PLAC mean within the radius), keep the
+  high classes, order by the 2022 Census people estimate nearby. No score.
 - Map layers — `sgb_flood_susc` / `sgb_landslide_susc`, drawn by
   `server/routes/sgbSuscTileRoutes.ts` (`/api/geospatial/sgb-susc/:id/{z}/{x}/{y}.png`)
   from the committed vectors; classes and colours in `shared/sgb-susceptibility.ts`

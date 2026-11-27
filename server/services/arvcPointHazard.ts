@@ -168,3 +168,41 @@ export function arvcHazardAtPin(lat: number, lng: number): PinHazardLevel[] {
   }
   return out;
 }
+
+/**
+ * PLAC/ARVC 2050 ameaça around a place: the mean of the valid pixels whose
+ * centre is within `radiusM` of the point, classed with the SAME p2–p98 fifths
+ * as a pin (`classOf`). Null when no pixel there has data. For a park or a
+ * school, which is an area and not an address (server/services/rankPlaces.ts).
+ *
+ * `value` is for ordering on the server only — the client never receives the
+ * 0–1 number (see the header).
+ */
+export function arvcHazardAround(hazard: HazardKey, lat: number, lng: number, radiusM: number): (PinHazardLevel & { value: number }) | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !(radiusM > 0)) return null;
+  const l = load(LAYER_FOR[hazard]);
+  if (!l) return null;
+  const px = (l.east - l.west) / l.width, py = (l.north - l.south) / l.height;
+  // Web Mercator stretches ground distance by 1 / cos(lat).
+  const r = radiusM / Math.cos((lat * Math.PI) / 180);
+  const mx = lngToMerc(lng), my = latToMerc(lat);
+  const c0 = Math.max(0, Math.floor((mx - r - l.west) / px)), c1 = Math.min(l.width - 1, Math.floor((mx + r - l.west) / px));
+  const r0 = Math.max(0, Math.floor((l.north - my - r) / py)), r1 = Math.min(l.height - 1, Math.floor((l.north - my + r) / py));
+  let sum = 0, n = 0;
+  for (let row = r0; row <= r1; row++) for (let col = c0; col <= c1; col++) {
+    const x = l.west + (col + 0.5) * px, y = l.north - (row + 0.5) * py;
+    if (Math.hypot(x - mx, y - my) > r) continue;
+    const v = valueAt(l, row, col);
+    if (v == null) continue;
+    sum += v; n++;
+  }
+  if (!n) {
+    // A radius smaller than a pixel: fall back to the pixel under the point.
+    const at = arvcHazardAtPin(lat, lng).find(h => h.hazard === hazard);
+    if (!at) return null;
+    const col = Math.floor((mx - l.west) / px), row = Math.floor((l.north - my) / py);
+    return { ...at, value: valueAt(l, row, col)! };
+  }
+  const value = sum / n, level = classOf(value, l.p2, l.p98);
+  return { hazard, level, pt: LEVELS.pt[level], en: LEVELS.en[level], value };
+}
