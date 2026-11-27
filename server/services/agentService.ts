@@ -2,6 +2,12 @@ import { openai, type Message, type ReasoningEffort } from "./openaiClient";
 import { storage } from "../storage";
 import { semanticSearch, getKnowledgeStats } from "./knowledgeService";
 import { riskBand, hazardPercentile, riskAnchor, type HazardKey } from "@shared/risk-display";
+import { EXPLORER_KEY_MAPS } from "@shared/explorer-key-maps";
+import { interventionSitePath } from "@shared/explorer-site";
+import type { ExplorerRecipeResult } from "@shared/explorer-chat";
+import { runExplorerRecipe, asLang, ExplorerRecipeInputError } from "./explorerRecipes";
+import { buildInterventionSite } from "./interventionSitePatch";
+import { RankPlacesInputError } from "./rankPlaces";
 import { generateQuantifiedImpacts, generateNarrativeFromKPIs, regenerateBlock, regenerateAffectedBlocks, detectAffectedBlocks } from "./impactModelService";
 import { 
   type InfoBlock, 
@@ -303,10 +309,75 @@ const AGENT_TOOLS: AgentTool[] = [
         },
         osmId: {
           type: "string",
-          description: "OSM ID if available (from lookup_location)",
+          description: "OSM ID if available (from lookup_location), or empty string",
+        },
+        interventionId: {
+          type: "string",
+          description: "The intervention id returned by propose_site (e.g. 'shade_plaza'), or empty string",
         },
       },
-      required: ["zoneId", "siteName", "interventionType", "category", "lat", "lng", "areaHa", "osmId"],
+      required: ["zoneId", "siteName", "interventionType", "category", "lat", "lng", "areaHa", "osmId", "interventionId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "show_map",
+    description: "Site Explorer: put one of the six key maps on the map the user is looking at. Use it whenever the answer is 'look at this map' (where it floods, where heat is worst, where hazards overlap). Returns the map's caption and source, and moves the user's map.",
+    parameters: {
+      type: "object",
+      properties: {
+        preset: {
+          type: "string",
+          enum: EXPLORER_KEY_MAPS.map(m => m.id),
+          description: "flood = SGB flood susceptibility + May 2024 extent; landslide = SGB landslide susceptibility + surveyed risk sectors; heat = climate plan heat hazard 2050; hotspots = where two official hazard maps say high at once; people = households in poverty + informal settlements; green = vegetation (NDVI)",
+        },
+      },
+      required: ["preset"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "focus_place",
+    description: "Site Explorer: move the user's map to a neighbourhood (by name) or to a point (lat, lng). Give EITHER name (and 0 for lat and lng) OR lat and lng (and an empty name).",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Neighbourhood (bairro) name, e.g. 'Glória'. Empty string when using coordinates." },
+        lat: { type: "number", description: "Latitude, or 0 when using a name" },
+        lng: { type: "number", description: "Longitude, or 0 when using a name" },
+      },
+      required: ["name", "lat", "lng"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "rank_places",
+    description: "Site Explorer: the places of a kind (parks, schools, hospitals, wetlands) that sit in the highest OFFICIAL hazard class, ordered by how many people live within 300 m (Census 2022 estimate). Deterministic — this is the ONLY source for any 'top N', 'which parks/schools', 'where does X matter most' answer. Returns the rule applied, the places with their numbers, the sources, and pins them on the user's map.",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["parks", "schools", "hospitals", "wetlands"], description: "What to rank" },
+        by: { type: "string", enum: ["heat", "flood", "landslide"], description: "The official hazard: heat = climate plan 2050; flood and landslide = SGB susceptibility" },
+        top: { type: "number", description: "How many (1–25). Use 5 unless the user asks for another number." },
+        bairro: { type: "string", description: "Limit to one neighbourhood, or empty string for the whole city" },
+      },
+      required: ["kind", "by", "top", "bairro"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "propose_site",
+    description: "Site Explorer: read the OFFICIAL hazard at a point (flood and landslide from SGB, heat from the climate plan) and propose the intervention that answers what is high there, with its 'because' line. The user sees a card with an Add button; nothing is saved by this tool. Use it for any 'what would fit here / at this park / at pin 2' question and before add_intervention_site.",
+    parameters: {
+      type: "object",
+      properties: {
+        placeName: { type: "string", description: "Name of the place (from rank_places or pinnedPlaces), or empty string" },
+        lat: { type: "number", description: "Latitude" },
+        lng: { type: "number", description: "Longitude" },
+        areaHa: { type: "number", description: "Area in hectares, or 0 when unknown (1 ha is assumed)" },
+        solution: { type: "string", description: "A specific intervention the user asked for (name or id), or empty string to let the official reading decide" },
+      },
+      required: ["placeName", "lat", "lng", "areaHa", "solution"],
       additionalProperties: false,
     },
   },
@@ -502,23 +573,35 @@ When generating or editing Impact Model narratives:
 - Slope stabilization: vetiver grass (60-90% soil loss reduction), deep-rooted vegetation for soil cohesion
 - Case studies: Medellín Green Corridors ($16M for 2°C cooling), Mexico City La Quebradora (flood control + aquifer recharge)
 
-## Adding Intervention Sites (Site Explorer) - BE PROACTIVE!
-When a user mentions a location or wants to add a site:
-1. Use lookup_location to find coordinates AND area (you'll get areaHa and osmId from the result)
-2. Use find_zone_for_coordinates with lat/lng - this returns the zone AND compatible intervention types
-3. BE PROACTIVE: Present the compatible intervention options as a list for the user to choose from:
-   - "I found [Site Name] ([area] ha) in [Zone X] ([hazard type]). Here are the compatible interventions:
-     • Urban Cooling: Shade & Cooling Retrofit, Tree Canopy, Cooling Campus, Green Roof
-     • Multi-Benefit: Green Corridor, Eco-Park
-     Which would you like to add?"
-4. When user chooses an intervention type, use add_intervention_site to ADD THE SITE DIRECTLY (no approval needed!)
-   - Pass all required parameters: zoneId, siteName, interventionType, category, lat, lng, areaHa, osmId
-5. Confirm the site was added and tell user to refresh Site Explorer to see it on the map
+## Site Explorer — the map and the chat work together
+On the Site Explorer page the user is looking at a map, and your tools move it.
 
-IMPORTANT: 
-- Don't ask multiple questions. After finding the location and zone, immediately present intervention options.
-- The add_intervention_site tool creates a PENDING PATCH for user approval - they can approve or reject it.
-- The lookup_location tool returns areaHa and osmId - pass these to add_intervention_site.
+**What you are told about the map** (Context details, refreshed with every message):
+- activePreset: the key map on show (flood, landslide, heat, hotspots, people, green) or null
+- activeLayerIds: every layer on show
+- mapCenter (lat, lng) and mapZoom: where the map is looking
+- pinnedPlaces: the numbered pins on the map — rank, name, lat, lng. "Pin 2", "the second one", "that park" refer to these.
+- selectedZoneId: the neighbourhood whose card is open, if any
+
+**Tools that move the map** — the user sees the result on the map as you answer:
+- show_map(preset): put a key map on. Use it for "where does it flood / where is heat worst / where do hazards overlap".
+- focus_place(name | lat,lng): go to a neighbourhood or a point.
+- rank_places(kind, by, top, bairro): the places in the highest OFFICIAL hazard class, ordered by people living nearby. Pins them.
+- propose_site(placeName, lat, lng, areaHa, solution): the official readings at a point and the intervention that answers what is high there, with its because line. Shows a card with an Add button.
+
+**Rules — these are not style, they are what makes the answer true:**
+1. Hazard is OFFICIAL data only: flood and landslide from SGB (Serviço Geológico do Brasil), heat from the city's climate plan (PLAC/ARVC, 2050). Never present a percentile, a zone score or "priority" as a hazard level — those are an OEF estimate and you say so if you mention them.
+2. NEVER state a ranking, a count, a hazard level, a number of residents or a distance that did not come from a tool result in this conversation. If you need one, call the tool. If the tool cannot answer, say what it can answer.
+3. After a tool result, narrate it in two or three short sentences: what the rule was, what stands out, what the user can do next (tap a pin, add the site). Do not repeat the whole list — the user already sees it — and do not add numbers of your own.
+4. There is no combined score. A ranking is "the official class, then the people living within 300 m (Census 2022 estimate)". Say it that way.
+5. "Nothing high here" is never an all-clear: the official maps do not cover everything (rain ponding is mapped by nobody). Use the sentence the tool gives you.
+
+**Adding a site:**
+1. A place from a ranking or a pin: call propose_site with its name, lat and lng. A place the user names: lookup_location first, then propose_site.
+2. propose_site shows the card; the user presses Add on it. You do not need to do anything else.
+3. Only if the user explicitly asks YOU to add it (or asks for a different intervention than the card's), call add_intervention_site with the zoneId, interventionId, interventionType and category from propose_site. It creates a PENDING change the user approves in the chat; once approved the site appears on the map at once.
+4. Sites accumulate: adding a second site in a neighbourhood keeps the first.
+5. find_zone_for_coordinates still answers "which neighbourhood is this, and what is it flagged for" — its officialHazard field is official; its scores and percentiles are the OEF estimate.
 
 ## User-Friendly Communication
 When summarizing project data (like questionnaire responses), NEVER show raw schema fields.
@@ -1050,6 +1133,36 @@ export async function executeAgentTool(
         };
       }
 
+      case "show_map":
+      case "focus_place":
+      case "rank_places":
+      case "propose_site": {
+        // One implementation with the chips (explorerRecipes.ts). The result
+        // carries `mapCommands`, which the chat applies to the map on screen.
+        const a = args as Record<string, any>;
+        const lang = asLang((context.pageContext?.additionalInfo as any)?.language);
+        const request =
+          name === "show_map" ? { recipe: "map", preset: a.preset }
+          : name === "focus_place" ? (typeof a.name === "string" && a.name.trim() ? { recipe: "focus", name: a.name } : { recipe: "focus", lat: a.lat, lng: a.lng })
+          : name === "rank_places" ? { recipe: "rank", kind: a.kind, by: a.by, top: a.top || undefined, bairro: a.bairro || undefined }
+          : { recipe: "propose", placeName: a.placeName || undefined, lat: a.lat, lng: a.lng, areaHa: a.areaHa || undefined, solution: a.solution || undefined };
+        try {
+          const explorer: ExplorerRecipeResult = await runExplorerRecipe(request, lang);
+          return {
+            name,
+            result: {
+              ...explorer,
+              // The user's language, for the model to narrate from.
+              summary: explorer.narration[lang],
+              instruction: "The user already sees this on the map and as a card. Narrate in two or three sentences; add no number that is not in this result.",
+            },
+          };
+        } catch (err) {
+          if (err instanceof ExplorerRecipeInputError || err instanceof RankPlacesInputError) return { name, result: null, error: err.message };
+          throw err;
+        }
+      }
+
       case "find_zone_for_coordinates": {
         const { lat, lng } = args as { lat: number; lng: number };
         
@@ -1231,6 +1344,9 @@ export async function executeAgentTool(
           osmId: string;
           zoneRiskLevels?: { flood: number; heat: number; landslide: number };
         };
+        if (!zoneId || !siteName || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return { name, result: null, error: 'add_intervention_site needs zoneId, siteName, lat and lng' };
+        }
         
         console.log(`📍 Adding site: ${siteName} to ${zoneId} as ${interventionType} (${category})`);
         
@@ -1261,37 +1377,14 @@ export async function executeAgentTool(
           costPerHa: { min: 50000, max: 200000 },
           impacts: { flood: 'medium', heat: 'medium', landslide: 'low' }
         };
-        
-        // Calculate estimated cost based on area
-        const area = areaHa || 1;
-        const estimatedCost = {
-          min: Math.round(interventionData.costPerHa.min * area),
-          max: Math.round(interventionData.costPerHa.max * area),
-          unit: 'USD'
-        };
-        
-        // Determine impact levels - use intervention default impacts, but can be enhanced based on zone risk
-        const impacts = { ...interventionData.impacts };
-        
-        // Generate a unique asset ID
-        const assetId = osmId ? `nominatim_${osmId}` : `manual_${Date.now()}`;
-        
-        // Build the intervention object to add to the zone's portfolio
-        const intervention = {
-          interventionId: interventionType.toLowerCase().replace(/\s+/g, '_'),
-          interventionName: interventionType,
-          category: category,
-          assetId: assetId,
-          assetName: siteName,
-          centroid: [lat, lng],
-          estimatedArea: areaHa || 1,
-          areaUnit: 'ha',
-          estimatedCost,
-          impacts,
-          source: osmId ? 'nominatim' : 'manual',
-          addedAt: new Date().toISOString(),
-        };
-        
+
+        // The portfolio entry, in the shape the Site Explorer page reads
+        // (server/services/interventionSitePatch.ts).
+        const intervention = buildInterventionSite(
+          { zoneId, siteName, interventionType, interventionId: (args as any).interventionId || undefined, category, lat, lng, areaHa, osmId: osmId || undefined },
+          interventionData,
+        );
+
         // Create a patch for user approval
         const projectId = context.projectId || 'sample-porto-alegre-project';
         
@@ -1303,7 +1396,8 @@ export async function executeAgentTool(
           const patch = await storage.createPatch({
             projectId,
             blockType: 'site_explorer',
-            fieldPath: `interventionSite.${zoneId}`,
+            // One path per SITE: a second site in the same zone is its own patch.
+            fieldPath: interventionSitePath(zoneId, intervention.assetId),
             operation: 'set',
             value: intervention as any,
             status: 'pending',
@@ -2024,6 +2118,60 @@ export async function getAgentResponse(
   }
 
   return responseText;
+}
+
+/**
+ * One or two sentences from the model about a recipe result the user ALREADY
+ * sees (the chips' path: the tool ran without the model, the template is on
+ * screen). Garnish, never the answer: null on any failure, and the caller shows
+ * nothing in that case.
+ *
+ * ⚠️ No cap here on purpose (shared/model-pass-budgets.ts: a cap is written
+ * beside a measurement, and this has none yet — the local environment has no
+ * model key). Nothing waits on it: the chat stops listening after its own
+ * patience (client/src/legacy/components/agent/explorerChat.tsx) and the
+ * template stays. The log line below is the measurement to collect.
+ */
+export async function narrateExplorerResult(result: ExplorerRecipeResult, lang: "pt" | "en", question?: string): Promise<string | null> {
+  const started = Date.now();
+  // The numbers the model may use — and nothing else.
+  const facts =
+    result.type === "rank"
+      ? { rule: result.narration[lang], considered: result.considered, qualified: result.qualified, places: result.rows.map(r => ({ rank: r.rank, name: r.name, neighbourhood: r.bairro, residentsNearby: r.residentsNearby, withinM: r.radiusM, class: r.label[lang], belowTopClass: !!r.belowTopClass })) }
+      : result.type === "proposal"
+        ? { place: result.proposal.siteName, neighbourhood: result.proposal.bairro, readings: result.proposal.readings.map(r => ({ hazard: r.hazard, word: lang === "pt" ? r.pt : r.en, source: r.source })), because: result.proposal.because[lang], proposed: result.proposal.intervention?.name ?? null }
+        : { map: result.title[lang], caption: result.narration[lang] };
+  try {
+    const response = await openai.responses.create({
+      model: "gpt-5.2",
+      max_output_tokens: 400,
+      reasoning: { effort: "none" as any },
+      input: [
+        {
+          role: "system",
+          content:
+            `You add ONE or TWO short sentences to a result a room of people is already looking at on a map and as a card. ` +
+            `Write in ${lang === "pt" ? "Brazilian Portuguese" : "English"}, plain words, no markdown, no list, no greeting. ` +
+            `Say what stands out or what is worth looking at next. ` +
+            `Use ONLY the facts given: never add a number, a place, a hazard level or a cause that is not in them. ` +
+            `Hazard here is official data (SGB for flood and landslide, the city's climate plan for heat); there is no combined score — never call anything a score. ` +
+            `Do not repeat the rule or the list. If there is nothing worth adding, answer with an empty string.`,
+        },
+        { role: "user", content: `${question ? `They asked: ${question}
+` : ""}Facts: ${JSON.stringify(facts)}` },
+      ],
+    });
+    let text = "";
+    for (const item of (response.output || []) as any[]) {
+      if (item.type === "message") for (const part of item.content || []) if (part.type === "output_text") text += part.text;
+    }
+    text = text.trim();
+    console.log(`[explorer-narrate] ${result.type} ok in ${Date.now() - started}ms (${text.length} chars)`);
+    return text || null;
+  } catch (error) {
+    console.warn(`[explorer-narrate] ${result.type} failed after ${Date.now() - started}ms:`, error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 export { AGENT_TOOLS, SYSTEM_PROMPT };

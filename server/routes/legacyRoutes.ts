@@ -70,6 +70,8 @@ import { generateImpactNarrative, regenerateBlock, generateQuantifiedImpacts, ge
 import { fetchOsmAssets } from '../services/osmAssetService';
 import type { LayerType } from '../../shared/geospatial-schema';
 import { registerAgentRoutes } from './agentRoutes';
+import { applyInterventionSite } from '../services/interventionSitePatch';
+import { parseInterventionSitePath } from '@shared/explorer-site';
 import { registerConceptNoteRoutes } from './conceptNoteRoutes';
 
 export function registerLegacyRoutes(app: Express): void {
@@ -1483,52 +1485,17 @@ export function registerLegacyRoutes(app: Express): void {
             }
             
             // Special handling for intervention site patches
-            if (patch.fieldPath.startsWith('interventionSite.')) {
-              const zoneId = patch.fieldPath.replace('interventionSite.', '');
+            const sitePath = parseInterventionSitePath(patch.fieldPath);
+            if (sitePath) {
+              // One implementation for "Save All" here and the chat's single
+              // approve (agentRoutes.ts): the site joins the zone's portfolio.
+              const { zoneId } = sitePath;
               // Backfill missing cost/impact data for agent-added interventions
               const intervention = backfillIntervention(valueToApply);
-              
-              console.log(`🔧 Applying intervention site patch for ${zoneId}`);
-              
-              // Get the current site_explorer block
-              const block = await storage.getInfoBlock(projectId, 'site_explorer');
-              const currentData = JSON.parse(JSON.stringify(block?.blockStateJson || { selectedZones: [] }));
-              
-              // Find or create the zone in selectedZones
-              let zoneIndex = currentData.selectedZones?.findIndex((z: any) => z.zoneId === zoneId);
-              
-              if (zoneIndex === -1 || zoneIndex === undefined) {
-                // Zone doesn't exist, create it with minimal data
-                currentData.selectedZones = currentData.selectedZones || [];
-                currentData.selectedZones.push({
-                  zoneId,
-                  zoneName: zoneId.startsWith('zone_') ? `Zone ${zoneId.replace('zone_', '')}` : zoneId,
-                  interventionPortfolio: [intervention],
-                });
-              } else {
-                // Zone exists, add to its portfolio
-                if (!currentData.selectedZones[zoneIndex].interventionPortfolio) {
-                  currentData.selectedZones[zoneIndex].interventionPortfolio = [];
-                }
-                // Check if this asset is already in the portfolio
-                const existingIndex = currentData.selectedZones[zoneIndex].interventionPortfolio.findIndex(
-                  (i: any) => i.assetId === intervention.assetId
-                );
-                if (existingIndex >= 0) {
-                  currentData.selectedZones[zoneIndex].interventionPortfolio[existingIndex] = intervention;
-                } else {
-                  currentData.selectedZones[zoneIndex].interventionPortfolio.push(intervention);
-                }
-              }
-              
-              // Save updated block
-              await storage.upsertInfoBlock(projectId, 'site_explorer', {
-                blockStateJson: currentData,
-                status: block?.status || 'DRAFT',
-                updatedBy: actor,
-                completionPercent: calculateBlockCompletion('site_explorer', currentData),
+              await applyInterventionSite(projectId, zoneId, intervention, {
+                actor,
+                completion: data => calculateBlockCompletion('site_explorer', data),
               });
-              
               console.log(`✅ Applied intervention site to ${zoneId}`);
             } else {
               // Validate field values using centralized validation registry

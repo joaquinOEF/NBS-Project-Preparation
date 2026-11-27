@@ -41,6 +41,14 @@ export type ExplorerMapCommand =
   | { type: 'focus_place'; name: string }
   /** Replace the numbered pins. `fit` (default true) frames them all. */
   | { type: 'pin_places'; places: ExplorerPinnedPlace[]; fit?: boolean }
+  /**
+   * Frame one place and draw its outline, so a room sees "this square": the
+   * outline is fitted with padding at zoom 15–17. Without a `geometry` (a place
+   * OSM holds as a point) the map goes to the point and nothing is drawn.
+   */
+  | { type: 'show_place'; lat: number; lng: number; geometry?: any | null }
+  /** Put the "add a site here" pin at a point and open its card, as a click there would. */
+  | { type: 'drop_site'; lat: number; lng: number }
   | { type: 'clear_pins' };
 
 /** What the explorer adds to the chat's page context (`additionalInfo`). */
@@ -50,7 +58,10 @@ export interface ExplorerMapContext {
   activeLayerIds: string[];
   mapCenter: { lat: number; lng: number } | null;
   mapZoom: number | null;
-  pinnedPlaces: Array<{ rank: number; name: string }>;
+  /** With their coordinates, so the chat can act on "pin 2". */
+  pinnedPlaces: Array<{ rank: number; name: string; lat: number; lng: number }>;
+  /** The page's language ('pt' | 'en'): what the chat's tools answer in. */
+  language?: string;
 }
 
 export const EXPLORER_MAP_COMMAND_EVENT = 'explorer-map-command';
@@ -105,3 +116,7 @@ declare global {
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   window.__explorerMapCommand = sendExplorerMapCommand;
 }
+
+/** Fired on window when a site is added from the map's own card; `detail` = { name, zone, interventionId }. */
+export const EXPLORER_SITE_DROPPED_EVENT = 'explorer-site-dropped';
+export interface ExplorerSiteDropped { name: string; zone: string; interventionId: string; interventionName: string }

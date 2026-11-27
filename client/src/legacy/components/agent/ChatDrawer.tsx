@@ -12,6 +12,13 @@ import { Badge } from "@/core/components/ui/badge";
 import { Loader2, MessageCircle, Send, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink, RefreshCw, Sparkles, AlertTriangle } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
 import { computeReadinessScores, determinePathway, formatReadinessSummary, type QuestionnaireAnswers } from "@/core/utils/funding-readiness";
+import { useTranslation } from "react-i18next";
+import { parseInterventionSitePath } from "@shared/explorer-site";
+import { EXPLORER_CHIPS, STARTER_CHIPS, followUpChips } from "@shared/explorer-chat";
+import {
+  useExplorerChat, applyMapCommands, explorerResultOf, chipForText, announceSiteAdded,
+  ExplorerMessageBody, ExplorerChips, ExplorerEmptyState, ExplorerStoryLinks, ExplorerStoriesMenu, type ExplorerMessageExtra,
+} from "./explorerChat";
 
 interface NavigationButton {
   path: string;
@@ -58,6 +65,8 @@ interface ChatMessage {
   content: string;
   toolCalls?: ToolCallInfo[];
   timestamp: Date;
+  /** Site Explorer: a result that moves the map and renders as a card (explorerChat.tsx). */
+  explorer?: ExplorerMessageExtra;
 }
 
 interface ToolCallInfo {
@@ -97,6 +106,7 @@ export function ChatDrawer() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { isSampleMode, sampleProjectId } = useSampleData();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { updateModule } = useProjectContext();
 
   const projectId = isSampleMode ? sampleProjectId : routeProjectId;
@@ -169,6 +179,26 @@ export function ChatDrawer() {
     return path || 'project';
   }, [location]);
 
+  // On the Site Explorer the chat works with the map (explorerChat.tsx): chips
+  // run a tool directly, results move the map and render as cards.
+  const isExplorer = currentPage === 'site-explorer';
+  // An empty thread with nothing behind it (a demo story starts clean).
+  const resetThread = useCallback(() => {
+    localStorage.removeItem('nbs_chat_conversation_id');
+    setConversationId(null);
+    setMessages([]);
+    setHistoryLoaded(true);
+  }, []);
+  const explorer = useExplorerChat<ChatMessage>({
+    enabled: isExplorer,
+    dbProjectId: dbProjectId || undefined,
+    setMessages,
+    openChat,
+    syncSiteExplorerBlock: () => syncBlockToLocalStorage('site_explorer'),
+    resetThread,
+  });
+  const starterChips = useMemo(() => STARTER_CHIPS.map(id => EXPLORER_CHIPS[id]), []);
+
   // Scroll to bottom helper
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -209,7 +239,9 @@ export function ChatDrawer() {
               content: m.content,
               timestamp: new Date(m.created_at),
             }));
-            setMessages(loadedMessages);
+            // In front of anything already said: a pin tapped on the map can
+            // open the drawer and speak before the history arrives.
+            setMessages(prev => [...loadedMessages, ...prev]);
           }
           setHistoryLoaded(true);
         })
@@ -349,15 +381,32 @@ export function ChatDrawer() {
                 if (syncBlockType && data.toolResult.result?.success) {
                   syncBlockToLocalStorage(syncBlockType);
                 }
+                // The model's map tools: move the map on screen, and show the
+                // same card a chip would.
+                applyMapCommands(data.toolResult.result?.mapCommands);
+                const explorerResult = explorerResultOf(data.toolResult.result);
+                if (explorerResult) {
+                  explorer.noteResult(explorerResult);
+                  setMessages(prev =>
+                    prev.map(msg =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, explorer: { result: explorerResult, chips: explorerResult.type === 'proposal' ? [] : followUpChips(explorerResult) } }
+                        : msg
+                    )
+                  );
+                }
               }
             } else if (data.type === "done") {
               fetchPendingPatches();
             } else if (data.type === "error") {
               setMessages(prev =>
                 prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: msg.content + `\n\nError: ${data.error}` }
-                    : msg
+                  msg.id !== assistantMessageId ? msg
+                    // On the map page a model that cannot answer is not news for
+                    // the room: say what still works, and offer it.
+                    : isExplorer && !msg.content
+                      ? { ...msg, content: t('explorerChat.modelUnavailable'), toolCalls: undefined, explorer: { chips: starterChips } }
+                      : { ...msg, content: msg.content + `\n\nError: ${data.error}` }
                 )
               );
             }
@@ -369,15 +418,16 @@ export function ChatDrawer() {
       console.error("Chat error:", error);
       setMessages(prev =>
         prev.map(msg =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: "Sorry, I encountered an error. Please try again." }
-            : msg
+          msg.id !== assistantMessageId ? msg
+            : isExplorer
+              ? { ...msg, content: t('explorerChat.modelUnavailable'), toolCalls: undefined, explorer: { chips: starterChips } }
+              : { ...msg, content: "Sorry, I encountered an error. Please try again." }
         )
       );
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, isLoading, conversationId, currentPage, pageContext, fetchPendingPatches]);
+  }, [projectId, isLoading, conversationId, currentPage, pageContext, fetchPendingPatches, isExplorer, explorer, starterChips, t, syncBlockToLocalStorage]);
 
   useEffect(() => {
     if (isOpen && pendingInitialMessage && projectId && historyLoaded && !isLoading) {
@@ -396,143 +446,17 @@ export function ChatDrawer() {
     }
   }, [isOpen, pendingInputHint, historyLoaded, clearPendingInputHint]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || !projectId || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+  const handleSendMessage = () => {
+    const text = inputValue.trim();
+    if (!text || !projectId || isLoading) return;
     setInputValue("");
-    setIsLoading(true);
-
-    const assistantMessageId = (Date.now() + 1).toString();
-    const assistantMessage: ChatMessage = {
-      id: assistantMessageId,
-      role: "assistant",
-      content: "",
-      toolCalls: [],
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, assistantMessage]);
-
-    try {
-      const response = await fetch(`/api/projects/${dbProjectId}/agent/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversationId,
-          currentPage,
-          pageContext,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
-
-      const convIdHeader = response.headers.get("X-Conversation-Id");
-      if (convIdHeader && !conversationId) {
-        setConversationId(parseInt(convIdHeader));
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error("No response body");
-      }
-
-      let fullContent = "";
-      const toolCalls: ToolCallInfo[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter(line => line.startsWith("data: "));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.slice(6));
-
-            if (data.type === "text") {
-              fullContent += data.content || "";
-              setMessages(prev =>
-                prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: fullContent }
-                    : msg
-                )
-              );
-            } else if (data.type === "tool_call") {
-              toolCalls.push({
-                name: data.toolCall.name,
-                arguments: data.toolCall.arguments,
-              });
-              setMessages(prev =>
-                prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, toolCalls: [...toolCalls] }
-                    : msg
-                )
-              );
-            } else if (data.type === "tool_result") {
-              const lastToolCall = toolCalls[toolCalls.length - 1];
-              if (lastToolCall) {
-                lastToolCall.result = data.toolResult.result;
-                lastToolCall.error = data.toolResult.error;
-                setMessages(prev =>
-                  prev.map(msg =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, toolCalls: [...toolCalls] }
-                      : msg
-                  )
-                );
-                const blockSyncTools: Record<string, string> = {
-                  regenerate_block: 'impact_model',
-                  regenerate_narrative: 'impact_model',
-                  regenerate_kpis: 'impact_model',
-                  regenerate_affected_blocks: 'impact_model',
-                };
-                const syncBlockType = blockSyncTools[lastToolCall.name];
-                if (syncBlockType && data.toolResult.result?.success) {
-                  syncBlockToLocalStorage(syncBlockType);
-                }
-              }
-            } else if (data.type === "done") {
-              fetchPendingPatches();
-            } else if (data.type === "error") {
-              setMessages(prev =>
-                prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: msg.content + `\n\nError: ${data.error}` }
-                    : msg
-                )
-              );
-            }
-          } catch {
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: "Sorry, I encountered an error. Please try again." }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
+    // Typed exactly as a chip reads: run the chip (no model on that path).
+    const chip = isExplorer ? chipForText(text) : null;
+    if (chip) {
+      explorer.runChip(chip);
+      return;
     }
+    sendPendingMessage(text);
   };
 
   const handleApplyPatch = async (patchId: string, patch: PendingPatch) => {
@@ -544,11 +468,21 @@ export function ChatDrawer() {
       });
       if (response.ok) {
         setPendingPatches(prev => prev.filter(p => p.id !== patchId));
-        await syncBlockToLocalStorage(patch.blockType);
+        const sitePath = patch.blockType === 'site_explorer' ? parseInterventionSitePath(patch.fieldPath) : null;
+        if (sitePath) {
+          // The Site Explorer takes the site into its own state and saves it
+          // (so it is on the map at once and nothing else on the page is
+          // replaced); only when the page is not there is the block re-read.
+          announceSiteAdded(sitePath.zoneId, patch.value, () => syncBlockToLocalStorage('site_explorer'));
+        } else {
+          await syncBlockToLocalStorage(patch.blockType);
+        }
         setMessages(prev => [...prev, {
           id: `patch-applied-${Date.now()}`,
           role: 'assistant',
-          content: `Changes saved to ${patch.blockType}.${patch.fieldPath}`,
+          content: sitePath
+            ? t('explorerChat.siteSaved', { name: (patch.value as any)?.assetName || t('siteExplorer.addSite.title') })
+            : `Changes saved to ${patch.blockType}.${patch.fieldPath}`,
           timestamp: new Date(),
         }]);
         toast({
@@ -556,12 +490,6 @@ export function ChatDrawer() {
           description: `Updated ${patch.blockType}.${patch.fieldPath}`,
           duration: 4000,
         });
-        // Dispatch event for site_explorer intervention site patches
-        if (patch.blockType === 'site_explorer' && patch.fieldPath.startsWith('interventionSite.')) {
-          window.dispatchEvent(new CustomEvent('intervention-site-added', { 
-            detail: { zoneId: patch.fieldPath.replace('interventionSite.', ''), value: patch.value } 
-          }));
-        }
         if (patch.blockType === 'funder_selection' && patch.fieldPath.startsWith('questionnaire.')) {
           await showReadinessUpdate();
         }
@@ -637,9 +565,16 @@ export function ChatDrawer() {
           pendingPatches.filter(p => successPatchIds.has(p.id)).map(p => p.blockType)
         ));
         
+        // Approved sites go to the Site Explorer one by one (see handleApplyPatch).
+        const appliedSites = pendingPatches
+          .filter(p => successPatchIds.has(p.id) && p.blockType === 'site_explorer')
+          .map(p => ({ p, path: parseInterventionSitePath(p.fieldPath) }));
+        const onlySites = appliedSites.length > 0 && appliedSites.every(x => x.path);
         for (const blockType of affectedBlocks) {
+          if (blockType === 'site_explorer' && onlySites) continue;
           await syncBlockToLocalStorage(blockType);
         }
+        appliedSites.forEach(x => x.path && announceSiteAdded(x.path.zoneId, x.p.value, () => syncBlockToLocalStorage('site_explorer')));
         
         // Build message based on success/failure
         let messageContent = '';
@@ -802,6 +737,7 @@ export function ChatDrawer() {
           variant="outline"
           size="icon"
           onClick={openChat}
+          data-testid="chat-bubble"
           className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <MessageCircle className="h-6 w-6" />
@@ -814,18 +750,29 @@ export function ChatDrawer() {
         }`}
       >
         <div className="px-4 py-3 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold">
+          <div className="flex items-center gap-2 font-semibold whitespace-nowrap min-w-0">
             <img src="/assets/assistant-icon.png" alt="City Project Assistant" className="h-6 w-6 rounded" />
             City Project Assistant
           </div>
-          <Button variant="ghost" size="icon" onClick={closeChat}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {isExplorer && <ExplorerStoriesMenu onStory={explorer.startStory} onReset={resetThread} />}
+            <Button variant="ghost" size="icon" onClick={closeChat}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+        {/* Radix lays the viewport's child out as a table, which grows with its
+            content: a long line then widens the whole thread instead of
+            wrapping or truncating. Block keeps the thread as wide as the drawer. */}
+        <ScrollArea className="flex-1 px-4 [&_[data-radix-scroll-area-viewport]>div]:!block" ref={scrollRef}>
           <div className="py-4 space-y-4">
-            {messages.length === 0 && (
+            {messages.length === 0 && isExplorer && (
+              <ExplorerEmptyState onChip={explorer.runChip}>
+                <ExplorerStoryLinks onStory={explorer.startStory} />
+              </ExplorerEmptyState>
+            )}
+            {messages.length === 0 && !isExplorer && (
               <div className="text-center text-muted-foreground py-8">
                 <img src="/assets/assistant-icon.png" alt="City Project Assistant" className="h-12 w-12 mx-auto mb-3 rounded-lg opacity-90" />
                 <p className="text-sm">Hi! I'm your City Project Assistant.</p>
@@ -844,13 +791,15 @@ export function ChatDrawer() {
                   </div>
                 )}
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 overflow-hidden ${
+                  className={`${message.explorer ? 'min-w-0 flex-1' : 'max-w-[85%]'} rounded-lg px-3 py-2 overflow-hidden ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   }`}
                 >
-                  {message.content && (() => {
+                  {/* A chip's answer is drawn by the explorer body below; the
+                      model's own words (a typed question) come first as text. */}
+                  {message.content && !(message.explorer && !message.toolCalls?.length) && (() => {
                     const { cleanContent, navButtons, actionButtons } = parseMessageButtons(message.content);
                     return (
                       <>
@@ -937,6 +886,17 @@ export function ChatDrawer() {
                       </>
                     );
                   })()}
+                  {message.explorer && (
+                    <div className={message.content && message.toolCalls?.length ? 'mt-2' : ''}>
+                      <ExplorerMessageBody
+                        message={message}
+                        narrated={!!message.content && !!message.toolCalls?.length}
+                        onRow={explorer.proposeAt}
+                        onAdd={explorer.addProposal}
+                        onChangeSolution={explorer.changeSolution}
+                      />
+                    </div>
+                  )}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {message.toolCalls.map((tool, idx) => (
@@ -957,6 +917,15 @@ export function ChatDrawer() {
                 )}
               </div>
             ))}
+
+            {/* What to ask next, under the last answer only. */}
+            {isExplorer && !isLoading && (() => {
+              const last = messages[messages.length - 1];
+              const chips = last?.role === 'assistant' && !last.explorer?.pending ? last.explorer?.chips : undefined;
+              return chips?.length ? (
+                <div className="pl-11"><ExplorerChips chips={chips} onChip={explorer.runChip} /></div>
+              ) : null;
+            })()}
 
             {isLoading && messages[messages.length - 1]?.content === "" && (
               <div className="flex items-center gap-2 text-muted-foreground">

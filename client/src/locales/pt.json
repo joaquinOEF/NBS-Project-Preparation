@@ -1108,6 +1108,28 @@
     "high": "Alto",
     "very_high": "Muito Alto"
   },
+  "explorerChat": {
+    "storiesShort": "Histórias",
+    "stories": "Histórias de demonstração",
+    "startOver": "Começar uma conversa nova",
+    "emptyTitle": "Pergunte ao mapa",
+    "emptyHint": "Cada pergunta abaixo lê dados oficiais e mostra a resposta no mapa. Você também pode escrever a sua.",
+    "reading": "Lendo o mapa…",
+    "failed": "Isso não chegou. Tente de novo, ou escolha uma destas.",
+    "modelUnavailable": "Não consigo responder perguntas livres agora. Estas continuam funcionando, direto dos dados:",
+    "sources": "Fontes",
+    "tapHint": "Toque num lugar, ou no número dele no mapa, para ver o que cabe ali.",
+    "residents": "{{n}} moradores a até {{radius}} m",
+    "residentsShort": "moradores a até {{radius}} m",
+    "nextClassDown": "classe logo abaixo",
+    "added": "Adicionado: {{solution}}",
+    "addFailed": "Não foi salvo. Tente de novo.",
+    "orElse": "Ou:",
+    "chooseAnother": "outra solução…",
+    "size": "Tamanho assumido: {{area}} ha. Dá para mudar depois no cartão do bairro.",
+    "addedConfirm": "Pronto. {{name}} está no mapa com “{{solution}}”, salvo no portfólio de {{zone}}.",
+    "siteSaved": "Salvo. {{name}} está no mapa."
+  },
   "siteExplorer": {
     "saveInterventions": "Salvar Intervenções",
     "saved": "Salvo!",
@@ -1163,6 +1185,63 @@
       "floodReached": "Alcançado pela água, maio de 2024",
       "sectorHigh": "Risco alto",
       "sectorVeryHigh": "Risco muito alto"
+    },
+    "official": {
+      "title": "Mapas oficiais · parcela da área do bairro",
+      "flood": "Inundação · SGB, classe alta",
+      "heat": "Calor · plano climático 2050, duas classes mais altas",
+      "landslide": "Deslizamento · SGB, média ou alta"
+    },
+    "addSite": {
+      "button": "Adicionar um local aqui",
+      "hint": "Clique no mapa onde fica o local",
+      "cancel": "Cancelar (Esc)",
+      "title": "Novo local",
+      "reading": "Lendo este ponto…",
+      "failed": "Não foi possível ler este ponto. Tente de novo.",
+      "outside": "Este ponto fica fora de Porto Alegre. Clique dentro do limite do município.",
+      "officialHere": "Dados oficiais neste ponto",
+      "whatFits": "O que cabe aqui",
+      "more": "mais {{count}}",
+      "noZone": "Este ponto não está em nenhum bairro do mapa, então não dá para salvar.",
+      "name": "Nome do local",
+      "area": "Área (ha)",
+      "add": "Adicionar este local",
+      "addNamed": "Adicionar “{{solution}}” aqui",
+      "addedTitle": "Local adicionado",
+      "addedDescription": "{{name}} entrou no portfólio de {{zone}}.",
+      "hazard": {
+        "flood": "Inundação",
+        "heat": "Calor",
+        "landslide": "Deslizamento"
+      },
+      "source": {
+        "SGB": "SGB",
+        "PLAC": "plano climático, 2050",
+        "SMAMUS": "SMAMUS, cheia de maio de 2024"
+      }
+    },
+    "interventionNames": {
+      "floodable_park": "Parque alagável / bacia de detenção",
+      "sponge_square": "Praça-esponja",
+      "retention_yard": "Pátio de retenção multiuso",
+      "detention_field": "Campo de detenção e infiltração",
+      "constructed_wetland": "Banhado construído",
+      "permeable_street": "Rua com pavimento permeável",
+      "tree_corridor": "Corredor de árvores",
+      "shade_plaza": "Sombra e resfriamento em praça",
+      "cooling_campus": "Pátio fresco (escola ou hospital)",
+      "pocket_park": "Praça de bolso",
+      "green_roof": "Telhados verdes / frios",
+      "reforestation": "Reflorestamento de encosta",
+      "vegetated_terrace": "Terraços vegetados",
+      "riparian_buffer": "Recomposição de mata ciliar",
+      "controlled_drainage": "Drenagem controlada",
+      "interceptor_drain": "Desvio de escoamento superficial",
+      "floodable_shaded_park": "Parque alagável sombreado",
+      "sponge_cooling_campus": "Pátio esponja e fresco",
+      "terraced_retention": "Terraços de retenção",
+      "green_blue_corridor": "Corredor verde-azul"
     },
     "keyMaps": {
       "ariaLabel": "Mapas principais",

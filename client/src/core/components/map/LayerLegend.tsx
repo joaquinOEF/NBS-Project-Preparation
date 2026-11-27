@@ -12,8 +12,12 @@ const fmt = (v: number) => {
   return v.toFixed(2);
 };
 
-export function LayerLegend({ spec, name }: { spec?: LegendSpec; name?: string }) {
+// `lang`: the hand-written official legends carry Portuguese labels (they were
+// written for the workshop screens) and, for the Site Explorer's key maps, an
+// English twin (`labelEn`, `unitEn`). Without `lang` nothing changes.
+export function LayerLegend({ spec, name, lang }: { spec?: LegendSpec; name?: string; lang?: 'pt' | 'en' }) {
   if (!spec) return null;
+  const unit = (lang === 'en' && spec.unitEn) || spec.unit;
 
   if (spec.kind === 'classes') {
     return (
@@ -24,7 +28,7 @@ export function LayerLegend({ spec, name }: { spec?: LegendSpec; name?: string }
               className="w-2 h-2 rounded-sm flex-shrink-0"
               style={s.outline ? { border: `1.5px dashed ${s.color}`, width: 10, height: 10 } : { backgroundColor: s.color }}
             />
-            {s.label ?? s.value}
+            {(lang === 'en' && s.labelEn) || (s.label ?? s.value)}
           </span>
         ))}
       </div>
@@ -44,7 +48,7 @@ export function LayerLegend({ spec, name }: { spec?: LegendSpec; name?: string }
       <div className="flex justify-between text-[10px] text-zinc-400 mt-0.5 leading-none">
         <span>{fmt(min)}</span>
         <span>{fmt((min + max) / 2)}</span>
-        <span>{fmt(max)}{spec.unit ? ` ${spec.unit}` : ''}</span>
+        <span>{fmt(max)}{unit ? ` ${unit}` : ''}</span>
       </div>
     </div>
   );
