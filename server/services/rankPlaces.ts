@@ -379,12 +379,13 @@ export async function rankPlaces(req: RankPlacesRequest): Promise<RankPlacesResp
   const w = HAZARD_WORDS[by];
   const where = req.bairro?.trim() ? { pt: ` no bairro ${req.bairro.trim()}`, en: ` in ${req.bairro.trim()}` } : { pt: '', en: '' };
   const short = qualified < top;
+  // SGB's scale stops at Alta: only the climate plan's heat has a "very high".
   const rule = {
-    pt: `${cap(kindDef.label.pt)}${where.pt} onde a ${w.srcPt} é ${qualifyingLevel >= TOP_LEVEL ? 'muito alta' : 'alta ou muito alta'}${by === 'heat' ? ` (média a até ${radiusM} m)` : ''}, `
+    pt: `${cap(kindDef.label.pt)}${where.pt} onde a ${w.srcPt} é ${qualifyingLevel >= TOP_LEVEL ? 'muito alta' : by === 'heat' ? 'alta ou muito alta' : 'alta'}${by === 'heat' ? ` (média a até ${radiusM} m)` : ''}, `
       + `em ordem de quantas pessoas moram a até ${radiusM} m (estimativa do Censo 2022). Sem nota combinada: dois dados oficiais e uma regra.`
       + (short ? ` Só ${qualified} de ${read.length} ${qualified === 1 ? 'está' : 'estão'} nessas classes`
         + (filled ? `; ${filled === 1 ? 'o outro vem' : `os outros ${filled} vêm`} da classe logo abaixo e ${filled === 1 ? 'está marcado' : 'estão marcados'}.` : '.') : ''),
-    en: `${cap(kindDef.label.en)}${where.en} where ${w.srcEn} is ${qualifyingLevel >= TOP_LEVEL ? 'very high' : 'high or very high'}${by === 'heat' ? ` (mean within ${radiusM} m)` : ''}, `
+    en: `${cap(kindDef.label.en)}${where.en} where ${w.srcEn} is ${qualifyingLevel >= TOP_LEVEL ? 'very high' : by === 'heat' ? 'high or very high' : 'high'}${by === 'heat' ? ` (mean within ${radiusM} m)` : ''}, `
       + `ordered by how many people live within ${radiusM} m (2022 Census estimate). No combined score: two official figures and one rule.`
       + (short ? ` Only ${qualified} of ${read.length} ${qualified === 1 ? 'is' : 'are'} in those classes`
         + (filled ? `; the other ${filled === 1 ? 'one comes' : `${filled} come`} from the next class down and ${filled === 1 ? 'is' : 'are'} flagged.` : '.') : ''),

@@ -683,6 +683,8 @@ export default function SiteExplorerPage() {
   const [isLoadingSampleData, setIsLoadingSampleData] = useState(false);
   const [dataHydrated, setDataHydrated] = useState(false);
   const [selectedZone, setSelectedZone] = useState<ZoneProperties | null>(null);
+  const selectedZoneIdRef = useRef<string | null>(null);
+  useEffect(() => { selectedZoneIdRef.current = selectedZone?.zoneId ?? null; }, [selectedZone]);
   const [selectedZoneFeature, setSelectedZoneFeature] = useState<any | null>(null);
   const [interventionsData, setInterventionsData] = useState<InterventionsData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -2079,8 +2081,15 @@ export default function SiteExplorerPage() {
                 `</div>`;
               
               layer.bindTooltip(tooltip, { sticky: true });
+              // The selected neighbourhood has its card open: a hover card on
+              // top of it only repeats the card and hides the map.
+              layer.on('tooltipopen', () => {
+                if (selectedZoneIdRef.current === p.zoneId) layer.closeTooltip();
+              });
               
               layer.on('click', () => {
+                selectedZoneIdRef.current = p.zoneId;
+                layer.closeTooltip();
                 setSelectedZone(p as ZoneProperties);
                 setSelectedZoneFeature(feature);
                 setSelectedCategory(null);

@@ -135,8 +135,10 @@ test.describe('the real city', () => {
     expect(r.places.filter(p => p.belowTopClass).map(p => p.hazard.level)).toEqual(Array(r.filledFromNextClass).fill(2));
     expect(r.places.filter(p => !p.belowTopClass).every(p => p.hazard.level >= 3)).toBe(true);
     expect(r.qualifyingLevel).toBe(HIGH_LEVEL);
-    expect(r.rule.pt).toMatch(/é alta ou muito alta/);
-    expect(r.rule.en).toMatch(/is high or very high/);
+    // SGB's scale stops at Alta — the rule must not promise a "very high".
+    expect(r.rule.pt).toMatch(/é alta, /);
+    expect(r.rule.en).toMatch(/is high, /);
+    expect(r.rule.pt + r.rule.en).not.toMatch(/muito alta|very high/);
     expect(r.rule.pt).toMatch(/Só \d+ de \d+ est(á|ão) nessas classes; .* classe logo abaixo/);
     expect(r.rule.en).toMatch(/Only \d+ of \d+ (is|are) in those classes; .* next class down/);
   });
