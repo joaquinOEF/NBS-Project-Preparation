@@ -194,7 +194,12 @@ HAZ = {
 SUSC = {hz: load_susc(c['sgb']) for hz, c in HAZ.items() if 'sgb' in c}
 FLOOD24_LINE = '#d7301f'
 def windows_for(hz): return (None,) if 'sgb' in HAZ[hz] else WINDOWS
-def out_base(hz, window): return f'{OUT}/mapa_{hz}' + (f'_{WINDOW_SLUG[window]}' if window else '')
+# Every map is drawn twice: with the organisations on it, and without (same
+# file names under NO_ORGS_DIR) — asked for on 27 Nov 2026, to use the maps alone.
+NO_ORGS_DIR = 'sem_organizacoes'
+os.makedirs(f'{OUT}/{NO_ORGS_DIR}', exist_ok=True)
+def out_base(hz, window, with_orgs=True):
+    return (OUT if with_orgs else f'{OUT}/{NO_ORGS_DIR}') + f'/mapa_{hz}' + (f'_{WINDOW_SLUG[window]}' if window else '')
 
 def fmt(x): return f'{x:.2f}'.replace('.', ',')
 
@@ -226,7 +231,7 @@ def classes_for(h):
         _EDGES[h] = [float(lo + k * (hi - lo) / 5) for k in range(6)]
     return _EDGES[h]
 
-def draw_map(ax, hz, window, ext, badge_r_pt, show_furniture=True, fig=None):
+def draw_map(ax, hz, window, ext, badge_r_pt, show_furniture=True, fig=None, with_orgs=True):
     cfg = HAZ[hz]
     ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3]); ax.set_aspect('equal'); ax.set_axis_off()
     ax.add_patch(Rectangle((ext[0], ext[2]), ext[1] - ext[0], ext[3] - ext[2], fc='white', ec='none', zorder=0))
@@ -269,6 +274,9 @@ def draw_map(ax, hz, window, ext, badge_r_pt, show_furniture=True, fig=None):
     ax_w_pt = ax.get_position().width * fig.get_figwidth() * 72
     upp = (ext[1] - ext[0]) / ax_w_pt
     r = badge_r_pt * upp
+    if not with_orgs:
+        if show_furniture: add_north_and_scale(ax, ext, upp)
+        return
     pos = np.array([[o['x'], o['y']] for o in orgs], float); anchor = pos.copy()
     min_d = 2.35 * r
     for _ in range(400):
@@ -319,7 +327,7 @@ def source_line(cfg):
     if cfg['extra_src']: parts.append(cfg['extra_src'])
     return '; '.join(parts) + '. Limites: IBGE. Água: ©\u00a0OpenStreetMap.'
 
-def render_with_legend(hz, window):
+def render_with_legend(hz, window, with_orgs=True):
     cfg = HAZ[hz]
     edges = classes_for(cfg['arvc']) if 'arvc' in cfg else None
     fig = plt.figure(figsize=(A4W, A4H), dpi=300); fig.patch.set_facecolor('white')
@@ -328,7 +336,7 @@ def render_with_legend(hz, window):
     axw, axh = A4W - L - Rm, map_top - map_bottom
     ax = fig.add_axes([L / A4W, map_bottom / A4H, axw / A4W, axh / A4H])
     ext = fit_extent(cxm, cym, CW * 1.04, CH * 1.04, axw / axh)
-    draw_map(ax, hz, window, ext, badge_r_pt=6.2, fig=fig)
+    draw_map(ax, hz, window, ext, badge_r_pt=6.2, fig=fig, with_orgs=with_orgs)
     fig.add_artist(Rectangle((L / A4W, map_bottom / A4H), axw / A4W, axh / A4H, transform=fig.transFigure,
                              fc='none', ec='#c9c9c6', lw=0.5))
     fig.text(L / A4W, (A4H - 0.62) / A4H, cfg['title'] + (f" — {WINDOW_SHORT[window]}" if window else ''), fontsize=20, fontweight='semibold', color=INK, va='baseline')
@@ -368,7 +376,7 @@ def render_with_legend(hz, window):
             rows.append(('water', 'água (Guaíba, rios, lagos)'))
         else:
             rows.append(('nodata+water', None))
-    rows.append(('markers', None))
+    if with_orgs: rows.append(('markers', None))
     yy = top - sw_h - 0.52
     for kind, label in rows:
         if kind == 'line24':
@@ -403,29 +411,30 @@ def render_with_legend(hz, window):
                 'Setor de risco: área com moradias ameaçadas vistoriada pelo SGB; fora de um setor não quer dizer sem risco.')
     for k, line in enumerate(textwrap.wrap(note, 140)):
         lg.text(0, min(yy + 0.02, 0.36) - k * 0.13, line, fontsize=6.2, color='#666', va='center')
-    ox = 3.3
-    lg.text(ox, H - 0.05, 'Organizações da Rede SCbN POA', fontsize=10, fontweight='semibold', color=INK, va='top')
-    colw = 1.72
-    for i, o in enumerate(orgs):
-        col, row = divmod(i, 6)
-        x = ox + col * colw; y = H - 0.42 - row * 0.255
-        lg.text(x + 0.17, y, f'{o["n"]}', ha='right', va='center', fontsize=7.5, fontweight='semibold', color=INK)
-        lg.text(x + 0.25, y, o['name'] + (' *' if o['approx'] else ''), va='center', fontsize=7.5, color=INK)
-    lg.text(ox, H - 0.42 - 6 * 0.255 + 0.05, '* localização aproximada', fontsize=6.5, color='#666', va='center')
+    if with_orgs:
+        ox = 3.3
+        lg.text(ox, H - 0.05, 'Organizações da Rede SCbN POA', fontsize=10, fontweight='semibold', color=INK, va='top')
+        colw = 1.72
+        for i, o in enumerate(orgs):
+            col, row = divmod(i, 6)
+            x = ox + col * colw; y = H - 0.42 - row * 0.255
+            lg.text(x + 0.17, y, f'{o["n"]}', ha='right', va='center', fontsize=7.5, fontweight='semibold', color=INK)
+            lg.text(x + 0.25, y, o['name'] + (' *' if o['approx'] else ''), va='center', fontsize=7.5, color=INK)
+        lg.text(ox, H - 0.42 - 6 * 0.255 + 0.05, '* localização aproximada', fontsize=6.5, color='#666', va='center')
     lines = textwrap.wrap(source_line(cfg), 150)
     for k, line in enumerate(lines):
         fig.text(L / A4W, (0.42 - k * 0.14) / A4H, line, fontsize=6.8, color='#555', va='baseline')
-    base = out_base(hz, window)
+    base = out_base(hz, window, with_orgs)
     fig.savefig(base + '.png', dpi=300, facecolor='white')
     fig.savefig(base + '.pdf', dpi=300, facecolor='white')
     plt.close(fig)
 
-def render_bare(hz, window):
+def render_bare(hz, window, with_orgs=True):
     fig = plt.figure(figsize=(A4W, A4H), dpi=300)
     ax = fig.add_axes([0, 0, 1, 1])
     ext = fit_extent(cxm, cym, CW * 1.06, CH * 1.06, A4W / A4H)
-    draw_map(ax, hz, window, ext, badge_r_pt=7.0, fig=fig)
-    fig.savefig(out_base(hz, window) + '_sem_legenda.png', dpi=300, facecolor='white')
+    draw_map(ax, hz, window, ext, badge_r_pt=7.0, fig=fig, with_orgs=with_orgs)
+    fig.savefig(out_base(hz, window, with_orgs) + '_sem_legenda.png', dpi=300, facecolor='white')
     plt.close(fig)
 
 if __name__ == '__main__':
@@ -433,4 +442,6 @@ if __name__ == '__main__':
     for hz in (sys.argv[4:] or list(HAZ)):
         if 'arvc' in HAZ[hz]: print(hz, 'edges (both periods)', [round(e, 3) for e in classes_for(HAZ[hz]['arvc'])])
         for window in windows_for(hz):
-            render_with_legend(hz, window); render_bare(hz, window); print('done', hz, window)
+            for with_orgs in (True, False):
+                render_with_legend(hz, window, with_orgs); render_bare(hz, window, with_orgs)
+            print('done', hz, window)

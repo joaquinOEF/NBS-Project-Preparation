@@ -295,6 +295,12 @@
   transition: transform 180ms ease, box-shadow 180ms ease;
   transform-origin: center;
 }
+/* Coordinator map, "Show organizations" off: the risk map alone. Only the pins
+   go: the tooltip pane stays, since the bairros' hover labels live there. */
+.orch-hide-pins .leaflet-marker-pane {
+  display: none;
+}
+
 .orch-marker-selected .orch-marker-inner {
   transform: scale(1.35);
   box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.25), 0 2px 10px rgba(0, 0, 0, 0.3);

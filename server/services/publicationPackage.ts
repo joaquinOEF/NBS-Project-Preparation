@@ -324,7 +324,7 @@ export function solutionFiles(): Record<string, string | Buffer> {
 // Landslide and flood are SGB/CPRM susceptibility since 24 Nov 2026 (Julia, Rede
 // SCbN: the ARVC landslide layer painted most of the city "alta"); heat stays
 // PLAC/ARVC, today and 2050. See docs/sgb-suscetibilidade.md.
-export const MAPS_LINE = 'Suscetibilidade a deslizamentos e a inundação (Serviço Geológico do Brasil, SGB/CPRM) e ameaça de ondas de calor (PLAC/ARVC, no período atual 1995–2014 e em 2050, na mesma escala) — dados oficiais; PNG e PDF com legenda, e PNG sem legenda para a diagramação.';
+export const MAPS_LINE = 'Suscetibilidade a deslizamentos e a inundação (Serviço Geológico do Brasil, SGB/CPRM) e ameaça de ondas de calor (PLAC/ARVC, no período atual 1995–2014 e em 2050, na mesma escala) — dados oficiais; PNG e PDF com legenda, e PNG sem legenda para a diagramação. Cada mapa vem em duas versões: com as organizações numeradas e, na pasta sem_organizacoes/, o mesmo mapa sem elas.';
 
 /** Just the maps, from the last upload — the "Mapas (ZIP)" button. Null when none was uploaded. */
 export async function buildMapsZip(maps: { manifest: MapsManifest; zip: Buffer }, live: PublicationPin[]): Promise<Buffer> {

@@ -49,6 +49,20 @@ test.describe('coordinator map pins', () => {
     await expect(page.locator('.orch-marker-name', { hasText: name })).toBeVisible();
     await page.getByTestId('risk-view-flood').click();
     await expect(page.locator('.orch-marker-name')).toHaveCount(0);
+
+    // "Show organizations": over a risk view the pins can be taken off the map
+    // (the risk map alone), and they are back in "Organizations only".
+    await expect(pin).toBeVisible();
+    await page.getByTestId('map-show-pins').locator('input').uncheck();
+    await expect(pin).toBeHidden();
+    await page.getByTestId('risk-view-heat').click();
+    await expect(pin).toBeHidden();
+    await page.getByTestId('risk-view-orgs').click();
+    await expect(page.getByTestId('map-show-pins')).toHaveCount(0);
+    await expect(pin).toBeVisible();
+    await page.getByTestId('risk-view-flood').click();
+    await page.getByTestId('map-show-pins').locator('input').check();
+    await expect(pin).toBeVisible();
   });
 });
 
