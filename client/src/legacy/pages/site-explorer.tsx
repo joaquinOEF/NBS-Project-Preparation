@@ -788,6 +788,7 @@ export default function SiteExplorerPage() {
 
   const [osmResultsTruncated, setOsmResultsTruncated] = useState(false);
   const [osmShowAll, setOsmShowAll] = useState(false);
+  const [osmTotalFound, setOsmTotalFound] = useState(0);
   const OSM_RESULT_LIMIT = 50;
   const OSM_EXTENDED_LIMIT = 200;
 
@@ -800,6 +801,7 @@ export default function SiteExplorerPage() {
     setOsmAssets([]);
     setOsmResultsTruncated(false);
     setOsmShowAll(false);
+    setOsmTotalFound(0);
     setOsmError(null);
     
     try {
@@ -844,24 +846,11 @@ export default function SiteExplorerPage() {
         ),
       })).filter((a: any) => a.compatibleInterventions.length > 0);
       
-      assets.sort((a: any, b: any) => {
-        const aHasName = a.tags?.name ? 1 : 0;
-        const bHasName = b.tags?.name ? 1 : 0;
-        if (aHasName !== bHasName) return bHasName - aHasName;
-        const aSize = a.area || a.length || 0;
-        const bSize = b.area || b.length || 0;
-        return bSize - aSize;
-      });
-      
-      if (assets.length > OSM_EXTENDED_LIMIT) {
-        setOsmResultsTruncated(true);
-        setOsmAssets(assets.slice(0, OSM_EXTENDED_LIMIT));
-      } else if (assets.length > OSM_RESULT_LIMIT) {
-        setOsmResultsTruncated(true);
-        setOsmAssets(assets);
-      } else {
-        setOsmAssets(assets);
-      }
+      // The server has already cut the list to the zone outline, ordered it
+      // (named first, then largest) and capped it at OSM_EXTENDED_LIMIT.
+      setOsmTotalFound(Math.max(data.totalFound ?? 0, assets.length));
+      if (assets.length > OSM_RESULT_LIMIT) setOsmResultsTruncated(true);
+      setOsmAssets(assets);
       
       if (data.fromCache) {
         console.log(`📦 Loaded ${assets.length} cached assets`);
@@ -2738,8 +2727,10 @@ export default function SiteExplorerPage() {
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-sm text-muted-foreground">
                               {osmResultsTruncated && !osmShowAll
-                                ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${osmAssets.length} available).`
-                                : `Found ${osmAssets.length} compatible assets.`
+                                ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${Math.max(osmTotalFound, osmAssets.length)} available).`
+                                : osmTotalFound > osmAssets.length
+                                  ? t('siteExplorer.assetsShowingTop', { shown: osmAssets.length, total: osmTotalFound })
+                                  : `Found ${osmAssets.length} compatible assets.`
                               }
                             </p>
                             <Button
@@ -2762,7 +2753,7 @@ export default function SiteExplorerPage() {
                               Show all {osmAssets.length} assets
                             </Button>
                           )}
-                          {osmAssets.length >= OSM_EXTENDED_LIMIT && (
+                          {osmTotalFound >= OSM_EXTENDED_LIMIT && (
                             <div className="flex items-center gap-2 p-2 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 rounded-lg text-xs">
                               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                               <span>Many assets in this zone. Select a smaller zone or zoom in for more targeted selection.</span>
