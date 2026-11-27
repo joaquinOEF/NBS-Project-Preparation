@@ -437,6 +437,7 @@
       "riskView": "Map view",
       "orgsOnly": "Organizations only (no risk)",
       "showNames": "Show names",
+      "showPins": "Show organizations",
       "pinEncontro": "Encontro {{n}}",
       "pinSupport": "{{count}} open support request(s)",
       "zonePriority": "Priority (OEF estimate, from the PLAC)",

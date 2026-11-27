@@ -98,10 +98,12 @@ async function ensureWater() {
   const nOf = new Map(numbers.map(x => [x.org, x.n]));
   const renderedAt = new Date().toISOString();
   const zip = new JSZip();
-  for (const f of readdirSync(mapsDir)) if (/\.(png|pdf)$/.test(f)) zip.file(f, readFileSync(path.join(mapsDir, f)));
+  // Top level = with the organisations; sem_organizacoes/ = the same maps without them.
+  const mapFiles = (readdirSync(mapsDir, { recursive: true }) as string[]).map(f => f.split(path.sep).join('/')).filter(f => /\.(png|pdf)$/.test(f));
+  for (const f of mapFiles) zip.file(f, readFileSync(path.join(mapsDir, f)));
   zip.file('manifest.json', JSON.stringify({ renderedAt, pins: pins.map(p => ({ ...p, n: nOf.get(p.org) })) }, null, 1));
   const body = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-  if (outDir) { mkdirSync(outDir, { recursive: true }); for (const f of readdirSync(mapsDir)) writeFileSync(path.join(outDir, f), readFileSync(path.join(mapsDir, f))); console.log(`maps copied to ${outDir}`); }
+  if (outDir) { mkdirSync(outDir, { recursive: true }); for (const f of [...mapFiles, 'numbers.json']) { mkdirSync(path.dirname(path.join(outDir, f)), { recursive: true }); writeFileSync(path.join(outDir, f), readFileSync(path.join(mapsDir, f))); } console.log(`maps copied to ${outDir}`); }
   if (dryRun) { console.log(`dry run: ${(body.length / 1e6).toFixed(1)} MB not uploaded (work dir ${WORK})`); return; }
   const up = await fetch(`${BASE}/api/cohort/${slug}/publication/maps`, { method: 'POST', headers: { cookie, 'content-type': 'application/zip' }, body });
   const res = await up.json().catch(() => ({}));

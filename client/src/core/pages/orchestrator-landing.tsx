@@ -851,6 +851,7 @@ function MapPanel({
   onOpen,
   pinTip,
   showNames = false,
+  showPins = true,
 }: {
   projects: CboDemoProject[];
   selectedId: string | null;
@@ -861,6 +862,9 @@ function MapPanel({
   pinTip: (p: CboDemoProject) => string;
   /** Names always on screen (only offered in "Organizations only"). */
   showNames?: boolean;
+  /** Off → the risk map alone, no organisations on it (asked for by the
+   *  coordination on 27 Nov 2026, to use the maps without the pins). */
+  showPins?: boolean;
   activeRisk: RiskView | null;
   /** Observed May 2024 flood extent (the Guaíba) over whatever view is active. */
   showFlood2024?: boolean;
@@ -1017,6 +1021,13 @@ function MapPanel({
       if (p) bindPinTip(marker, p, showNames, () => pinTipRef.current(p));
     });
   }, [showNames]);
+
+  // "Show organizations" off: the pins leave the map (and with them their hover
+  // labels; the bairros keep theirs). A class
+  // on the container, so it also holds when the markers are rebuilt.
+  useEffect(() => {
+    mapRef.current?.classList.toggle('orch-hide-pins', !showPins);
+  }, [showPins]);
 
   // Neighborhoods are ALWAYS shown — outlined bairro polygons under the markers.
   // Built once from the zones JSON (cached). Styling reacts to activeRisk in a
@@ -1180,6 +1191,8 @@ function MapLayerControls({
   onFlood2024Change,
   showNames,
   onShowNamesChange,
+  showPins,
+  onShowPinsChange,
 }: {
   active: RiskView | null;
   onChange: (next: RiskView | null) => void;
@@ -1187,6 +1200,8 @@ function MapLayerControls({
   onFlood2024Change: (next: boolean) => void;
   showNames: boolean;
   onShowNamesChange: (next: boolean) => void;
+  showPins: boolean;
+  onShowPinsChange: (next: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
@@ -1290,6 +1305,19 @@ function MapLayerControls({
             {t('orchestrator.map.flood2024Source', { defaultValue: 'Observed · Planet SkySat, 6 May 2024' })}
           </div>
         )}
+        {/* The risk map with or without the organisations on it. Not offered in
+            "Organizations only", where the pins are the whole map. */}
+        {(active !== null || flood2024) && (
+          <label className="flex items-center gap-2 px-2 pt-1.5 mt-1 border-t border-foreground/5 text-foreground/75 cursor-pointer select-none" data-testid="map-show-pins">
+            <input
+              type="checkbox"
+              checked={showPins}
+              onChange={e => onShowPinsChange(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[#0f766e]"
+            />
+            {t('orchestrator.map.showPins', { defaultValue: 'Show organizations' })}
+          </label>
+        )}
       </div>
 
       {active === 'risk' && (
@@ -1386,6 +1414,8 @@ export default function OrchestratorLandingPage() {
   const [showFlood2024, setShowFlood2024] = useState(false);
   // Pin names kept on screen — only in "Organizations only".
   const [showNames, setShowNames] = useState(false);
+  // The organisations' pins over a risk view. Always on in "Organizations only".
+  const [showPins, setShowPins] = useState(true);
 
   // Phase 3c-ii — require a coordinator session. On 401, bounce to login.
   // `authed`: null = checking, false = redirecting, true = render the dashboard.
@@ -2260,6 +2290,7 @@ export default function OrchestratorLandingPage() {
                   onOpen={openPin}
                   pinTip={pinTip}
                   showNames={showNames && activeRisk === null && !showFlood2024 && mapOpen}
+                  showPins={showPins || (activeRisk === null && !showFlood2024) || !mapOpen}
                 />
                 {mapOpen && (
                   <MapLayerControls
@@ -2269,6 +2300,8 @@ export default function OrchestratorLandingPage() {
                     onFlood2024Change={setShowFlood2024}
                     showNames={showNames}
                     onShowNamesChange={setShowNames}
+                    showPins={showPins}
+                    onShowPinsChange={setShowPins}
                   />
                 )}
               </div>

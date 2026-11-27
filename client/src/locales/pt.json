@@ -267,6 +267,7 @@
       "riskView": "Visão no mapa",
       "orgsOnly": "Só as organizações (sem riscos)",
       "showNames": "Mostrar nomes",
+      "showPins": "Mostrar as organizações",
       "pinEncontro": "Encontro {{n}}",
       "pinSupport": "{{count}} pedido(s) de apoio aberto(s)",
       "zonePriority": "Prioridade (estimativa OEF, a partir do PLAC)",
