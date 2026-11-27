@@ -3494,5 +3494,29 @@
     ],
     "source": "official",
     "note": "Suscetibilidade a deslizamentos — SGB/CPRM, carta de Porto Alegre (2015, 1:70.000). Baixa (o resto do município) fica sem cor no mapa."
+  },
+  "hazard_overlap": {
+    "layerId": "hazard_overlap",
+    "kind": "classes",
+    "unit": "sobreposição de ameaças oficiais",
+    "stops": [
+      {
+        "value": 1,
+        "color": "#6a1b9a",
+        "label": "Inunda e esquenta"
+      },
+      {
+        "value": 2,
+        "color": "#bd0026",
+        "label": "Desliza e esquenta"
+      },
+      {
+        "value": 3,
+        "color": "#00695c",
+        "label": "Inunda e desliza (ou os três)"
+      }
+    ],
+    "source": "official",
+    "note": "Onde mapas oficiais de ameaça se sobrepõem. Inunda: suscetibilidade a inundação Alta — SGB/CPRM, carta de Porto Alegre (2015, 1:70.000). Desliza: suscetibilidade a deslizamentos Média ou Alta — mesma carta. Esquenta: ameaça de ondas de calor em 2050 nas duas classes mais altas — Plano de Ação Climática (PLAC/ARVC). Fora das cores, não há sobreposição."
   }
 }

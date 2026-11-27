@@ -9,7 +9,7 @@
 //   - 'file'     parsed GDAL color-relief from geospatial-data (exact breakpoints + unit)
 //   - 'classes'  categorical {value→name,color} from the catalog
 //   - 'sampled'  recovered from the baked tiles (value-tile decode × visual-tile RGB)
-//   - 'code'     the local risk colorFns in generate-risk-tiles.ts
+//   - 'code'     the local risk ramps in generate-legends.ts (CODE_RAMPS)
 
 export interface LegendStop {
   value: number;   // data value at this stop (in `unit`)

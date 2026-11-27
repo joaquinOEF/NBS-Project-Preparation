@@ -80,8 +80,8 @@ client/public/sample-data/porto-alegre-neighborhood-zones.json
        ├──► client .../concept-note/ConceptNoteMap.tsx    → zone polygons + tooltips
        └──► cboAgent open_map(zoneSource:"neighborhood_zones")  → CBO zone selection
 
-scripts/generate-risk-tiles.ts  reads grid cell scores → bakes local PNG hotspot tiles
-   client/public/tiles/composite_hotspot/{z}/{x}/{y}.png   (risk_composite_hotspot)
+(retired 27 Nov 2026) scripts/generate-risk-tiles.ts baked the composite hotspot tiles;
+   hot spots are now `hazard_overlap`, drawn from official data — docs/risk-scoring-methodology.md
 ```
 
 ### Key consequence — the microapps do **not** read the catalog directly
@@ -159,6 +159,8 @@ Locked decisions (from the /refine):
   H/E/V breakdown; swap `oef_fri_2024` → `poa_flood_risk` in the map calls.
 
 ### 3G. Risk Hotspots (`scripts/generate-risk-tiles.ts`)
+> Superseded 27 Nov 2026: the composite hotspot and its generator were removed; the hot spots
+> layer is now `hazard_overlap` (official overlaps). The steps below are history.
 - [ ] No code change needed for the swap itself — it reads `flood_score` from the grid, which 3A
   now sources from the catalog. **Re-run after 3A** to rebake `composite_hotspot/`.
 - [ ] It already **percentile-normalizes each hazard to its top ~25%** (`:241-298`), so each gets

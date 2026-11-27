@@ -92,7 +92,7 @@ For rows with **Origin** `OEF catalog S3`, **License**, **Resolution**, **Locati
 | `risk_flood_250m` | Flood Risk (250m) | POC local cache | Offline flood score raster | `/tiles/flood_risk/` + `/tiles_values/flood_risk/`; `tileLayerId` `_local_flood_risk` | `scripts/generate-risk-tiles.ts` | _TBD_ | 250 m | _build_ | From offline grid |
 | `risk_heat_250m` | Heat Risk (250m) | POC local cache | Offline heat score raster | `/tiles/heat_risk/` + `/tiles_values/heat_risk/` | `scripts/generate-risk-tiles.ts` | _TBD_ | 250 m | _build_ | |
 | `risk_landslide_250m` | Landslide Risk (250m) | POC local cache | Offline landslide score raster | `/tiles/landslide_risk/` + `/tiles_values/landslide_risk/` | `scripts/generate-risk-tiles.ts` | _TBD_ | 250 m | _build_ | |
-| `risk_composite_hotspot` | Risk Hotspots (all) | POC local cache | Composite hotspot render | `/tiles/composite_hotspot/` | `scripts/generate-risk-tiles.ts` | _TBD_ | 250 m | _build_ | Visual only in layer def |
+| `hazard_overlap` | Hot spots · where official hazards overlap | Official (derived overlap) | SGB flood Alta ∩ SGB landslide Média/Alta ∩ PLAC heat classes 3–4, overlaps only | `/api/geospatial/hazard-overlap/{z}/{x}/{y}.png` | `server/routes/hazardOverlapTileRoutes.ts` (on request, from committed sources) | SGB/CPRM 2015; PLAC/ARVC 2050 | tile resolution (SGB vectors); ~29 m (heat) | _runtime_ | Replaced `risk_composite_hotspot` (27 Nov 2026). Visual only |
 | `osm_parks` | Parks & Green Space | POC fetched at runtime | OpenStreetMap (leisure=park/garden, landuse=recreation_ground) | `GET /api/osm/parks` → Overpass `https://overpass-api.de/api/interpreter` (POA bbox) | `server/routes/overpassRoutes.ts` — Overpass QL; 24h in-memory cache | ODbL | vector (nodes/ways) | live (Overpass at request) | |
 | `osm_schools` | Schools & Education | POC fetched at runtime | OpenStreetMap (amenity=school, university) | `GET /api/osm/schools` → Overpass `https://overpass-api.de/api/interpreter` (POA bbox) | `server/routes/overpassRoutes.ts` — Overpass QL; 24h in-memory cache | ODbL | vector (nodes/ways) | live (Overpass at request) | |
 | `osm_hospitals` | Hospitals & Health | POC fetched at runtime | OpenStreetMap (amenity=hospital, clinic) | `GET /api/osm/hospitals` → Overpass `https://overpass-api.de/api/interpreter` (POA bbox) | `server/routes/overpassRoutes.ts` — Overpass QL; 24h in-memory cache | ODbL | vector (nodes/ways) | live (Overpass at request) | |
@@ -251,7 +251,7 @@ _See `docs/site-explorer-data-audit.md` §7. This section records the **current 
 | Layer | Offline (target) | In-app (acceptable scope) |
 |-------|------------------|---------------------------|
 | OEF catalog rasters (HAND, FRI, CHIRPS, ERA5, etc.) | Precomputed in CCRADiscovery / `geospatial-data`; tiles on S3 | Proxy/fetch tiles only (`/api/geospatial/tiles/…`) |
-| Per-cell metrics + hazard scores | `generate-grid-250m.ts` → `recalc-scores-v3.ts` → `porto-alegre-grid-250m.json`; `generate-risk-tiles.ts` | **Do not** duplicate formulas in `gridService.ts` for production |
+| Per-cell metrics + hazard scores | `generate-grid-250m.ts` → `recalc-scores-v3.ts` → `porto-alegre-grid-250m.json` | **Do not** duplicate formulas in `gridService.ts` for production |
 | Intervention / neighborhood zones | `generate-intervention-zones.ts`, `generate-neighborhood-zones.ts` → static JSON | Display + filter only |
 | Light client logic | — | Map UX, legends, thresholds for **display** (e.g. spatial queries that **filter** precomputed value tiles at centroids—see §2.1 `sq_*` rows) |
 | Live exploration (non-sample API) | Same offline artifacts per city/release | Boundary + OSM vector fetch OK; **not** a second scoring implementation |
@@ -278,7 +278,7 @@ _See `docs/site-explorer-data-audit.md` §7. This section records the **current 
 
 | Topic | Offline pipeline | Live `gridService` |
 |-------|------------------|---------------------|
-| Entrypoints | `generate-sample-grid.ts` → `generate-grid-250m.ts` → `recalc-scores-v3.ts` → `generate-risk-tiles.ts` / zone scripts | `POST /api/geospatial/grid` |
+| Entrypoints | `generate-sample-grid.ts` → `generate-grid-250m.ts` → `recalc-scores-v3.ts` → zone scripts | `POST /api/geospatial/grid` |
 | Production path today (POA sample) | **Yes** — bundled JSON + local risk tiles | **No** for Site Explorer sample mode |
 | Metrics count | ~20+ fields on `properties.metrics` (§2.2) | ~11; no HAND, FRI, HWM, SoilGrids, D8, `building_density` |
 | Hydrological / hazard rasters | HAND, FRI, EMS depth, CHIRPS, Dynamic World sampled in `generate-grid-250m.ts` | Not sampled |

@@ -837,7 +837,7 @@ function bindPinTip(marker: L.Marker, p: CboDemoProject, permanent: boolean, ric
 
 // ---------------------------------------------------------------------------
 // Map panel — CartoDB Positron base + CBO markers + toggleable risk overlays
-// (composite hotspot raster, bairro choropleth). Selected state synced with
+// (official hazard tiles, bairro choropleth). Selected state synced with
 // the right-rail cards via `selectedId` / `onSelect`.
 // ---------------------------------------------------------------------------
 function MapPanel({

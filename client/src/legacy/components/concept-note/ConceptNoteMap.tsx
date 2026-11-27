@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, REFERENCE_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, HAZARD_OVERLAP_LAYERS, REFERENCE_LAYERS, tileVisualUrl, type TileLayerDef } from '@shared/geospatial-layers';
 import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
 import ValueTooltip from '@/core/components/maps/ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -292,18 +292,13 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       }
       setEnabledTileLayers(prev => { const next = new Set(prev); next.delete(layerDef.id); return next; });
     } else {
-      // Add to map — local risk tiles use /tiles/ path, S3 tiles use proxy
-      const isLocal = layerDef.tileLayerId.startsWith('_local_');
-      const urlTemplate = isLocal
-        ? `/tiles/${layerDef.tileLayerId.replace('_local_', '')}/{z}/{x}/{y}.png`
-        : `/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`;
-      const tl = L.tileLayer(urlTemplate, {
+      // Add to map — the layer's own route when it has one, else the S3 proxy
+      const tl = L.tileLayer(tileVisualUrl(layerDef), {
         opacity: 0.7,
-        maxNativeZoom: isLocal ? 14 : 15,
+        maxNativeZoom: 15,
         maxZoom: 19,
-        minZoom: isLocal ? 10 : 8,
+        minZoom: 8,
         errorTileUrl: '',
-        className: isLocal ? 'risk-tile-layer' : '',
       });
       tl.addTo(map);
       tileLayerRefs.current[layerDef.id] = tl;
@@ -448,13 +443,13 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       {/* Controls */}
       <div className="flex items-center justify-end gap-1.5 p-2 border-b bg-background">
         {(() => {
-          const hotspotLayer = LOCAL_RISK_LAYERS.find(l => l.id === 'risk_composite_hotspot');
+          const hotspotLayer = HAZARD_OVERLAP_LAYERS[0];
           if (!hotspotLayer) return null;
           const isOn = enabledTileLayers.has(hotspotLayer.id);
           return (
             <button onClick={() => toggleTileLayer(hotspotLayer)}
               className={`px-2 py-0.5 rounded text-xs transition-all ${isOn ? 'bg-purple-100 text-purple-800 font-medium' : 'text-muted-foreground hover:bg-muted'}`}>
-              Hotspots
+              Hot spots
             </button>
           );
         })()}
@@ -531,15 +526,15 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </p>
             <p className="text-[9px] text-muted-foreground">{TILE_LAYERS.filter(l => l.available).length} layers available</p>
           </div>
-          {/* Risk Analysis (250m) — individual risk layers (not composite hotspot) */}
+          {/* Risk Analysis (250m) — the individual OEF-estimate risk layers */}
           <div className="border-b">
             <button onClick={() => toggleGroup('risk_analysis')}
               className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors">
               <span className="text-[10px] font-medium">Risk Analysis (250m)</span>
               <div className="flex items-center gap-1">
-                {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot' && enabledTileLayers.has(l.id)).length > 0 && (
+                {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length > 0 && (
                   <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">
-                    {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot' && enabledTileLayers.has(l.id)).length}
+                    {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length}
                   </span>
                 )}
                 {expandedGroups.has('risk_analysis') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -547,7 +542,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </button>
             {expandedGroups.has('risk_analysis') && (
               <div className="px-1 pb-1 space-y-0.5">
-                {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot').map(layer => {
+                {LOCAL_RISK_LAYERS.map(layer => {
                   const isOn = enabledTileLayers.has(layer.id);
                   return (
                     <button key={layer.id} onClick={() => toggleTileLayer(layer)}

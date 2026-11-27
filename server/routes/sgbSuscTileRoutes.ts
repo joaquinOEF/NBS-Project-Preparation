@@ -27,7 +27,7 @@ const my = (lat: number) => R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI /
 
 /** One polygon: its rings as flat [x0,y0,x1,y1,…] in metres, plus a bbox. */
 interface Part { rings: Float64Array[]; minX: number; minY: number; maxX: number; maxY: number }
-interface ClassLayer { color: [number, number, number, number]; parts: Part[] }
+interface ClassLayer { classe: string; color: [number, number, number, number]; parts: Part[] }
 
 const FILE: Record<SgbSuscLayerId, string> = {
   sgb_flood_susc: 'sgb-suscetibilidade-inundacao.json',
@@ -62,7 +62,7 @@ function load(id: SgbSuscLayerId): ClassLayer[] | null {
           });
           return { rings, minX, minY, maxX, maxY };
         });
-        return { color: hex(color, style.alpha), parts };
+        return { classe, color: hex(color, style.alpha), parts };
       });
     }
   } catch (err) {
@@ -72,44 +72,69 @@ function load(id: SgbSuscLayerId): ClassLayer[] | null {
   return out;
 }
 
+/** Web Mercator frame of one 256-px tile. */
+function tileFrame(z: number, x: number, y: number) {
+  const span = (2 * ORIGIN) / 2 ** z;
+  return { span, x0: -ORIGIN + x * span, yTop: ORIGIN - y * span, px: span / TILE };
+}
+
+/** Scanline-fill a class's polygons into one tile; `paint` gets each covered pixel index. */
+function fillParts(parts: Part[], z: number, x: number, y: number, paint: (pixel: number) => void): void {
+  const { span, x0, yTop, px } = tileFrame(z, x, y);
+  const tMinX = x0, tMaxX = x0 + span, tMinY = yTop - span, tMaxY = yTop;
+  const xs: number[] = [];
+  for (const p of parts) {
+    if (p.maxX < tMinX || p.minX > tMaxX || p.maxY < tMinY || p.minY > tMaxY) continue;
+    for (let row = 0; row < TILE; row++) {
+      const cy = yTop - (row + 0.5) * px;
+      if (cy < p.minY || cy > p.maxY) continue;
+      xs.length = 0;
+      for (const r of p.rings) {
+        const n = r.length / 2;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          const yi = r[2 * i + 1], yj = r[2 * j + 1];
+          if ((yi > cy) !== (yj > cy)) xs.push(r[2 * i] + ((cy - yi) / (yj - yi)) * (r[2 * j] - r[2 * i]));
+        }
+      }
+      if (xs.length < 2) continue;
+      xs.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const c0 = Math.max(0, Math.ceil((xs[k] - x0) / px - 0.5));
+        const c1 = Math.min(TILE - 1, Math.floor((xs[k + 1] - x0) / px - 0.5));
+        for (let c = c0; c <= c1; c++) paint(row * TILE + c);
+      }
+    }
+  }
+}
+
+/**
+ * Which pixels of a tile fall in the given classes of a layer: 1 = inside.
+ * 256×256, row-major; null when the source is missing. The same fill the tiles
+ * use, so a mask and the drawn layer agree pixel for pixel
+ * (server/routes/hazardOverlapTileRoutes.ts builds the hot spots from it).
+ */
+export function sgbClassMask(id: SgbSuscLayerId, classes: readonly string[], z: number, x: number, y: number): Uint8Array | null {
+  const cls = load(id);
+  if (!cls) return null;
+  const mask = new Uint8Array(TILE * TILE);
+  for (const c of cls) {
+    if (classes.includes(c.classe)) fillParts(c.parts, z, x, y, pixel => { mask[pixel] = 1; });
+  }
+  return mask;
+}
+
 /** Render one tile; null when nothing of the layer falls in it. Exported for tests. */
 export function renderSgbTile(id: SgbSuscLayerId, z: number, x: number, y: number): Buffer | null {
   const cls = load(id);
   if (!cls) return null;
-  const span = (2 * ORIGIN) / 2 ** z;
-  const x0 = -ORIGIN + x * span, yTop = ORIGIN - y * span;
-  const px = span / TILE;
-  const tMinX = x0, tMaxX = x0 + span, tMinY = yTop - span, tMaxY = yTop;
   const img = new Uint8Array(TILE * TILE * 4);
   let any = false;
-  const xs: number[] = [];
   for (const { color, parts } of cls) {
-    for (const p of parts) {
-      if (p.maxX < tMinX || p.minX > tMaxX || p.maxY < tMinY || p.minY > tMaxY) continue;
-      for (let row = 0; row < TILE; row++) {
-        const cy = yTop - (row + 0.5) * px;
-        if (cy < p.minY || cy > p.maxY) continue;
-        xs.length = 0;
-        for (const r of p.rings) {
-          const n = r.length / 2;
-          for (let i = 0, j = n - 1; i < n; j = i++) {
-            const yi = r[2 * i + 1], yj = r[2 * j + 1];
-            if ((yi > cy) !== (yj > cy)) xs.push(r[2 * i] + ((cy - yi) / (yj - yi)) * (r[2 * j] - r[2 * i]));
-          }
-        }
-        if (xs.length < 2) continue;
-        xs.sort((a, b) => a - b);
-        for (let k = 0; k + 1 < xs.length; k += 2) {
-          const c0 = Math.max(0, Math.ceil((xs[k] - x0) / px - 0.5));
-          const c1 = Math.min(TILE - 1, Math.floor((xs[k + 1] - x0) / px - 0.5));
-          for (let c = c0; c <= c1; c++) {
-            const o = (row * TILE + c) * 4;
-            img[o] = color[0]; img[o + 1] = color[1]; img[o + 2] = color[2]; img[o + 3] = color[3];
-            any = true;
-          }
-        }
-      }
-    }
+    fillParts(parts, z, x, y, pixel => {
+      const o = pixel * 4;
+      img[o] = color[0]; img[o + 1] = color[1]; img[o + 2] = color[2]; img[o + 3] = color[3];
+      any = true;
+    });
   }
   if (!any) return null;
   const png = new PNG({ width: TILE, height: TILE });
