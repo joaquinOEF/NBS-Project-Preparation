@@ -175,6 +175,8 @@ All OEF tile layers are served through `server/routes/tileProxyRoutes.ts` via `r
 - **Value tiles**: `/api/geospatial/proxy-tile?url={s3_url}` — generic proxy for RGB→value decode
 - **Layer list**: `/api/geospatial/tile-layers` — returns all registered layers
 - **OSM reference**: `/api/osm/{layerId}` — Overpass API proxy (parks, schools, hospitals, wetlands)
+- **OSM candidate sites** (Site Explorer "add a site"): `POST /api/geospatial/osm-assets` is served from a committed city-wide snapshot, `knowledge/osm/porto-alegre/assets/<key>__<value>.json` + `index.json` (format in `server/services/osmAssetSnapshot.ts`). The server cuts to the zone outline, sorts (named first, then largest) and caps at 200; `totalFound` is the pre-cap count. No network, no database on that path.
+- Refresh both with `npm run osm:refresh` (reference layers) and `npm run osm:refresh -- assets [--resume]` (candidate sites: one Overpass request per `key=value`, 10 s apart — slow by design). A type listed under `missing` in the index falls back to live Overpass for that type only; all Overpass calls go through `server/services/overpassClient.ts`. The type list is `interventions[].osmAssetTypes` in `client/public/sample-data/interventions.json` — add a type there, then refresh.
 
 Layer definitions (with value encodings) live in `shared/geospatial-layers.ts`. The `ValueTooltip` component decodes pixel values on hover using `client/src/lib/valueTileUtils.ts`.
 

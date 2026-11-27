@@ -1115,6 +1115,7 @@
     "interventionsSavedDescription": "{{count}} intervenção(ões) salva(s) no seu projeto",
     "assetLoadError": "Não foi possível carregar ativos do mapa",
     "assetLoadErrorGeneric": "Algo deu errado ao carregar os ativos. Por favor, tente novamente.",
+    "assetsShowingTop": "Mostrando os {{shown}} principais ativos ({{total}} disponíveis).",
     "assetLoadErrorRetry": "Tentar novamente",
     "noAssetsError": "Nenhum ativo compatível encontrado",
     "noAssetsErrorDescription": "Tente selecionar uma categoria ou zona diferente.",

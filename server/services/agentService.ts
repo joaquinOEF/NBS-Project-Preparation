@@ -1173,9 +1173,19 @@ export async function executeAgentTool(
                     vulnerability: props.meanLandslideVulnerability,
                     risk: props.meanLandslideRisk ?? props.meanLandslide,
                   },
-                  // Landslide-prone TERRAIN (susceptibility), distinct from the low
-                  // landslide risk — flags the morros even when heat is the dominant risk.
+                  // Landslide-prone TERRAIN — official: ≥ 10% of the bairro in SGB's
+                  // Média/Alta mass-movement susceptibility (not our index).
                   landslideProne: !!props.landslideSusceptible,
+                  // The OFFICIAL basis of the typology and the compatible categories:
+                  // share of the bairro's area in SGB's classes (flood, landslide) and
+                  // in the climate plan's two top heat classes. Everything under
+                  // riskScores / *Breakdown / riskRanks / riskPercentiles is the OEF
+                  // estimate and only orders the list.
+                  officialHazard: props.sgbFloodAltaShare == null ? undefined : {
+                    flood: { flagged: !!props.floodSusceptible, shareOfArea: props.sgbFloodAltaShare, source: 'SGB flood susceptibility, class Alta' },
+                    landslide: { flagged: !!props.landslideSusceptible, shareOfArea: props.sgbLandslideShare, source: 'SGB mass-movement susceptibility, classes Média + Alta' },
+                    heat: { flagged: !!props.heatHigh, shareOfArea: props.heatHighShare, source: 'Climate plan (PLAC/ARVC) heat hazard 2050, two top classes' },
+                  },
                   riskRanks: {
                     flood: props.floodRank,
                     heat: props.heatRank,
@@ -1189,7 +1199,7 @@ export async function executeAgentTool(
                     acc[hz] = { percentile: pct, band: riskBand(pct).label, anchor: riskAnchor(props, hz) };
                     return acc;
                   }, {} as Record<HazardKey, { percentile: number; band: string; anchor: string }>),
-                  riskScale: 'Percentiles are relative to other Porto Alegre neighborhoods (0–100), comparable across hazards. The anchor gives absolute severity.',
+                  riskScale: 'Percentiles are an OEF estimate, relative to other Porto Alegre neighborhoods (0–100). Which hazards the neighborhood carries is official: see officialHazard (SGB for flood and landslide, the climate plan for heat).',
                   compatibleCategories,
                   message: `Location is in ${props.neighbourhoodName || props.zoneId} (${props.typologyLabel}). Compatible intervention types: ${compatibleCategories.map(c => c.name).join(', ')}. Use add_intervention_site to propose adding this site with your chosen intervention type.`,
                 },
