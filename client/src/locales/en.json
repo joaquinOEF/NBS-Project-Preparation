@@ -1082,6 +1082,7 @@
     "interventionsSavedDescription": "{{count}} intervention(s) saved to your project",
     "assetLoadError": "Could not load map assets",
     "assetLoadErrorGeneric": "Something went wrong while loading assets. Please try again.",
+    "assetsShowingTop": "Showing top {{shown}} assets ({{total}} available).",
     "assetLoadErrorRetry": "Try again",
     "noAssetsError": "No compatible assets found",
     "noAssetsErrorDescription": "Try selecting a different category or zone.",
